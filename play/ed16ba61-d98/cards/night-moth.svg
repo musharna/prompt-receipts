@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="69mm" height="94mm" viewBox="0 0 69 94">
+  <title>Night Moth — insert card</title>
+  <style>
+    .tw, .tw2 { transform-box: fill-box; transform-origin: center; }
+    .tw  { animation: twinkle 2.6s ease-in-out infinite; }
+    .tw2 { animation: blink 4s ease-in-out infinite; }
+    @keyframes twinkle { 0%,100% { opacity: 1; transform: scale(1) rotate(0deg); }
+                         50%     { opacity: .3; transform: scale(.45) rotate(45deg); } }
+    @keyframes blink   { 0%,100% { opacity: .9; } 50% { opacity: .1; } }
+    @media print, (prefers-reduced-motion: reduce) { .tw, .tw2 { animation: none; } }
+  </style>
+  <defs>
+    <linearGradient id="night-moth-foil" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="69" y2="94"><stop offset="0.000" stop-color="#f4f7ff"/><stop offset="0.167" stop-color="#c9d3ff"/><stop offset="0.333" stop-color="#e6d6ff"/><stop offset="0.500" stop-color="#bfeaff"/><stop offset="0.667" stop-color="#ffffff"/><stop offset="0.833" stop-color="#d8dcf0"/><stop offset="1.000" stop-color="#f4f7ff"/></linearGradient>
+    <radialGradient id="night-moth-bg" cx="50%" cy="35%" r="75%">
+      <stop offset="0" stop-color="#2b2163"/><stop offset="1" stop-color="#0c0a26"/>
+    </radialGradient>
+    <clipPath id="night-moth-win"><rect x="9" y="9" width="51" height="52" rx="2"/></clipPath>
+    
+    <radialGradient id="moon"><stop offset="0" stop-color="#fffbe6" stop-opacity="0.55"/>
+      <stop offset="0.7" stop-color="#d9d4ff" stop-opacity="0.18"/><stop offset="1" stop-color="#d9d4ff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="trail" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bff4ff" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#bff4ff" stop-opacity="0"/></linearGradient>
+    <radialGradient id="ember"><stop offset="0" stop-color="#ff7a1a" stop-opacity="0.55"/>
+      <stop offset="0.6" stop-color="#ff3d00" stop-opacity="0.15"/><stop offset="1" stop-color="#ff3d00" stop-opacity="0"/></radialGradient>
+    <linearGradient id="emberline" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#ff5a1f"/></linearGradient>
+    </defs>
+  <rect width="69" height="94" fill="url(#night-moth-bg)"/>
+  <circle style="animation-delay:3.42s" cx="31.21" cy="52.62" r="0.28" fill="#fff" opacity="0.45"/>
+  <circle class="tw2" style="animation-delay:1.21s" cx="55.47" cy="44.72" r="0.15" fill="#fff" opacity="0.40"/>
+  <circle style="animation-delay:1.58s" cx="55.87" cy="65.18" r="0.12" fill="#fff" opacity="0.60"/>
+  <circle style="animation-delay:0.25s" cx="50.99" cy="61.11" r="0.12" fill="#fff" opacity="0.37"/>
+  <circle class="tw2" style="animation-delay:2.36s" cx="60.69" cy="56.36" r="0.28" fill="#fff" opacity="0.46"/>
+  <circle style="animation-delay:1.83s" cx="16.12" cy="27.65" r="0.12" fill="#fff" opacity="0.50"/>
+  <circle style="animation-delay:1.26s" cx="68.84" cy="93.60" r="0.12" fill="#fff" opacity="0.48"/>
+  <circle style="animation-delay:3.39s" cx="19.94" cy="6.60" r="0.12" fill="#fff" opacity="0.56"/>
+  <circle class="tw2" style="animation-delay:3.71s" cx="66.10" cy="79.65" r="0.12" fill="#fff" opacity="0.38"/>
+  <circle class="tw2" style="animation-delay:2.52s" cx="25.91" cy="66.64" r="0.28" fill="#fff" opacity="0.78"/>
+  <circle class="tw2" style="animation-delay:1.64s" cx="18.61" cy="8.19" r="0.2" fill="#fff" opacity="0.86"/>
+  <circle class="tw2" style="animation-delay:3.19s" cx="9.29" cy="66.46" r="0.12" fill="#fff" opacity="0.45"/>
+  <circle style="animation-delay:3.08s" cx="38.59" cy="42.06" r="0.15" fill="#fff" opacity="0.58"/>
+  <circle class="tw2" style="animation-delay:3.46s" cx="26.48" cy="37.12" r="0.15" fill="#fff" opacity="0.89"/>
+  <circle class="tw2" style="animation-delay:1.58s" cx="40.90" cy="93.80" r="0.12" fill="#fff" opacity="0.82"/>
+  <circle class="tw2" style="animation-delay:1.03s" cx="44.29" cy="9.43" r="0.15" fill="#fff" opacity="0.77"/>
+  <circle class="tw2" style="animation-delay:0.83s" cx="22.70" cy="27.85" r="0.12" fill="#fff" opacity="0.70"/>
+  <circle class="tw2" style="animation-delay:2.35s" cx="1.07" cy="34.66" r="0.28" fill="#fff" opacity="0.81"/>
+  <circle class="tw2" style="animation-delay:0.91s" cx="9.37" cy="36.29" r="0.15" fill="#fff" opacity="0.69"/>
+  <circle style="animation-delay:1.55s" cx="50.05" cy="14.90" r="0.15" fill="#fff" opacity="0.62"/>
+  <circle class="tw2" style="animation-delay:3.85s" cx="5.42" cy="4.46" r="0.12" fill="#fff" opacity="0.48"/>
+  <circle class="tw2" style="animation-delay:0.70s" cx="48.62" cy="24.16" r="0.28" fill="#fff" opacity="0.75"/>
+  <circle class="tw2" style="animation-delay:3.67s" cx="4.75" cy="21.47" r="0.12" fill="#fff" opacity="0.46"/>
+  <circle class="tw2" style="animation-delay:0.19s" cx="1.14" cy="25.30" r="0.28" fill="#fff" opacity="0.51"/>
+  <circle style="animation-delay:3.56s" cx="36.64" cy="91.47" r="0.12" fill="#fff" opacity="0.89"/>
+  <circle style="animation-delay:3.69s" cx="45.33" cy="64.97" r="0.15" fill="#fff" opacity="0.61"/>
+  <circle class="tw2" style="animation-delay:2.54s" cx="24.67" cy="29.31" r="0.12" fill="#fff" opacity="0.62"/>
+  <circle class="tw2" style="animation-delay:2.18s" cx="50.40" cy="29.98" r="0.12" fill="#fff" opacity="0.76"/>
+  <circle style="animation-delay:3.66s" cx="62.11" cy="69.29" r="0.15" fill="#fff" opacity="0.54"/>
+  <circle style="animation-delay:0.12s" cx="47.28" cy="84.68" r="0.28" fill="#fff" opacity="0.62"/>
+  <circle style="animation-delay:2.44s" cx="1.00" cy="62.25" r="0.28" fill="#fff" opacity="0.39"/>
+  <circle style="animation-delay:1.55s" cx="44.12" cy="93.37" r="0.28" fill="#fff" opacity="0.75"/>
+  <circle style="animation-delay:2.06s" cx="40.09" cy="41.41" r="0.12" fill="#fff" opacity="0.52"/>
+  <circle style="animation-delay:2.46s" cx="6.05" cy="2.10" r="0.12" fill="#fff" opacity="0.86"/>
+  <circle class="tw2" style="animation-delay:2.45s" cx="17.65" cy="1.06" r="0.2" fill="#fff" opacity="0.64"/>
+  <circle style="animation-delay:0.97s" cx="52.01" cy="32.20" r="0.28" fill="#fff" opacity="0.57"/>
+  <circle style="animation-delay:1.54s" cx="17.29" cy="59.61" r="0.15" fill="#fff" opacity="0.67"/>
+  <circle style="animation-delay:3.58s" cx="21.84" cy="12.80" r="0.28" fill="#fff" opacity="0.37"/>
+  <circle class="tw2" style="animation-delay:1.89s" cx="4.43" cy="92.15" r="0.15" fill="#fff" opacity="0.86"/>
+  <circle style="animation-delay:2.87s" cx="57.33" cy="35.96" r="0.28" fill="#fff" opacity="0.81"/>
+  <circle class="tw2" style="animation-delay:2.43s" cx="43.11" cy="30.11" r="0.12" fill="#fff" opacity="0.72"/>
+  <circle style="animation-delay:1.62s" cx="19.39" cy="33.30" r="0.12" fill="#fff" opacity="0.45"/>
+  <circle style="animation-delay:3.94s" cx="53.08" cy="25.04" r="0.15" fill="#fff" opacity="0.41"/>
+  <circle style="animation-delay:2.74s" cx="7.52" cy="50.33" r="0.2" fill="#fff" opacity="0.46"/>
+  <circle style="animation-delay:2.14s" cx="32.78" cy="16.80" r="0.12" fill="#fff" opacity="0.37"/>
+  <circle style="animation-delay:3.17s" cx="15.63" cy="73.19" r="0.15" fill="#fff" opacity="0.85"/>
+  <circle class="tw2" style="animation-delay:1.81s" cx="6.02" cy="87.66" r="0.28" fill="#fff" opacity="0.69"/>
+  <circle style="animation-delay:2.61s" cx="62.79" cy="35.42" r="0.2" fill="#fff" opacity="0.46"/>
+  <circle class="tw2" style="animation-delay:3.60s" cx="49.81" cy="76.92" r="0.12" fill="#fff" opacity="0.89"/>
+  <circle class="tw2" style="animation-delay:2.87s" cx="67.44" cy="50.47" r="0.2" fill="#fff" opacity="0.36"/>
+  <circle style="animation-delay:3.07s" cx="34.83" cy="3.49" r="0.2" fill="#fff" opacity="0.62"/>
+  <circle style="animation-delay:0.14s" cx="1.96" cy="76.06" r="0.12" fill="#fff" opacity="0.64"/>
+  <circle class="tw2" style="animation-delay:2.07s" cx="47.37" cy="86.10" r="0.28" fill="#fff" opacity="0.75"/>
+  <circle style="animation-delay:2.76s" cx="57.96" cy="64.80" r="0.28" fill="#fff" opacity="0.77"/>
+  <circle style="animation-delay:3.37s" cx="30.32" cy="52.52" r="0.15" fill="#fff" opacity="0.66"/>
+  <circle class="tw2" style="animation-delay:0.56s" cx="21.51" cy="35.83" r="0.15" fill="#fff" opacity="0.65"/>
+  <circle style="animation-delay:2.01s" cx="18.83" cy="46.78" r="0.28" fill="#fff" opacity="0.68"/>
+  <circle style="animation-delay:3.96s" cx="1.92" cy="91.12" r="0.28" fill="#fff" opacity="0.42"/>
+  <circle style="animation-delay:3.83s" cx="6.43" cy="15.68" r="0.28" fill="#fff" opacity="0.86"/>
+  <circle class="tw2" style="animation-delay:3.60s" cx="18.58" cy="44.48" r="0.15" fill="#fff" opacity="0.86"/>
+  <circle class="tw2" style="animation-delay:2.47s" cx="63.48" cy="49.35" r="0.12" fill="#fff" opacity="0.86"/>
+  <circle class="tw2" style="animation-delay:0.62s" cx="8.93" cy="73.25" r="0.12" fill="#fff" opacity="0.36"/>
+  <circle style="animation-delay:0.42s" cx="19.60" cy="68.02" r="0.15" fill="#fff" opacity="0.75"/>
+  <circle style="animation-delay:2.81s" cx="8.47" cy="47.98" r="0.2" fill="#fff" opacity="0.83"/>
+  <circle style="animation-delay:3.46s" cx="1.60" cy="59.50" r="0.15" fill="#fff" opacity="0.64"/>
+  <circle class="tw2" style="animation-delay:2.96s" cx="15.07" cy="20.32" r="0.15" fill="#fff" opacity="0.80"/>
+  <circle style="animation-delay:0.78s" cx="62.28" cy="29.69" r="0.2" fill="#fff" opacity="0.78"/>
+  <circle class="tw2" style="animation-delay:0.35s" cx="13.42" cy="9.11" r="0.15" fill="#fff" opacity="0.56"/>
+  <circle class="tw2" style="animation-delay:2.51s" cx="30.00" cy="88.47" r="0.15" fill="#fff" opacity="0.79"/>
+  <circle style="animation-delay:3.87s" cx="6.63" cy="53.57" r="0.2" fill="#fff" opacity="0.41"/>
+  <rect x="5.5" y="5.5" width="58" height="83" rx="3" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.8"/>
+  <rect x="6.9" y="6.9" width="55.2" height="80.2" rx="2.2" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.2"/>
+  <path d="M5.5,3.9 L7.1,5.5 L5.5,7.1 L3.9,5.5 Z" fill="url(#night-moth-foil)"/>
+  <path d="M63.5,3.9 L65.1,5.5 L63.5,7.1 L61.9,5.5 Z" fill="url(#night-moth-foil)"/>
+  <path d="M5.5,86.9 L7.1,88.5 L5.5,90.1 L3.9,88.5 Z" fill="url(#night-moth-foil)"/>
+  <path d="M63.5,86.9 L65.1,88.5 L63.5,90.1 L61.9,88.5 Z" fill="url(#night-moth-foil)"/>
+  <rect x="9" y="9" width="51" height="52" rx="2" fill="#000" fill-opacity="0.28"/>
+  <g clip-path="url(#night-moth-win)"><g transform="translate(34.5 36)">
+    <circle cx="0" cy="-4" r="17" fill="url(#moon)"/>
+    <g>
+      <path d="M1,-4 C6,-15 18,-18 21.5,-11.5 C24,-6 17,1.5 1.6,1.2 Z" fill="#1b1546" stroke="url(#night-moth-foil)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M1.6,1.4 C12,1 17.5,7 14.5,13 C11.5,17.5 4,14.5 1.4,7 Z" fill="#1b1546" stroke="url(#night-moth-foil)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M2,-2 L18,-11.5 M2,-1 L15,-3.5 M2.5,-3 Q8,-12 13,-15.5 M2,3 L13,11"
+            fill="none" stroke="url(#night-moth-foil)" stroke-width="0.25" stroke-linecap="round"/>
+      <circle cx="12" cy="-8" r="3" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.4"/>
+      <circle cx="12" cy="-8" r="1.3" fill="url(#night-moth-foil)"/>
+      <circle cx="9" cy="8.5" r="1.7" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.35"/>
+      <path d="M0.6,-8.6 C2,-13 5,-16 8.5,-17.5" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.35" stroke-linecap="round"/>
+      <path d="M2.6,-12.4 l1.2,-0.3 M4.2,-14.6 l1.2,0 M6,-16.3 l1.1,0.3"
+            stroke="url(#night-moth-foil)" stroke-width="0.25" stroke-linecap="round"/>
+    </g>
+    <g transform="scale(-1 1)">
+      <path d="M1,-4 C6,-15 18,-18 21.5,-11.5 C24,-6 17,1.5 1.6,1.2 Z" fill="#1b1546" stroke="url(#night-moth-foil)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M1.6,1.4 C12,1 17.5,7 14.5,13 C11.5,17.5 4,14.5 1.4,7 Z" fill="#1b1546" stroke="url(#night-moth-foil)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M2,-2 L18,-11.5 M2,-1 L15,-3.5 M2.5,-3 Q8,-12 13,-15.5 M2,3 L13,11"
+            fill="none" stroke="url(#night-moth-foil)" stroke-width="0.25" stroke-linecap="round"/>
+      <circle cx="12" cy="-8" r="3" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.4"/>
+      <circle cx="12" cy="-8" r="1.3" fill="url(#night-moth-foil)"/>
+      <circle cx="9" cy="8.5" r="1.7" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.35"/>
+      <path d="M0.6,-8.6 C2,-13 5,-16 8.5,-17.5" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.35" stroke-linecap="round"/>
+      <path d="M2.6,-12.4 l1.2,-0.3 M4.2,-14.6 l1.2,0 M6,-16.3 l1.1,0.3"
+            stroke="url(#night-moth-foil)" stroke-width="0.25" stroke-linecap="round"/>
+    </g>
+    <ellipse cx="0" cy="2.5" rx="1.7" ry="8.5" fill="#1b1546" stroke="url(#night-moth-foil)" stroke-width="0.5"/>
+    <path d="M-1.4,0 h2.8 M-1.5,2.5 h3 M-1.4,5 h2.8 M-1,7.5 h2" stroke="url(#night-moth-foil)" stroke-width="0.25"/>
+    <circle cx="0" cy="-7.2" r="1.9" fill="#1b1546" stroke="url(#night-moth-foil)" stroke-width="0.5"/>
+    </g></g>
+  <rect x="9" y="9" width="51" height="52" rx="2" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.35"/>
+  <g transform="translate(14.00 15.00) scale(1.60)"><path class="tw" style="animation-delay:0.00s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(54.00 16.00) scale(1.20)"><path class="tw" style="animation-delay:0.37s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(52.00 53.00) scale(1.80)"><path class="tw" style="animation-delay:0.74s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(16.00 54.00) scale(1.00)"><path class="tw" style="animation-delay:1.11s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(47.00 12.00) scale(0.70)"><path class="tw" style="animation-delay:1.48s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(13.00 33.00) scale(0.80)"><path class="tw" style="animation-delay:1.85s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(57.00 37.00) scale(0.90)"><path class="tw" style="animation-delay:2.22s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(35.00 12.50) scale(0.60)"><path class="tw" style="animation-delay:2.59s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(34.77 47.39) scale(0.58)"><path class="tw" style="animation-delay:0.36s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(43.23 20.07) scale(0.42)"><path class="tw" style="animation-delay:0.73s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(15.99 12.80) scale(0.59)"><path class="tw" style="animation-delay:1.10s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(35.20 38.30) scale(0.45)"><path class="tw" style="animation-delay:1.47s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(19.67 20.79) scale(0.69)"><path class="tw" style="animation-delay:1.84s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(57.54 55.49) scale(0.43)"><path class="tw" style="animation-delay:2.21s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <text x="34.5" y="69.2" text-anchor="middle" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="4.3" font-weight="700" letter-spacing="0.6" fill="url(#night-moth-foil)">NIGHT MOTH</text>
+  <path d="M17,71.8 H52" stroke="url(#night-moth-foil)" stroke-width="0.2"/>
+  <path d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" transform="translate(34.5 71.8) scale(0.7)" fill="url(#night-moth-foil)"/>
+  <text x="34.5" y="75.6" text-anchor="middle" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="2.2" letter-spacing="0.5" fill="#e8e4ff" fill-opacity="0.8">LUNAR · NOCTURNE</text>
+  <text text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="2.4" fill="#f3efff" fill-opacity="0.85"><tspan x="34.5" y="79.2">“Drinks the moonlight</tspan><tspan x="34.5" y="82.2">others leave behind.”</tspan></text>
+  <text x="11" y="85.8" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="2" letter-spacing="0.3" fill="url(#night-moth-foil)">No. 01 / 03</text>
+  <g transform="translate(57 85.1)"><path d="M1.2,-1.6 A1.8,1.8 0 1 0 1.2,1.6 A1.4,1.4 0 1 1 1.2,-1.6 Z" fill="url(#night-moth-foil)"/></g>
+</svg>

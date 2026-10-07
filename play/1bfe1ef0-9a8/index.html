@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blob mascot</title>
+  <script type="module" src="./blob-mascot.js"></script>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-content: center;
+      gap: 32px;
+      font-family: system-ui, sans-serif;
+      background: #FBF8F3;
+      color: #2E2A3A;
+      text-align: center;
+    }
+    .hero blob-mascot { width: 240px; }
+    .moods { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .moods button {
+      font: inherit;
+      padding: 8px 16px;
+      border: 2px solid #2E2A3A22;
+      border-radius: 999px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .moods button[aria-pressed="true"] { background: #2E2A3A; color: #fff; border-color: #2E2A3A; }
+    .gallery { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+    .gallery figure { margin: 0; }
+    .gallery blob-mascot { width: 120px; }
+    .gallery figcaption, .hint { font-size: 14px; opacity: .6; }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <blob-mascot id="hero" mood="idle"></blob-mascot>
+    <p class="hint">Poke it! &middot; pokes: <span id="count">0</span></p>
+  </div>
+
+  <div class="moods" role="group" aria-label="Mood">
+    <button data-mood="idle" aria-pressed="true">Idle</button>
+    <button data-mood="happy" aria-pressed="false">Happy</button>
+    <button data-mood="sleepy" aria-pressed="false">Sleepy</button>
+    <button data-mood="surprised" aria-pressed="false">Surprised</button>
+  </div>
+
+  <div class="gallery">
+    <figure><blob-mascot mood="idle"></blob-mascot><figcaption>idle</figcaption></figure>
+    <figure><blob-mascot mood="happy" style="--blob-color:#FFC46B"></blob-mascot><figcaption>happy</figcaption></figure>
+    <figure><blob-mascot mood="sleepy" style="--blob-color:#A99CF2"></blob-mascot><figcaption>sleepy</figcaption></figure>
+    <figure><blob-mascot mood="surprised" style="--blob-color:#7EC8F2"></blob-mascot><figcaption>surprised</figcaption></figure>
+  </div>
+
+  <script type="module">
+    const hero = document.getElementById('hero');
+    const count = document.getElementById('count');
+    let pokes = 0;
+    hero.addEventListener('poke', () => { count.textContent = ++pokes; });
+
+    for (const btn of document.querySelectorAll('.moods button')) {
+      btn.addEventListener('click', () => {
+        hero.mood = btn.dataset.mood;
+        for (const b of document.querySelectorAll('.moods button')) {
+          b.setAttribute('aria-pressed', String(b === btn));
+        }
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Terrarium Planner – for Nan</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #e9e2d6; font-family: Georgia, "Times New Roman", serif; color: #3b3328; }
+  canvas { display: block; touch-action: none; }
+  .panel {
+    position: absolute; background: rgba(255, 251, 244, 0.88); backdrop-filter: blur(6px);
+    border-radius: 12px; box-shadow: 0 4px 18px rgba(60, 45, 25, 0.15); padding: 14px 16px; font-size: 13px; line-height: 1.45;
+  }
+  #controls { top: 14px; left: 14px; width: 250px; }
+  #plan { top: 14px; right: 14px; width: 250px; max-height: calc(100% - 60px); overflow: auto; }
+  h1 { font-size: 18px; margin: 0 0 4px; font-weight: normal; }
+  h2 { font-size: 14px; margin: 12px 0 4px; font-weight: bold; }
+  .sub { font-style: italic; color: #7a6c58; margin-bottom: 8px; }
+  button {
+    font: inherit; font-size: 12px; background: #f3ead9; border: 1px solid #c9b896; color: #3b3328;
+    border-radius: 7px; padding: 4px 8px; margin: 2px 2px 2px 0; cursor: pointer;
+  }
+  button:hover { background: #e9dcc2; }
+  button.on { background: #8aa27a; border-color: #6d8660; color: #fff; }
+  .swatches button { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #c9b896; }
+  .swatches button.on { box-shadow: 0 0 0 2px #6d8660; }
+  #selected { margin-top: 8px; padding: 6px 8px; background: #f3ead9; border-radius: 7px; min-height: 18px; }
+  ul { margin: 2px 0; padding-left: 18px; }
+  table { border-collapse: collapse; width: 100%; }
+  td { padding: 1px 0; }
+  td:last-child { text-align: right; }
+  .layer { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  #hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 12px; color: #6d604d; background: rgba(255,251,244,0.75); padding: 5px 12px; border-radius: 20px; white-space: nowrap; }
+  #toggle-plan { display: none; }
+  @media (max-width: 700px) {
+    #plan { display: none; top: auto; bottom: 50px; right: 10px; left: 10px; width: auto; max-height: 45%; }
+    #plan.show { display: block; }
+    #controls { width: auto; right: 10px; left: 10px; }
+    #toggle-plan { display: inline-block; }
+    #hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="controls" class="panel">
+  <h1>Nan's Terrarium</h1>
+  <div class="sub">A planning model, 1 unit = 1 cm</div>
+  <div>
+    <button id="btn-rotate">Auto-rotate</button>
+    <button id="btn-lid" class="on">Cork lid</button>
+    <button id="btn-ribbon" class="on">Birthday ribbon</button>
+  </div>
+  <div>
+    <button id="btn-light">Light: Daylight</button>
+    <button id="btn-front">Front view</button>
+    <button id="btn-top">Top view</button>
+  </div>
+  <h2>Deer glaze</h2>
+  <div class="swatches" id="glaze"></div>
+  <div id="selected">Click and drag anything inside the jar to move it around.</div>
+  <div style="margin-top:4px">
+    <button id="btn-rot-l">⟲ Turn</button>
+    <button id="btn-rot-r">Turn ⟳</button>
+    <button id="btn-reset">Reset layout</button>
+    <button id="toggle-plan">Plan ▾</button>
+  </div>
+</div>
+
+<div id="plan" class="panel">
+  <h2 style="margin-top:0">Jar</h2>
+  <table>
+    <tr><td>Height (with cork)</td><td>~22 cm</td></tr>
+    <tr><td>Body diameter</td><td>14 cm</td></tr>
+    <tr><td>Opening diameter</td><td>10 cm</td></tr>
+  </table>
+  <h2>Layers (bottom → top)</h2>
+  <table>
+    <tr><td><span class="layer" style="background:#9a9184"></span>Gravel / pebbles</td><td>2 cm</td></tr>
+    <tr><td><span class="layer" style="background:#2a2725"></span>Activated charcoal</td><td>0.5 cm</td></tr>
+    <tr><td><span class="layer" style="background:#5a3f2a"></span>Potting soil</td><td>3.5–5 cm</td></tr>
+    <tr><td><span class="layer" style="background:#6f9a45"></span>Moss on top</td><td></td></tr>
+  </table>
+  <h2>Shopping list</h2>
+  <ul>
+    <li>Glass jar ~14 cm wide, wide mouth</li>
+    <li>Cork or glass lid</li>
+    <li>~400 ml small gravel</li>
+    <li>Small bag activated charcoal</li>
+    <li>~700 ml terrarium / peat-free soil</li>
+    <li>Cushion moss + sheet moss</li>
+    <li>2–3 small ferns (e.g. button fern, mini Boston fern)</li>
+    <li>A few smooth pebbles + 1 feature stone</li>
+    <li>Tiny ceramic deer (~4 cm tall)</li>
+    <li>Ribbon + gift tag</li>
+  </ul>
+  <h2>Tips</h2>
+  <ul>
+    <li>Plant ferns first, towards the back, then press moss around them.</li>
+    <li>Keep the deer in front so it isn't hidden by fronds.</li>
+    <li>Long tweezers and a spoon make placing things through the neck easier.</li>
+    <li>Mist lightly; a closed jar needs very little water.</li>
+  </ul>
+</div>
+
+<div id="hint">Drag empty space to look around · scroll / pinch to zoom · drag items to rearrange · Q / E to turn the selected item</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ---------- seeded random so the layout is the same every time ----------
+let seed = 7;
+function rand() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+function rr(a, b) { return a + (b - a) * rand(); }
+
+// ---------- renderer / scene ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe9e2d6);
+scene.fog = new THREE.Fog(0xe9e2d6, 70, 140);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 400);
+camera.position.set(30, 21, 40);
+
+// ---------- lights ----------
+const hemi = new THREE.HemisphereLight(0xfff6e8, 0x8a7a62, 0.6);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1dc, 2.2);
+sun.position.set(-18, 30, 14);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -16; sun.shadow.camera.right = 16;
+sun.shadow.camera.top = 16; sun.shadow.camera.bottom = -16;
+sun.shadow.camera.near = 5; sun.shadow.camera.far = 80;
+sun.shadow.bias = -0.0005;
+sun.shadow.normalBias = 0.03;
+scene.add(sun);
+
+// ---------- canvas textures ----------
+function canvasTexture(w, h, draw, repeatX = 1, repeatY = 1) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(repeatX, repeatY);
+  t.anisotropy = 8;
+  return t;
+}
+function speckle(ctx, w, h, base, colors, count, minR, maxR, round = false) {
+  ctx.fillStyle = base; ctx.fillRect(0, 0, w, h);
+  for (let i = 0; i < count; i++) {
+    ctx.fillStyle = colors[Math.floor(rand() * colors.length)];
+    const x = rand() * w, y = rand() * h, r = rr(minR, maxR);
+    ctx.beginPath();
+    if (round) ctx.ellipse(x, y, r, r * rr(0.6, 1), rand() * Math.PI, 0, Math.PI * 2);
+    else ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+const woodTex = canvasTexture(1024, 1024, (ctx, w, h) => {
+  ctx.fillStyle = '#b08a62'; ctx.fillRect(0, 0, w, h);
+  for (let i = 0; i < 220; i++) {
+    const y = rand() * h;
+    ctx.strokeStyle = `rgba(${90 + rand() * 40},${60 + rand() * 25},${35 + rand() * 20},${rr(0.08, 0.3)})`;
+    ctx.lineWidth = rr(1, 5);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    for (let x = 0; x <= w; x += 32) ctx.lineTo(x, y + Math.sin(x * 0.01 + i) * 6);
+    ctx.stroke();
+  }
+}, 3, 3);
+
+const gravelTex = canvasTexture(512, 128, (ctx, w, h) =>
+  speckle(ctx, w, h, '#7d766c', ['#a59d90', '#8e877c', '#c2b8a6', '#6a645b', '#b5a68e', '#d6cdbd'], 900, 3, 9, true), 3, 1);
+const charcoalTex = canvasTexture(512, 64, (ctx, w, h) =>
+  speckle(ctx, w, h, '#1f1d1c', ['#3a3633', '#121110', '#4a4642', '#2b2826'], 700, 1.5, 5, true), 3, 1);
+const soilTex = canvasTexture(512, 256, (ctx, w, h) =>
+  speckle(ctx, w, h, '#4e3624', ['#5e432d', '#3e2a1b', '#6b4e35', '#33231a', '#7a6248'], 5000, 0.8, 3, true), 3, 1);
+const soilTopTex = canvasTexture(512, 512, (ctx, w, h) =>
+  speckle(ctx, w, h, '#4a3322', ['#5e432d', '#3e2a1b', '#6b4e35', '#33231a'], 7000, 0.8, 3, true), 2, 2);
+const corkTex = canvasTexture(512, 256, (ctx, w, h) =>
+  speckle(ctx, w, h, '#c69c6d', ['#a87d50', '#d8b383', '#8c6640', '#b88c5c', '#e0c299'], 4000, 0.8, 4, true), 2, 1);
+
+// ---------- table ----------
+const table = new THREE.Mesh(
+  new THREE.CircleGeometry(80, 64),
+  new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.65 })
+);
+table.rotation.x = -Math.PI / 2;
+table.receiveShadow = true;
+scene.add(table);
+
+// ---------- dimensions (cm) ----------
+const INNER_R = 6.85;          // inside radius of the jar body
+const GRAVEL_TOP = 2.4;
+const CHAR_TOP = 2.9;
+const SOIL_BASE = 6.6;
+
+// soil surface height – a gentle slope up towards the back with soft hills
+function soilHeight(x, z) {
+  return SOIL_BASE + 0.35 * Math.sin(x * 0.6 + 1) * Math.cos(z * 0.5) - 0.12 * z
+    + 0.15 * Math.sin(x * 1.3 + z * 0.9);
+}
+
+// ---------- substrate layers ----------
+function layerCylinder(r, y0, y1, tex) {
+  const m = new THREE.Mesh(
+    new THREE.CylinderGeometry(r, r, y1 - y0, 96, 1, true),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 1 })
+  );
+  m.position.y = (y0 + y1) / 2;
+  m.receiveShadow = true;
+  scene.add(m);
+  return m;
+}
+layerCylinder(INNER_R - 0.05, 0.3, GRAVEL_TOP, gravelTex);
+layerCylinder(INNER_R - 0.05, GRAVEL_TOP, CHAR_TOP, charcoalTex);
+
+// soil side wall, with the top edge following the soil surface
+{
+  const geo = new THREE.CylinderGeometry(INNER_R - 0.05, INNER_R - 0.05, 1, 128, 1, true);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    pos.setY(i, pos.getY(i) > 0 ? soilHeight(x, z) : CHAR_TOP);
+  }
+  geo.computeVertexNormals();
+  const soilTex2 = soilTex.clone(); soilTex2.needsUpdate = true;
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: soilTex2, roughness: 1 }));
+  m.receiveShadow = true;
+  scene.add(m);
+}
+// soil top surface
+const soilTop = (() => {
+  const geo = new THREE.RingGeometry(0.001, INNER_R - 0.05, 96, 24);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    pos.setY(i, soilHeight(x, z));
+  }
+  geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: soilTopTex, roughness: 1 }));
+  m.receiveShadow = true;
+  scene.add(m);
+  return m;
+})();
+// glass base disc (thick bottom)
+{
+  const m = new THREE.Mesh(
+    new THREE.CylinderGeometry(6.7, 6.6, 0.3, 64),
+    new THREE.MeshStandardMaterial({ color: 0xcfe0d8, roughness: 0.1, transparent: true, opacity: 0.5 })
+  );
+  m.position.y = 0.15;
+  scene.add(m);
+}
+
+// ---------- glass jar ----------
+const glassMat = new THREE.MeshPhysicalMaterial({
+  color: 0xffffff, metalness: 0, roughness: 0, transmission: 1, thickness: 0.1, ior: 1.5,
+  envMapIntensity: 0.7, specularIntensity: 0.6, side: THREE.DoubleSide,
+  attenuationColor: new THREE.Color(0xe6f5ee), attenuationDistance: 60,
+});
+const jarProfile = [
+  [0, 0], [6.6, 0], [6.95, 0.25], [7.05, 0.8], [7.05, 15], [6.8, 16.2],
+  [6.0, 17.2], [5.25, 17.8], [5.1, 18.4], [5.1, 19.6],
+].map(([x, y]) => new THREE.Vector2(x, y));
+const jar = new THREE.Mesh(new THREE.LatheGeometry(jarProfile, 128), glassMat);
+jar.renderOrder = 2;
+scene.add(jar);
+const rim = new THREE.Mesh(new THREE.TorusGeometry(5.15, 0.18, 16, 96), glassMat);
+rim.rotation.x = Math.PI / 2;
+rim.position.y = 19.6;
+rim.renderOrder = 2;
+scene.add(rim);
+
+// ---------- cork lid ----------
+const lid = new THREE.Group();
+{
+  const corkMat = new THREE.MeshStandardMaterial({ map: corkTex, roughness: 0.95 });
+  const plug = new THREE.Mesh(new THREE.CylinderGeometry(5.0, 4.75, 1.6, 64), corkMat);
+  plug.position.y = 0.8;
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(5.6, 5.6, 1.1, 64), corkMat);
+  top.position.y = 2.15;
+  [plug, top].forEach(m => { m.castShadow = true; m.receiveShadow = true; lid.add(m); });
+}
+const LID_ON = new THREE.Vector3(0, 18.6, 0);
+const LID_OFF = new THREE.Vector3(13, 0, 6);    // resting on the table beside the jar
+lid.position.copy(LID_ON);
+scene.add(lid);
+
+// ---------- birthday ribbon + tag ----------
+const ribbon = new THREE.Group();
+{
+  const ribbonMat = new THREE.MeshStandardMaterial({ color: 0xc9767f, roughness: 0.45, metalness: 0.05 });
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(5.24, 5.24, 0.7, 96, 1, true), ribbonMat);
+  band.position.y = 18.75;
+  band.material.side = THREE.DoubleSide;
+  ribbon.add(band);
+  // bow loops at the front
+  const loopGeo = new THREE.TorusGeometry(0.9, 0.22, 12, 32);
+  for (const s of [-1, 1]) {
+    const loop = new THREE.Mesh(loopGeo, ribbonMat);
+    loop.scale.set(1, 0.55, 0.6);
+    loop.position.set(s * 0.95, 18.8, 5.45);
+    loop.rotation.z = s * 0.25;
+    ribbon.add(loop);
+    // tails
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.2, 0.08), ribbonMat);
+    tail.position.set(s * 0.45, 17.6, 5.55);
+    tail.rotation.z = s * 0.3;
+    ribbon.add(tail);
+  }
+  const knot = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 12), ribbonMat);
+  knot.position.set(0, 18.8, 5.5);
+  ribbon.add(knot);
+  // tag
+  const tagTex = canvasTexture(256, 160, (ctx, w, h) => {
+    ctx.fillStyle = '#fbf4e4'; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#c9a77a'; ctx.lineWidth = 6; ctx.strokeRect(8, 8, w - 16, h - 16);
+    ctx.fillStyle = '#6a2f37'; ctx.textAlign = 'center';
+    ctx.font = 'italic bold 36px Georgia'; ctx.fillText('Happy Birthday', w / 2, 70);
+    ctx.font = 'italic bold 50px Georgia'; ctx.fillText('Nan', w / 2, 118);
+  });
+  tagTex.wrapS = tagTex.wrapT = THREE.ClampToEdgeWrapping;
+  tagTex.repeat.set(1, 1);
+  const tag = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.6), new THREE.MeshStandardMaterial({ map: tagTex, roughness: 0.9, side: THREE.DoubleSide }));
+  tag.position.set(1.9, 16.4, 6.15);
+  tag.rotation.set(-0.12, 0.25, -0.18);
+  tag.castShadow = true;
+  ribbon.add(tag);
+  const string = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 6), new THREE.MeshStandardMaterial({ color: 0xc9a77a }));
+  string.position.set(1.1, 17.6, 5.85);
+  string.rotation.z = 0.7;
+  ribbon.add(string);
+}
+scene.add(ribbon);
+
+// ---------- draggable items ----------
+const draggables = [];
+function addItem(obj, name, reach, x, z, rotY = 0) {
+  obj.userData = { draggable: true, name, reach, home: { x, z, rotY } };
+  placeItem(obj, x, z);
+  obj.rotation.y = rotY;
+  obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  scene.add(obj);
+  draggables.push(obj);
+}
+function placeItem(obj, x, z) {
+  const maxR = Math.max(0.2, INNER_R - obj.userData.reach);
+  const r = Math.hypot(x, z);
+  if (r > maxR) { x *= maxR / r; z *= maxR / r; }
+  obj.position.set(x, soilHeight(x, z) - 0.05, z);
+}
+
+// ---------- moss ----------
+const tuftGeo = new THREE.IcosahedronGeometry(0.17, 0);
+const tuftMat = new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true });
+const mossPalette = [0x3f6b22, 0x4c7a28, 0x56852d, 0x365e1e, 0x5f8f34, 0x44722a, 0x6a9a3a];
+
+function mossMound(radius, heightRatio = 0.45, hueShift = 0) {
+  const g = new THREE.Group();
+  const ph = [rr(0, 6), rr(0, 6), rr(0, 6)];
+  const bump = d => 1 + 0.12 * Math.sin(d.x * 4 + ph[0]) * Math.cos(d.z * 4 + ph[1]) + 0.07 * Math.sin(d.y * 7 + ph[2]);
+  const geo = new THREE.SphereGeometry(1, 40, 20);
+  const pos = geo.attributes.position;
+  const colors = [];
+  const d = new THREE.Vector3();
+  const col = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    d.fromBufferAttribute(pos, i);
+    const f = bump(d);
+    const y = d.y < 0 ? d.y * 0.08 : d.y;
+    pos.setXYZ(i, d.x * radius * f, y * radius * heightRatio * f, d.z * radius * f);
+    col.setHex(mossPalette[Math.floor(rand() * 4)]).offsetHSL(hueShift, 0, rr(-0.04, 0.03));
+    colors.push(col.r, col.g, col.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+  g.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 })));
+
+  // fuzzy tufts across the surface
+  const count = Math.floor(radius * radius * 140);
+  const inst = new THREE.InstancedMesh(tuftGeo, tuftMat, count);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
+  for (let i = 0; i < count; i++) {
+    // random direction on the upper hemisphere
+    const u = rand(), v = rand() * Math.PI * 2;
+    const y = Math.pow(u, 0.8);
+    const rxz = Math.sqrt(1 - y * y);
+    d.set(Math.cos(v) * rxz, y, Math.sin(v) * rxz);
+    const f = bump(d);
+    p.set(d.x * radius * f, d.y * radius * heightRatio * f, d.z * radius * f);
+    q.setFromEuler(new THREE.Euler(rand() * 6, rand() * 6, rand() * 6));
+    const sc = rr(0.6, 1.3);
+    s.set(sc, sc * rr(0.8, 1.6), sc);
+    m.compose(p, q, s);
+    inst.setMatrixAt(i, m);
+    col.setHex(mossPalette[Math.floor(rand() * mossPalette.length)]).offsetHSL(hueShift, 0, rr(-0.05, 0.05));
+    inst.setColorAt(i, col);
+  }
+  g.add(inst);
+  return g;
+}
+
+// flat sheet moss covering most of the soil
+{
+  const sheet = new THREE.Group();
+  const count = 5200;
+  const inst = new THREE.InstancedMesh(tuftGeo, tuftMat, count);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
+  const col = new THREE.Color();
+  let n = 0;
+  while (n < count) {
+    const a = rand() * Math.PI * 2, r = Math.sqrt(rand()) * (INNER_R - 0.2);
+    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    // leave a bare soil patch near the front-right for a pebble path
+    const patchy = Math.sin(x * 0.9 + 2) * Math.cos(z * 0.8) + 0.4;
+    if (patchy < 0 && rand() < 0.85) continue;
+    p.set(x, soilHeight(x, z) + 0.02, z);
+    q.setFromEuler(new THREE.Euler(rand() * 6, rand() * 6, rand() * 6));
+    const sc = rr(0.7, 1.4);
+    s.set(sc, sc * 0.7, sc);
+    m.compose(p, q, s);
+    inst.setMatrixAt(n, m);
+    col.setHex(mossPalette[Math.floor(rand() * mossPalette.length)]).offsetHSL(0.01, -0.05, rr(-0.09, 0.0));
+    inst.setColorAt(n, col);
+    n++;
+  }
+  inst.receiveShadow = true;
+  sheet.add(inst);
+  scene.add(sheet);
+}
+
+addItem(mossMound(2.2, 0.5), 'Cushion moss (large)', 1.6, -3.0, 2.2);
+addItem(mossMound(1.6, 0.55, 0.02), 'Cushion moss', 1.2, 3.6, 2.6);
+addItem(mossMound(1.3, 0.6, -0.02), 'Cushion moss (small)', 1.0, 0.4, 4.6);
+addItem(mossMound(1.8, 0.45, 0.03), 'Cushion moss', 1.4, 4.0, -2.4);
+addItem(mossMound(1.1, 0.6), 'Cushion moss (small)', 0.8, -4.9, -1.0);
+
+// ---------- ferns ----------
+function leafletGeometry(lobes) {
+  const sh = new THREE.Shape();
+  sh.moveTo(0, 0);
+  if (lobes) {
+    // slightly toothed pinna
+    const n = 5;
+    for (let i = 1; i <= n; i++) { const x = i / n; sh.lineTo(x - 0.1, 0.13 * Math.sin(Math.PI * x) + 0.05); sh.lineTo(x, 0.1 * Math.sin(Math.PI * x)); }
+    for (let i = n; i >= 1; i--) { const x = i / n; sh.lineTo(x - 0.1, -0.13 * Math.sin(Math.PI * x) - 0.05); sh.lineTo(x - 0.2, -0.1 * Math.sin(Math.PI * (x - 0.2))); }
+  } else {
+    sh.quadraticCurveTo(0.45, 0.22, 1, 0);
+    sh.quadraticCurveTo(0.45, -0.22, 0, 0);
+  }
+  return new THREE.ShapeGeometry(sh);
+}
+
+function makeFern({ fronds = 9, length = 6, leafLen = 1.3, color = 0x4f8a35, lobed = true, droop = 0.35, spread = 0.9 }) {
+  const g = new THREE.Group();
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0x5c6b2e, roughness: 0.8 });
+  const leafMat = new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide });
+  const leafGeo = leafletGeometry(lobed);
+  const perFrond = 26;
+  const inst = new THREE.InstancedMesh(leafGeo, leafMat, fronds * perFrond * 2);
+  const up = new THREE.Vector3(0, 1, 0);
+  const m = new THREE.Matrix4(), X = new THREE.Vector3(), Y = new THREE.Vector3(), Z = new THREE.Vector3();
+  const col = new THREE.Color();
+  let k = 0;
+  for (let f = 0; f < fronds; f++) {
+    const ang = (f / fronds) * Math.PI * 2 + rr(-0.3, 0.3);
+    const L = length * rr(0.7, 1.05);
+    const lean = spread * rr(0.75, 1.1);
+    const dir = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang));
+    const curve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(0, 0, 0),
+      dir.clone().multiplyScalar(L * 0.3 * lean).add(new THREE.Vector3(0, L * 0.95, 0)),
+      dir.clone().multiplyScalar(L * 0.85 * lean).add(new THREE.Vector3(0, L * (0.75 - droop), 0)),
+    );
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.045, 5, false), stemMat));
+    for (let i = 0; i < perFrond; i++) {
+      const t = 0.12 + (i / (perFrond - 1)) * 0.86;
+      const p = curve.getPoint(t);
+      const T = curve.getTangent(t).normalize();
+      const side = new THREE.Vector3().crossVectors(T, up).normalize();
+      const len = leafLen * Math.pow(1 - t, 0.55) * Math.min(1, (t - 0.05) * 4) * (L / length) + 0.08;
+      for (const s of [-1, 1]) {
+        // leaflet points sideways and a little towards the tip
+        X.copy(side).multiplyScalar(s).addScaledVector(T, 0.45).normalize();
+        Z.crossVectors(X, T).normalize();
+        if (Z.y < 0) Z.negate();
+        Y.crossVectors(Z, X).normalize();
+        m.makeBasis(X, Y, Z);
+        m.scale(new THREE.Vector3(len, len, len));
+        m.setPosition(p);
+        inst.setMatrixAt(k, m);
+        col.setHex(color).offsetHSL(rr(-0.015, 0.015), 0, (t - 0.5) * 0.12 + rr(-0.03, 0.03));
+        inst.setColorAt(k, col);
+        k++;
+      }
+    }
+  }
+  g.add(inst);
+  // a couple of fiddleheads at the crown
+  for (let i = 0; i < 2; i++) {
+    const fh = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.07, 8, 16, Math.PI * 1.6), stemMat);
+    const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.2, 6), stemMat);
+    const a = rand() * 6;
+    stalk.position.set(Math.cos(a) * 0.3, 0.6, Math.sin(a) * 0.3);
+    fh.position.set(Math.cos(a) * 0.3, 1.35, Math.sin(a) * 0.3);
+    fh.rotation.y = a;
+    g.add(stalk, fh);
+  }
+  // little soil crown at the base
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 8), new THREE.MeshStandardMaterial({ color: 0x3e2c1d, roughness: 1 }));
+  crown.scale.y = 0.4;
+  g.add(crown);
+  return g;
+}
+
+addItem(makeFern({ fronds: 11, length: 7.2, leafLen: 1.4, color: 0x4a8a32, droop: 0.4 }), 'Boston fern', 3.2, -1.6, -2.6, 0.3);
+addItem(makeFern({ fronds: 8, length: 5.2, leafLen: 1.1, color: 0x5e9c3c, droop: 0.3, spread: 0.8 }), 'Mini fern', 2.4, 2.6, -1.0, 1.2);
+addItem(makeFern({ fronds: 9, length: 4.6, leafLen: 0.75, color: 0x3d6f2c, lobed: false, droop: 0.45, spread: 1.0 }), 'Button fern', 2.2, -3.4, 0.4, 2.0);
+
+// ---------- stones ----------
+function stone(size, color, squash = 0.6) {
+  const geo = new THREE.IcosahedronGeometry(size, 3);
+  const pos = geo.attributes.position;
+  const v = new THREE.Vector3();
+  const ph = rr(0, 6);
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const f = 1 + 0.08 * Math.sin(v.x * 3 / size + ph) * Math.cos(v.z * 3 / size);
+    pos.setXYZ(i, v.x * f * rr(0.98, 1.02), Math.max(v.y * squash * f, -size * 0.15), v.z * f * rr(0.98, 1.02));
+  }
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.55 }));
+}
+{
+  const g = new THREE.Group();
+  const rock = stone(1.5, 0x8d8a84, 0.7);
+  rock.scale.set(1.25, 1, 0.9);
+  g.add(rock);
+  const cap = mossMound(0.9, 0.5);
+  cap.position.set(-0.3, 0.75, -0.1);
+  g.add(cap);
+  addItem(g, 'Feature stone', 1.8, 1.2, -4.4, 0.5);
+}
+const pebbleColors = [0xe8e2d6, 0xcfc8bb, 0xb8b2a6, 0xdcd3c3, 0xa39d93];
+[[1.6, 3.4], [2.5, 4.4], [3.3, 5.1], [0.8, 2.6], [-1.0, 5.6]].forEach(([x, z], i) => {
+  const g = new THREE.Group();
+  g.add(stone(rr(0.35, 0.55), pebbleColors[i], 0.55));
+  addItem(g, 'Pebble', 0.5, x, z, rand() * 6);
+});
+
+// ---------- ceramic deer ----------
+const glazes = [
+  { name: 'Cream', color: 0xf3ede2, spots: 0xdcc39a },
+  { name: 'Sage', color: 0xb9c9a8, spots: 0xeef0e2 },
+  { name: 'Terracotta', color: 0xc8805c, spots: 0xf2dcc4 },
+  { name: 'Duck-egg blue', color: 0xa9cfd1, spots: 0xf4f6ef },
+  { name: 'Gold', color: 0xd9b46a, spots: 0xf6ead0, metal: true },
+];
+const glazeMat = new THREE.MeshPhysicalMaterial({ color: glazes[0].color, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.08 });
+const spotMat = new THREE.MeshPhysicalMaterial({ color: glazes[0].spots, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 });
+const darkGlaze = new THREE.MeshPhysicalMaterial({ color: 0x2b211b, roughness: 0.2, clearcoat: 1 });
+
+function makeDeer() {
+  const d = new THREE.Group();
+  const add = (geo, mat, [x, y, z], [sx, sy, sz] = [1, 1, 1], [rx, ry, rz] = [0, 0, 0]) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.rotation.set(rx, ry, rz);
+    d.add(m); return m;
+  };
+  const sphere = new THREE.SphereGeometry(1, 32, 24);
+  add(sphere, glazeMat, [0, 2.0, 0], [1.15, 0.6, 0.52]);              // body
+  add(sphere, glazeMat, [0.7, 2.12, 0], [0.62, 0.6, 0.5]);            // chest
+  add(sphere, glazeMat, [-0.65, 2.05, 0], [0.55, 0.55, 0.5]);         // haunch
+  add(new THREE.CylinderGeometry(0.22, 0.34, 1.25, 20), glazeMat, [1.12, 2.78, 0], [1, 1, 1], [0, 0, -0.45]); // neck
+  add(sphere, glazeMat, [1.42, 3.38, 0], [0.42, 0.36, 0.33], [0, 0, -0.25]);  // head
+  add(sphere, glazeMat, [1.78, 3.22, 0], [0.34, 0.2, 0.21], [0, 0, -0.35]);   // snout
+  add(sphere, darkGlaze, [2.08, 3.12, 0], [0.08, 0.07, 0.09]);                // nose
+  for (const s of [-1, 1]) {
+    add(sphere, darkGlaze, [1.62, 3.45, s * 0.24], [0.06, 0.07, 0.04]);      // eyes
+    add(new THREE.ConeGeometry(0.17, 0.55, 16), glazeMat, [1.22, 3.78, s * 0.28], [1, 1, 0.45], [s * 0.7, 0, 0.25]); // ears
+    // little antler nubs
+    const antler = new THREE.CylinderGeometry(0.03, 0.05, 0.45, 8);
+    add(antler, glazeMat, [1.36, 3.85, s * 0.12], [1, 1, 1], [s * 0.35, 0, -0.15]);
+    add(antler, glazeMat, [1.45, 4.08, s * 0.2], [0.8, 0.6, 0.8], [s * 0.2, 0, -0.9]);
+  }
+  // legs + hooves
+  const legGeo = new THREE.CylinderGeometry(0.12, 0.08, 1.7, 14);
+  const hoofGeo = new THREE.CylinderGeometry(0.085, 0.1, 0.16, 14);
+  [[0.75, 0.24], [0.68, -0.24], [-0.72, 0.24], [-0.8, -0.24]].forEach(([x, z], i) => {
+    const lean = i < 2 ? 0.06 : -0.08;
+    add(legGeo, glazeMat, [x, 0.95, z], [1, 1, 1], [0, 0, lean]);
+    add(hoofGeo, darkGlaze, [x - lean * 0.85, 0.08, z]);
+  });
+  add(sphere, glazeMat, [-1.18, 2.3, 0], [0.18, 0.24, 0.14], [0, 0, 0.6]);  // tail
+  // fawn spots
+  for (let i = 0; i < 14; i++) {
+    const x = rr(-0.9, 0.6), side = i % 2 ? 1 : -1;
+    const a = rr(0.35, 1.1);
+    const y = 2.0 + Math.sin(a) * 0.6, z = side * Math.cos(a) * 0.52;
+    add(sphere, spotMat, [x, y, z], [0.09, 0.07, 0.09]);
+  }
+  d.scale.setScalar(0.95); // ~4 cm tall
+  return d;
+}
+addItem(makeDeer(), 'Ceramic deer', 1.6, 0.2, 1.2, -0.5);
+
+// glaze swatches
+const glazeBox = document.getElementById('glaze');
+glazes.forEach((gz, i) => {
+  const b = document.createElement('button');
+  b.title = gz.name;
+  b.style.background = '#' + gz.color.toString(16).padStart(6, '0');
+  if (i === 0) b.classList.add('on');
+  b.onclick = () => {
+    glazeMat.color.setHex(gz.color);
+    spotMat.color.setHex(gz.spots);
+    glazeMat.metalness = gz.metal ? 0.8 : 0;
+    glazeMat.roughness = gz.metal ? 0.22 : 0.28;
+    [...glazeBox.children].forEach(c => c.classList.remove('on'));
+    b.classList.add('on');
+  };
+  glazeBox.appendChild(b);
+});
+
+// ---------- dragging (registered before OrbitControls so it can block orbiting) ----------
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const dragPlane = new THREE.Plane();
+const dragOffset = new THREE.Vector3();
+const hitPoint = new THREE.Vector3();
+let dragging = null, selected = null;
+const selectedEl = document.getElementById('selected');
+
+function setPointer(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+}
+function pickItem() {
+  const hits = raycaster.intersectObjects(draggables, true);
+  for (const h of hits) {
+    let o = h.object;
+    while (o && !o.userData.draggable) o = o.parent;
+    if (o) return { item: o, point: h.point };
+  }
+  return null;
+}
+function select(item) {
+  selected = item;
+  selectedEl.innerHTML = item
+    ? `Selected: <b>${item.userData.name}</b> – drag to move, Q / E or the buttons to turn.`
+    : 'Click and drag anything inside the jar to move it around.';
+}
+
+renderer.domElement.addEventListener('pointerdown', e => {
+  setPointer(e);
+  const hit = pickItem();
+  if (!hit) return;
+  dragging = hit.item;
+  select(dragging);
+  controls.enabled = false;
+  dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), hit.point);
+  dragOffset.copy(hit.point).sub(dragging.position);
+  renderer.domElement.setPointerCapture(e.pointerId);
+  renderer.domElement.style.cursor = 'grabbing';
+});
+renderer.domElement.addEventListener('pointermove', e => {
+  setPointer(e);
+  if (dragging) {
+    if (raycaster.ray.intersectPlane(dragPlane, hitPoint)) {
+      placeItem(dragging, hitPoint.x - dragOffset.x, hitPoint.z - dragOffset.z);
+    }
+  } else if (e.pointerType === 'mouse') {
+    renderer.domElement.style.cursor = pickItem() ? 'grab' : 'default';
+  }
+});
+function endDrag() {
+  if (!dragging) return;
+  dragging = null;
+  controls.enabled = true;
+  renderer.domElement.style.cursor = 'default';
+}
+renderer.domElement.addEventListener('pointerup', endDrag);
+renderer.domElement.addEventListener('pointercancel', endDrag);
+
+function turnSelected(a) { if (selected) selected.rotation.y += a; }
+window.addEventListener('keydown', e => {
+  if (e.key === 'q' || e.key === 'Q') turnSelected(0.2);
+  if (e.key === 'e' || e.key === 'E') turnSelected(-0.2);
+});
+
+// ---------- camera controls ----------
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 9.5, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 10;
+controls.maxDistance = 75;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.autoRotateSpeed = 1.2;
+controls.update();
+
+// ---------- UI ----------
+const $ = id => document.getElementById(id);
+let lidOn = true;
+let camTween = null;
+
+$('btn-rotate').onclick = e => { controls.autoRotate = !controls.autoRotate; e.target.classList.toggle('on', controls.autoRotate); };
+$('btn-lid').onclick = e => { lidOn = !lidOn; e.target.classList.toggle('on', lidOn); };
+$('btn-ribbon').onclick = e => { ribbon.visible = !ribbon.visible; e.target.classList.toggle('on', ribbon.visible); };
+$('btn-rot-l').onclick = () => turnSelected(0.3);
+$('btn-rot-r').onclick = () => turnSelected(-0.3);
+$('btn-reset').onclick = () => draggables.forEach(o => { const h = o.userData.home; placeItem(o, h.x, h.z); o.rotation.y = h.rotY; });
+$('toggle-plan').onclick = () => $('plan').classList.toggle('show');
+
+const lightModes = [
+  { name: 'Daylight', sun: 0xfff1dc, sunI: 2.2, hemi: 0.6, bg: 0xe9e2d6, exp: 1.0, pos: [-18, 30, 14] },
+  { name: 'Golden hour', sun: 0xffb36b, sunI: 2.6, hemi: 0.35, bg: 0xd9b99a, exp: 0.95, pos: [-28, 12, 10] },
+  { name: 'Evening lamp', sun: 0xffcf8a, sunI: 1.4, hemi: 0.15, bg: 0x3a3029, exp: 1.1, pos: [12, 26, 16] },
+];
+let lightIdx = 0;
+$('btn-light').onclick = e => {
+  lightIdx = (lightIdx + 1) % lightModes.length;
+  const L = lightModes[lightIdx];
+  sun.color.setHex(L.sun); sun.intensity = L.sunI; hemi.intensity = L.hemi;
+  sun.position.set(...L.pos);
+  scene.background.setHex(L.bg); scene.fog.color.setHex(L.bg);
+  renderer.toneMappingExposure = L.exp;
+  document.body.style.background = '#' + L.bg.toString(16).padStart(6, '0');
+  e.target.textContent = 'Light: ' + L.name;
+};
+
+function flyTo(pos, target) {
+  camTween = { fromP: camera.position.clone(), toP: new THREE.Vector3(...pos), fromT: controls.target.clone(), toT: new THREE.Vector3(...target), t: 0 };
+}
+$('btn-front').onclick = () => flyTo([0, 12, 46], [0, 9.5, 0]);
+$('btn-top').onclick = () => flyTo([0, 46, 0.01], [0, 6, 0]);
+
+// ---------- loop ----------
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  // lid animation: lifts up, then slides over to rest on the table
+  const target = lidOn ? LID_ON : LID_OFF;
+  const lift = 24;
+  if (lid.position.distanceTo(target) > 0.01) {
+    const k = 1 - Math.pow(0.002, dt);
+    const horiz = new THREE.Vector2(lid.position.x, lid.position.z).distanceTo(new THREE.Vector2(target.x, target.z));
+    // stay high while moving sideways, so it never passes through the glass
+    const wantY = horiz > 0.3 ? Math.max(lift, target.y) : target.y;
+    if (horiz > 0.3 && lid.position.y < lift - 0.3) {
+      lid.position.y += (lift - lid.position.y) * k * 1.5;
+    } else {
+      lid.position.x += (target.x - lid.position.x) * k;
+      lid.position.z += (target.z - lid.position.z) * k;
+      lid.position.y += (wantY - lid.position.y) * k;
+    }
+  }
+  if (camTween) {
+    camTween.t = Math.min(1, camTween.t + dt * 1.2);
+    const s = camTween.t * camTween.t * (3 - 2 * camTween.t);
+    camera.position.lerpVectors(camTween.fromP, camTween.toP, s);
+    controls.target.lerpVectors(camTween.fromT, camTween.toT, s);
+    if (camTween.t >= 1) camTween = null;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

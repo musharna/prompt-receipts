@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#100f14">
+<title>Aether — An experiment in atmosphere</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="fog" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+<div class="page">
+<header><a class="brand" href="./" aria-label="Aether home"><span class="brand-icon">✳</span> aether<span class="brand-period">.</span></a><span class="header-note">A SMALL EXPERIMENT IN ATMOSPHERE</span><button id="about" class="text-button">Behind the fog <span>↗</span></button></header>
+<main>
+<div class="eyebrow"><span class="live-dot"></span> AN AMBIENT ASCII EXPLORATION</div>
+<h1>A little less noise.<br>A little more <em>feeling.</em></h1>
+<p class="intro">Drifting between the digital and the organic.<br>An ever-changing atmosphere, made entirely of characters.</p>
+<div class="hero-caption"><span class="small-line"></span> NOTHING HERE STAYS THE SAME</div>
+</main>
+<div class="bottom-area">
+<div class="scene-caption"><span class="cross">+</span><div>FORMLESS, BY DESIGN<span>Move your cursor. Leave a little trace.</span></div><span class="scene-number">FIG. 001 — LIVE RENDER</span></div>
+<section class="controls" aria-label="Fog controls">
+<div class="control-section palette-section"><label>01 <span>PALETTE</span></label><div class="palettes" role="group" aria-label="Colour palette"><button class="swatch active" data-palette="0" aria-label="Dusk palette" aria-pressed="true" style="--swatch:linear-gradient(135deg,#78a0fa,#a986e4,#ef9aa9)"></button><button class="swatch" data-palette="1" aria-label="Aurora palette" aria-pressed="false" style="--swatch:linear-gradient(135deg,#508bc9,#79d3b4,#c8e7bb)"></button><button class="swatch" data-palette="2" aria-label="Ember palette" aria-pressed="false" style="--swatch:linear-gradient(135deg,#aa486f,#e39874,#e6cb9b)"></button><button class="swatch" data-palette="3" aria-label="Silver palette" aria-pressed="false" style="--swatch:linear-gradient(135deg,#647383,#b6bdcc,#e3dfd9)"></button><span id="palette-name">Dusk</span></div></div>
+<div class="control-section"><label for="speed">02 <span>DRIFT SPEED</span><output id="speed-value">0.5×</output></label><input id="speed" type="range" min="0" max="1.5" step="0.1" value="0.5"></div>
+<div class="control-section"><label for="density">03 <span>DENSITY</span><output id="density-value">Medium</output></label><input id="density" type="range" min="0" max="100" value="55"></div>
+<div class="play-section"><button id="pause" aria-label="Pause animation"><span id="pause-icon">Ⅱ</span></button><span id="play-status">Pause motion</span></div>
+</section>
+<footer><span>BUILT FROM CHARACTERS. MADE TO FEEL.</span><div><span class="footer-dot"></span><span id="render-status">Rendering in real time</span><span class="footer-divider">/</span><span>TAKE A BREATH, STAY A WHILE ↗</span></div></footer>
+</div>
+</div>
+<dialog id="about-dialog"><button id="close-about" aria-label="Close">×</button><div class="eyebrow">BEHIND THE FOG</div><h2>A thousand characters.<br>One quiet moment.</h2><p>Layers of flowing noise become a field of ASCII characters. Each mark shifts in brightness and colour, creating an atmosphere that never quite repeats.</p><p>Move your cursor through the mist, find your palette, and set your own pace. Everything is drawn live in your browser.</p><span class="dialog-note">NO VIDEO. NO IMAGES. JUST A LITTLE MATH.</span></dialog>
+<script src="script.js"></script>
+</body></html>

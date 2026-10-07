@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="69mm" height="94mm" viewBox="0 0 69 94">
+  <title>Comet Fox — insert card</title>
+  <style>
+    .tw, .tw2 { transform-box: fill-box; transform-origin: center; }
+    .tw  { animation: twinkle 2.6s ease-in-out infinite; }
+    .tw2 { animation: blink 4s ease-in-out infinite; }
+    @keyframes twinkle { 0%,100% { opacity: 1; transform: scale(1) rotate(0deg); }
+                         50%     { opacity: .3; transform: scale(.45) rotate(45deg); } }
+    @keyframes blink   { 0%,100% { opacity: .9; } 50% { opacity: .1; } }
+    @media print, (prefers-reduced-motion: reduce) { .tw, .tw2 { animation: none; } }
+  </style>
+  <defs>
+    <linearGradient id="comet-fox-foil" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="69" y2="94"><stop offset="0.000" stop-color="#ffd6f5"/><stop offset="0.167" stop-color="#c8b6ff"/><stop offset="0.333" stop-color="#a0e7ff"/><stop offset="0.500" stop-color="#b9ffd8"/><stop offset="0.667" stop-color="#fff3b0"/><stop offset="0.833" stop-color="#ffc8a8"/><stop offset="1.000" stop-color="#ffd6f5"/></linearGradient>
+    <radialGradient id="comet-fox-bg" cx="50%" cy="35%" r="75%">
+      <stop offset="0" stop-color="#14407a"/><stop offset="1" stop-color="#050f26"/>
+    </radialGradient>
+    <clipPath id="comet-fox-win"><rect x="9" y="9" width="51" height="52" rx="2"/></clipPath>
+    
+    <radialGradient id="moon"><stop offset="0" stop-color="#fffbe6" stop-opacity="0.55"/>
+      <stop offset="0.7" stop-color="#d9d4ff" stop-opacity="0.18"/><stop offset="1" stop-color="#d9d4ff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="trail" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bff4ff" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#bff4ff" stop-opacity="0"/></linearGradient>
+    <radialGradient id="ember"><stop offset="0" stop-color="#ff7a1a" stop-opacity="0.55"/>
+      <stop offset="0.6" stop-color="#ff3d00" stop-opacity="0.15"/><stop offset="1" stop-color="#ff3d00" stop-opacity="0"/></radialGradient>
+    <linearGradient id="emberline" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#ff5a1f"/></linearGradient>
+    </defs>
+  <rect width="69" height="94" fill="url(#comet-fox-bg)"/>
+  <circle class="tw2" style="animation-delay:1.23s" cx="63.82" cy="89.17" r="0.12" fill="#fff" opacity="0.56"/>
+  <circle style="animation-delay:0.88s" cx="24.71" cy="68.24" r="0.2" fill="#fff" opacity="0.60"/>
+  <circle style="animation-delay:2.05s" cx="1.71" cy="8.06" r="0.28" fill="#fff" opacity="0.75"/>
+  <circle style="animation-delay:2.63s" cx="24.77" cy="5.41" r="0.12" fill="#fff" opacity="0.69"/>
+  <circle style="animation-delay:1.13s" cx="66.98" cy="34.10" r="0.2" fill="#fff" opacity="0.89"/>
+  <circle style="animation-delay:2.36s" cx="39.54" cy="76.54" r="0.15" fill="#fff" opacity="0.60"/>
+  <circle style="animation-delay:2.69s" cx="44.32" cy="17.11" r="0.15" fill="#fff" opacity="0.64"/>
+  <circle class="tw2" style="animation-delay:1.10s" cx="40.18" cy="7.74" r="0.28" fill="#fff" opacity="0.67"/>
+  <circle style="animation-delay:2.17s" cx="56.63" cy="31.10" r="0.2" fill="#fff" opacity="0.84"/>
+  <circle class="tw2" style="animation-delay:3.14s" cx="31.38" cy="20.52" r="0.15" fill="#fff" opacity="0.74"/>
+  <circle style="animation-delay:2.37s" cx="57.17" cy="22.37" r="0.15" fill="#fff" opacity="0.87"/>
+  <circle style="animation-delay:1.57s" cx="11.54" cy="91.65" r="0.12" fill="#fff" opacity="0.44"/>
+  <circle style="animation-delay:3.80s" cx="15.57" cy="1.20" r="0.15" fill="#fff" opacity="0.65"/>
+  <circle class="tw2" style="animation-delay:3.15s" cx="68.19" cy="70.41" r="0.2" fill="#fff" opacity="0.62"/>
+  <circle style="animation-delay:1.84s" cx="2.55" cy="24.85" r="0.15" fill="#fff" opacity="0.51"/>
+  <circle style="animation-delay:2.23s" cx="6.32" cy="52.30" r="0.15" fill="#fff" opacity="0.48"/>
+  <circle style="animation-delay:1.37s" cx="6.90" cy="15.50" r="0.12" fill="#fff" opacity="0.84"/>
+  <circle class="tw2" style="animation-delay:3.84s" cx="56.15" cy="84.15" r="0.28" fill="#fff" opacity="0.84"/>
+  <circle style="animation-delay:3.09s" cx="51.46" cy="51.31" r="0.28" fill="#fff" opacity="0.66"/>
+  <circle class="tw2" style="animation-delay:0.56s" cx="37.95" cy="77.69" r="0.12" fill="#fff" opacity="0.88"/>
+  <circle style="animation-delay:0.31s" cx="50.28" cy="40.46" r="0.15" fill="#fff" opacity="0.66"/>
+  <circle style="animation-delay:3.95s" cx="37.39" cy="22.10" r="0.28" fill="#fff" opacity="0.50"/>
+  <circle style="animation-delay:1.61s" cx="23.33" cy="2.22" r="0.15" fill="#fff" opacity="0.79"/>
+  <circle style="animation-delay:1.68s" cx="2.08" cy="61.53" r="0.28" fill="#fff" opacity="0.50"/>
+  <circle style="animation-delay:1.19s" cx="41.22" cy="93.25" r="0.15" fill="#fff" opacity="0.84"/>
+  <circle style="animation-delay:0.07s" cx="5.96" cy="82.40" r="0.28" fill="#fff" opacity="0.60"/>
+  <circle class="tw2" style="animation-delay:1.21s" cx="28.42" cy="64.04" r="0.28" fill="#fff" opacity="0.88"/>
+  <circle style="animation-delay:2.67s" cx="23.55" cy="36.43" r="0.28" fill="#fff" opacity="0.77"/>
+  <circle style="animation-delay:3.57s" cx="60.95" cy="50.65" r="0.12" fill="#fff" opacity="0.89"/>
+  <circle style="animation-delay:1.11s" cx="10.09" cy="34.88" r="0.28" fill="#fff" opacity="0.77"/>
+  <circle class="tw2" style="animation-delay:3.93s" cx="0.52" cy="3.48" r="0.12" fill="#fff" opacity="0.70"/>
+  <circle class="tw2" style="animation-delay:2.26s" cx="2.94" cy="75.87" r="0.2" fill="#fff" opacity="0.69"/>
+  <circle style="animation-delay:1.44s" cx="53.83" cy="16.95" r="0.28" fill="#fff" opacity="0.89"/>
+  <circle class="tw2" style="animation-delay:0.48s" cx="43.10" cy="65.46" r="0.15" fill="#fff" opacity="0.76"/>
+  <circle style="animation-delay:1.18s" cx="68.02" cy="12.79" r="0.15" fill="#fff" opacity="0.84"/>
+  <circle style="animation-delay:2.41s" cx="20.36" cy="74.72" r="0.12" fill="#fff" opacity="0.68"/>
+  <circle class="tw2" style="animation-delay:0.86s" cx="22.55" cy="12.60" r="0.12" fill="#fff" opacity="0.88"/>
+  <circle style="animation-delay:3.44s" cx="68.45" cy="71.21" r="0.15" fill="#fff" opacity="0.59"/>
+  <circle style="animation-delay:2.64s" cx="24.97" cy="61.21" r="0.2" fill="#fff" opacity="0.88"/>
+  <circle style="animation-delay:0.16s" cx="44.04" cy="33.52" r="0.2" fill="#fff" opacity="0.57"/>
+  <circle class="tw2" style="animation-delay:1.63s" cx="49.97" cy="71.28" r="0.15" fill="#fff" opacity="0.38"/>
+  <circle style="animation-delay:1.66s" cx="21.78" cy="40.17" r="0.15" fill="#fff" opacity="0.49"/>
+  <circle style="animation-delay:1.60s" cx="21.75" cy="63.05" r="0.28" fill="#fff" opacity="0.55"/>
+  <circle style="animation-delay:0.73s" cx="34.38" cy="1.53" r="0.28" fill="#fff" opacity="0.59"/>
+  <circle style="animation-delay:0.01s" cx="13.13" cy="72.68" r="0.12" fill="#fff" opacity="0.70"/>
+  <circle style="animation-delay:3.90s" cx="17.57" cy="69.29" r="0.28" fill="#fff" opacity="0.76"/>
+  <circle style="animation-delay:0.57s" cx="48.91" cy="62.83" r="0.2" fill="#fff" opacity="0.89"/>
+  <circle style="animation-delay:0.49s" cx="51.83" cy="76.29" r="0.28" fill="#fff" opacity="0.39"/>
+  <circle class="tw2" style="animation-delay:0.07s" cx="32.65" cy="13.68" r="0.2" fill="#fff" opacity="0.64"/>
+  <circle style="animation-delay:1.25s" cx="14.39" cy="60.68" r="0.2" fill="#fff" opacity="0.74"/>
+  <circle class="tw2" style="animation-delay:2.96s" cx="29.69" cy="85.75" r="0.2" fill="#fff" opacity="0.47"/>
+  <circle class="tw2" style="animation-delay:3.12s" cx="46.15" cy="74.03" r="0.15" fill="#fff" opacity="0.43"/>
+  <circle style="animation-delay:0.44s" cx="63.94" cy="65.48" r="0.2" fill="#fff" opacity="0.80"/>
+  <circle style="animation-delay:3.83s" cx="5.47" cy="7.64" r="0.12" fill="#fff" opacity="0.70"/>
+  <circle style="animation-delay:2.59s" cx="35.31" cy="25.57" r="0.28" fill="#fff" opacity="0.83"/>
+  <circle style="animation-delay:0.53s" cx="13.62" cy="69.09" r="0.12" fill="#fff" opacity="0.81"/>
+  <circle class="tw2" style="animation-delay:3.71s" cx="33.72" cy="69.23" r="0.15" fill="#fff" opacity="0.68"/>
+  <circle style="animation-delay:2.55s" cx="26.65" cy="4.28" r="0.28" fill="#fff" opacity="0.43"/>
+  <circle class="tw2" style="animation-delay:1.99s" cx="54.98" cy="33.26" r="0.28" fill="#fff" opacity="0.60"/>
+  <circle style="animation-delay:0.83s" cx="19.74" cy="67.50" r="0.12" fill="#fff" opacity="0.79"/>
+  <circle style="animation-delay:2.68s" cx="54.90" cy="13.43" r="0.15" fill="#fff" opacity="0.41"/>
+  <circle style="animation-delay:2.09s" cx="57.86" cy="70.71" r="0.15" fill="#fff" opacity="0.65"/>
+  <circle style="animation-delay:1.06s" cx="40.94" cy="87.62" r="0.15" fill="#fff" opacity="0.68"/>
+  <circle class="tw2" style="animation-delay:1.72s" cx="56.79" cy="67.51" r="0.15" fill="#fff" opacity="0.39"/>
+  <circle style="animation-delay:0.40s" cx="46.76" cy="35.57" r="0.2" fill="#fff" opacity="0.49"/>
+  <circle class="tw2" style="animation-delay:2.23s" cx="25.51" cy="83.20" r="0.28" fill="#fff" opacity="0.79"/>
+  <circle style="animation-delay:2.94s" cx="23.14" cy="52.99" r="0.12" fill="#fff" opacity="0.43"/>
+  <circle style="animation-delay:0.21s" cx="38.76" cy="59.87" r="0.12" fill="#fff" opacity="0.86"/>
+  <circle style="animation-delay:2.69s" cx="18.32" cy="69.41" r="0.28" fill="#fff" opacity="0.52"/>
+  <circle style="animation-delay:2.67s" cx="55.32" cy="85.59" r="0.12" fill="#fff" opacity="0.56"/>
+  <rect x="5.5" y="5.5" width="58" height="83" rx="3" fill="none" stroke="url(#comet-fox-foil)" stroke-width="0.8"/>
+  <rect x="6.9" y="6.9" width="55.2" height="80.2" rx="2.2" fill="none" stroke="url(#comet-fox-foil)" stroke-width="0.2"/>
+  <path d="M5.5,3.9 L7.1,5.5 L5.5,7.1 L3.9,5.5 Z" fill="url(#comet-fox-foil)"/>
+  <path d="M63.5,3.9 L65.1,5.5 L63.5,7.1 L61.9,5.5 Z" fill="url(#comet-fox-foil)"/>
+  <path d="M5.5,86.9 L7.1,88.5 L5.5,90.1 L3.9,88.5 Z" fill="url(#comet-fox-foil)"/>
+  <path d="M63.5,86.9 L65.1,88.5 L63.5,90.1 L61.9,88.5 Z" fill="url(#comet-fox-foil)"/>
+  <rect x="9" y="9" width="51" height="52" rx="2" fill="#000" fill-opacity="0.28"/>
+  <g clip-path="url(#comet-fox-win)"><g transform="translate(39.0 36)">
+    <path d="M-6.5,-1.5 C-13,-3 -21,3 -26,16 C-19,9 -12,5.5 -5.5,2.5 Z" fill="url(#trail)" opacity="0.8"/>
+    <path d="M-6.5,-1.5 C-13,-3 -21,3 -26,16 C-19,9 -12,5.5 -5.5,2.5 Z" fill="#0b2347" fill-opacity="0.35" stroke="url(#comet-fox-foil)" stroke-width="0.5" stroke-linejoin="round"/>
+    <path d="M-9,-3.6 C-15,-3 -22,1 -27,9 M-12,6 C-17,9 -21,13 -23,19 M-8,4 C-15,7 -19,12 -21,15.5" fill="none" stroke="url(#comet-fox-foil)" stroke-width="0.3" stroke-linecap="round"/>
+    <path d="M17.5,-9 L12.5,-7.6 L10.4,-4.6 L8.6,-0.8 L10.6,4.6 L13.8,8.6 L11.4,9.6 L6.4,2.6 L0,3.4 L-4,6.4 L-9.4,11.2 L-10.6,10 L-6.2,1.8 L-7.6,-1.2 L-2,-4.4 L5,-7.2 L8,-11 L9,-17.4 L11,-12.4 L13.2,-16.8 L13.8,-11.6 Z" fill="#0b2347" stroke="url(#comet-fox-foil)" stroke-width="0.6" stroke-linejoin="round"/>
+    <path d="M8,-11 L10.4,-4.6 M5,-7.2 L8.6,-0.8 M-2,-4.4 L0,3.4 M5,-7.2 L6.4,2.6 M-6.2,1.8 L0,3.4" fill="none" stroke="url(#comet-fox-foil)" stroke-width="0.22" stroke-linecap="round"/>
+    <path d="M12.5,-7.6 L10.4,-4.6 L14,-6.4 Z" fill="url(#comet-fox-foil)"/>
+    <path d="M13,-10.6 l1.4,-0.4" stroke="url(#comet-fox-foil)" stroke-width="0.55" stroke-linecap="round"/>
+    <circle cx="17.5" cy="-9" r="0.55" fill="url(#comet-fox-foil)"/>
+    <g transform="translate(-26 16)">
+      <path d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" transform="scale(2.6)" fill="url(#comet-fox-foil)"/>
+    </g>
+    </g></g>
+  <rect x="9" y="9" width="51" height="52" rx="2" fill="none" stroke="url(#comet-fox-foil)" stroke-width="0.35"/>
+  <g transform="translate(14.00 15.00) scale(1.60)"><path class="tw" style="animation-delay:0.00s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(54.00 16.00) scale(1.20)"><path class="tw" style="animation-delay:0.37s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(52.00 53.00) scale(1.80)"><path class="tw" style="animation-delay:0.74s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(16.00 54.00) scale(1.00)"><path class="tw" style="animation-delay:1.11s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(47.00 12.00) scale(0.70)"><path class="tw" style="animation-delay:1.48s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(13.00 33.00) scale(0.80)"><path class="tw" style="animation-delay:1.85s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(57.00 37.00) scale(0.90)"><path class="tw" style="animation-delay:2.22s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(35.00 12.50) scale(0.60)"><path class="tw" style="animation-delay:2.59s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(45.44 19.36) scale(0.71)"><path class="tw" style="animation-delay:0.36s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(55.39 12.14) scale(0.70)"><path class="tw" style="animation-delay:0.73s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(47.57 44.26) scale(0.44)"><path class="tw" style="animation-delay:1.10s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(45.44 48.04) scale(0.62)"><path class="tw" style="animation-delay:1.47s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(56.29 56.45) scale(0.62)"><path class="tw" style="animation-delay:1.84s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(54.48 17.90) scale(0.50)"><path class="tw" style="animation-delay:2.21s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <text x="34.5" y="69.2" text-anchor="middle" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="4.3" font-weight="700" letter-spacing="0.6" fill="url(#comet-fox-foil)">COMET FOX</text>
+  <path d="M17,71.8 H52" stroke="url(#comet-fox-foil)" stroke-width="0.2"/>
+  <path d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" transform="translate(34.5 71.8) scale(0.7)" fill="url(#comet-fox-foil)"/>
+  <text x="34.5" y="75.6" text-anchor="middle" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="2.2" letter-spacing="0.5" fill="#e8e4ff" fill-opacity="0.8">CELESTIAL · SWIFT</text>
+  <text text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="2.4" fill="#f3efff" fill-opacity="0.85"><tspan x="34.5" y="79.2">“Leaves a trail of wishes</tspan><tspan x="34.5" y="82.2">wherever it runs.”</tspan></text>
+  <text x="11" y="85.8" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="2" letter-spacing="0.3" fill="url(#comet-fox-foil)">No. 02 / 03</text>
+  <g transform="translate(57 85.1)"><path d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" transform="translate(1 -0.6) scale(1.2)" fill="url(#comet-fox-foil)"/><path d="M0,0 L-2.4,1.6 M0.2,0.6 L-1.6,2" stroke="url(#comet-fox-foil)" stroke-width="0.3" stroke-linecap="round"/></g>
+</svg>

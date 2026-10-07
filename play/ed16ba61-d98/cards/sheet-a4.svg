@@ -1,0 +1,427 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="297mm" height="210mm" viewBox="0 0 297 210">
+  <style>
+    .tw, .tw2 { transform-box: fill-box; transform-origin: center; }
+    .tw  { animation: twinkle 2.6s ease-in-out infinite; }
+    .tw2 { animation: blink 4s ease-in-out infinite; }
+    @keyframes twinkle { 0%,100% { opacity: 1; transform: scale(1) rotate(0deg); }
+                         50%     { opacity: .3; transform: scale(.45) rotate(45deg); } }
+    @keyframes blink   { 0%,100% { opacity: .9; } 50% { opacity: .1; } }
+    @media print, (prefers-reduced-motion: reduce) { .tw, .tw2 { animation: none; } }
+  </style>
+<defs>
+    <linearGradient id="night-moth-foil" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="69" y2="94"><stop offset="0.000" stop-color="#f4f7ff"/><stop offset="0.167" stop-color="#c9d3ff"/><stop offset="0.333" stop-color="#e6d6ff"/><stop offset="0.500" stop-color="#bfeaff"/><stop offset="0.667" stop-color="#ffffff"/><stop offset="0.833" stop-color="#d8dcf0"/><stop offset="1.000" stop-color="#f4f7ff"/></linearGradient>
+    <radialGradient id="night-moth-bg" cx="50%" cy="35%" r="75%">
+      <stop offset="0" stop-color="#2b2163"/><stop offset="1" stop-color="#0c0a26"/>
+    </radialGradient>
+    <clipPath id="night-moth-win"><rect x="9" y="9" width="51" height="52" rx="2"/></clipPath>
+    
+    <radialGradient id="moon"><stop offset="0" stop-color="#fffbe6" stop-opacity="0.55"/>
+      <stop offset="0.7" stop-color="#d9d4ff" stop-opacity="0.18"/><stop offset="1" stop-color="#d9d4ff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="trail" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bff4ff" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#bff4ff" stop-opacity="0"/></linearGradient>
+    <radialGradient id="ember"><stop offset="0" stop-color="#ff7a1a" stop-opacity="0.55"/>
+      <stop offset="0.6" stop-color="#ff3d00" stop-opacity="0.15"/><stop offset="1" stop-color="#ff3d00" stop-opacity="0"/></radialGradient>
+    <linearGradient id="emberline" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#ff5a1f"/></linearGradient>
+    
+    <linearGradient id="comet-fox-foil" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="69" y2="94"><stop offset="0.000" stop-color="#ffd6f5"/><stop offset="0.167" stop-color="#c8b6ff"/><stop offset="0.333" stop-color="#a0e7ff"/><stop offset="0.500" stop-color="#b9ffd8"/><stop offset="0.667" stop-color="#fff3b0"/><stop offset="0.833" stop-color="#ffc8a8"/><stop offset="1.000" stop-color="#ffd6f5"/></linearGradient>
+    <radialGradient id="comet-fox-bg" cx="50%" cy="35%" r="75%">
+      <stop offset="0" stop-color="#14407a"/><stop offset="1" stop-color="#050f26"/>
+    </radialGradient>
+    <clipPath id="comet-fox-win"><rect x="9" y="9" width="51" height="52" rx="2"/></clipPath>
+    
+    <radialGradient id="moon"><stop offset="0" stop-color="#fffbe6" stop-opacity="0.55"/>
+      <stop offset="0.7" stop-color="#d9d4ff" stop-opacity="0.18"/><stop offset="1" stop-color="#d9d4ff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="trail" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bff4ff" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#bff4ff" stop-opacity="0"/></linearGradient>
+    <radialGradient id="ember"><stop offset="0" stop-color="#ff7a1a" stop-opacity="0.55"/>
+      <stop offset="0.6" stop-color="#ff3d00" stop-opacity="0.15"/><stop offset="1" stop-color="#ff3d00" stop-opacity="0"/></radialGradient>
+    <linearGradient id="emberline" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#ff5a1f"/></linearGradient>
+    
+    <linearGradient id="ember-beetle-foil" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="69" y2="94"><stop offset="0.000" stop-color="#fff1c1"/><stop offset="0.167" stop-color="#e9b949"/><stop offset="0.333" stop-color="#fff6d8"/><stop offset="0.500" stop-color="#d98b3a"/><stop offset="0.667" stop-color="#ffe08a"/><stop offset="0.833" stop-color="#c8742e"/><stop offset="1.000" stop-color="#fff1c1"/></linearGradient>
+    <radialGradient id="ember-beetle-bg" cx="50%" cy="35%" r="75%">
+      <stop offset="0" stop-color="#5a1a0a"/><stop offset="1" stop-color="#160504"/>
+    </radialGradient>
+    <clipPath id="ember-beetle-win"><rect x="9" y="9" width="51" height="52" rx="2"/></clipPath>
+    
+    <radialGradient id="moon"><stop offset="0" stop-color="#fffbe6" stop-opacity="0.55"/>
+      <stop offset="0.7" stop-color="#d9d4ff" stop-opacity="0.18"/><stop offset="1" stop-color="#d9d4ff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="trail" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bff4ff" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#bff4ff" stop-opacity="0"/></linearGradient>
+    <radialGradient id="ember"><stop offset="0" stop-color="#ff7a1a" stop-opacity="0.55"/>
+      <stop offset="0.6" stop-color="#ff3d00" stop-opacity="0.15"/><stop offset="1" stop-color="#ff3d00" stop-opacity="0"/></radialGradient>
+    <linearGradient id="emberline" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#ff5a1f"/></linearGradient>
+    </defs>
+<rect width="297" height="210" fill="#fff"/>
+<g id="row" transform="translate(41.0 9.0)"><svg x="0" y="0" width="69" height="94" viewBox="0 0 69 94"><rect width="69" height="94" fill="url(#night-moth-bg)"/>
+  <circle style="animation-delay:3.42s" cx="31.21" cy="52.62" r="0.28" fill="#fff" opacity="0.45"/>
+  <circle class="tw2" style="animation-delay:1.21s" cx="55.47" cy="44.72" r="0.15" fill="#fff" opacity="0.40"/>
+  <circle style="animation-delay:1.58s" cx="55.87" cy="65.18" r="0.12" fill="#fff" opacity="0.60"/>
+  <circle style="animation-delay:0.25s" cx="50.99" cy="61.11" r="0.12" fill="#fff" opacity="0.37"/>
+  <circle class="tw2" style="animation-delay:2.36s" cx="60.69" cy="56.36" r="0.28" fill="#fff" opacity="0.46"/>
+  <circle style="animation-delay:1.83s" cx="16.12" cy="27.65" r="0.12" fill="#fff" opacity="0.50"/>
+  <circle style="animation-delay:1.26s" cx="68.84" cy="93.60" r="0.12" fill="#fff" opacity="0.48"/>
+  <circle style="animation-delay:3.39s" cx="19.94" cy="6.60" r="0.12" fill="#fff" opacity="0.56"/>
+  <circle class="tw2" style="animation-delay:3.71s" cx="66.10" cy="79.65" r="0.12" fill="#fff" opacity="0.38"/>
+  <circle class="tw2" style="animation-delay:2.52s" cx="25.91" cy="66.64" r="0.28" fill="#fff" opacity="0.78"/>
+  <circle class="tw2" style="animation-delay:1.64s" cx="18.61" cy="8.19" r="0.2" fill="#fff" opacity="0.86"/>
+  <circle class="tw2" style="animation-delay:3.19s" cx="9.29" cy="66.46" r="0.12" fill="#fff" opacity="0.45"/>
+  <circle style="animation-delay:3.08s" cx="38.59" cy="42.06" r="0.15" fill="#fff" opacity="0.58"/>
+  <circle class="tw2" style="animation-delay:3.46s" cx="26.48" cy="37.12" r="0.15" fill="#fff" opacity="0.89"/>
+  <circle class="tw2" style="animation-delay:1.58s" cx="40.90" cy="93.80" r="0.12" fill="#fff" opacity="0.82"/>
+  <circle class="tw2" style="animation-delay:1.03s" cx="44.29" cy="9.43" r="0.15" fill="#fff" opacity="0.77"/>
+  <circle class="tw2" style="animation-delay:0.83s" cx="22.70" cy="27.85" r="0.12" fill="#fff" opacity="0.70"/>
+  <circle class="tw2" style="animation-delay:2.35s" cx="1.07" cy="34.66" r="0.28" fill="#fff" opacity="0.81"/>
+  <circle class="tw2" style="animation-delay:0.91s" cx="9.37" cy="36.29" r="0.15" fill="#fff" opacity="0.69"/>
+  <circle style="animation-delay:1.55s" cx="50.05" cy="14.90" r="0.15" fill="#fff" opacity="0.62"/>
+  <circle class="tw2" style="animation-delay:3.85s" cx="5.42" cy="4.46" r="0.12" fill="#fff" opacity="0.48"/>
+  <circle class="tw2" style="animation-delay:0.70s" cx="48.62" cy="24.16" r="0.28" fill="#fff" opacity="0.75"/>
+  <circle class="tw2" style="animation-delay:3.67s" cx="4.75" cy="21.47" r="0.12" fill="#fff" opacity="0.46"/>
+  <circle class="tw2" style="animation-delay:0.19s" cx="1.14" cy="25.30" r="0.28" fill="#fff" opacity="0.51"/>
+  <circle style="animation-delay:3.56s" cx="36.64" cy="91.47" r="0.12" fill="#fff" opacity="0.89"/>
+  <circle style="animation-delay:3.69s" cx="45.33" cy="64.97" r="0.15" fill="#fff" opacity="0.61"/>
+  <circle class="tw2" style="animation-delay:2.54s" cx="24.67" cy="29.31" r="0.12" fill="#fff" opacity="0.62"/>
+  <circle class="tw2" style="animation-delay:2.18s" cx="50.40" cy="29.98" r="0.12" fill="#fff" opacity="0.76"/>
+  <circle style="animation-delay:3.66s" cx="62.11" cy="69.29" r="0.15" fill="#fff" opacity="0.54"/>
+  <circle style="animation-delay:0.12s" cx="47.28" cy="84.68" r="0.28" fill="#fff" opacity="0.62"/>
+  <circle style="animation-delay:2.44s" cx="1.00" cy="62.25" r="0.28" fill="#fff" opacity="0.39"/>
+  <circle style="animation-delay:1.55s" cx="44.12" cy="93.37" r="0.28" fill="#fff" opacity="0.75"/>
+  <circle style="animation-delay:2.06s" cx="40.09" cy="41.41" r="0.12" fill="#fff" opacity="0.52"/>
+  <circle style="animation-delay:2.46s" cx="6.05" cy="2.10" r="0.12" fill="#fff" opacity="0.86"/>
+  <circle class="tw2" style="animation-delay:2.45s" cx="17.65" cy="1.06" r="0.2" fill="#fff" opacity="0.64"/>
+  <circle style="animation-delay:0.97s" cx="52.01" cy="32.20" r="0.28" fill="#fff" opacity="0.57"/>
+  <circle style="animation-delay:1.54s" cx="17.29" cy="59.61" r="0.15" fill="#fff" opacity="0.67"/>
+  <circle style="animation-delay:3.58s" cx="21.84" cy="12.80" r="0.28" fill="#fff" opacity="0.37"/>
+  <circle class="tw2" style="animation-delay:1.89s" cx="4.43" cy="92.15" r="0.15" fill="#fff" opacity="0.86"/>
+  <circle style="animation-delay:2.87s" cx="57.33" cy="35.96" r="0.28" fill="#fff" opacity="0.81"/>
+  <circle class="tw2" style="animation-delay:2.43s" cx="43.11" cy="30.11" r="0.12" fill="#fff" opacity="0.72"/>
+  <circle style="animation-delay:1.62s" cx="19.39" cy="33.30" r="0.12" fill="#fff" opacity="0.45"/>
+  <circle style="animation-delay:3.94s" cx="53.08" cy="25.04" r="0.15" fill="#fff" opacity="0.41"/>
+  <circle style="animation-delay:2.74s" cx="7.52" cy="50.33" r="0.2" fill="#fff" opacity="0.46"/>
+  <circle style="animation-delay:2.14s" cx="32.78" cy="16.80" r="0.12" fill="#fff" opacity="0.37"/>
+  <circle style="animation-delay:3.17s" cx="15.63" cy="73.19" r="0.15" fill="#fff" opacity="0.85"/>
+  <circle class="tw2" style="animation-delay:1.81s" cx="6.02" cy="87.66" r="0.28" fill="#fff" opacity="0.69"/>
+  <circle style="animation-delay:2.61s" cx="62.79" cy="35.42" r="0.2" fill="#fff" opacity="0.46"/>
+  <circle class="tw2" style="animation-delay:3.60s" cx="49.81" cy="76.92" r="0.12" fill="#fff" opacity="0.89"/>
+  <circle class="tw2" style="animation-delay:2.87s" cx="67.44" cy="50.47" r="0.2" fill="#fff" opacity="0.36"/>
+  <circle style="animation-delay:3.07s" cx="34.83" cy="3.49" r="0.2" fill="#fff" opacity="0.62"/>
+  <circle style="animation-delay:0.14s" cx="1.96" cy="76.06" r="0.12" fill="#fff" opacity="0.64"/>
+  <circle class="tw2" style="animation-delay:2.07s" cx="47.37" cy="86.10" r="0.28" fill="#fff" opacity="0.75"/>
+  <circle style="animation-delay:2.76s" cx="57.96" cy="64.80" r="0.28" fill="#fff" opacity="0.77"/>
+  <circle style="animation-delay:3.37s" cx="30.32" cy="52.52" r="0.15" fill="#fff" opacity="0.66"/>
+  <circle class="tw2" style="animation-delay:0.56s" cx="21.51" cy="35.83" r="0.15" fill="#fff" opacity="0.65"/>
+  <circle style="animation-delay:2.01s" cx="18.83" cy="46.78" r="0.28" fill="#fff" opacity="0.68"/>
+  <circle style="animation-delay:3.96s" cx="1.92" cy="91.12" r="0.28" fill="#fff" opacity="0.42"/>
+  <circle style="animation-delay:3.83s" cx="6.43" cy="15.68" r="0.28" fill="#fff" opacity="0.86"/>
+  <circle class="tw2" style="animation-delay:3.60s" cx="18.58" cy="44.48" r="0.15" fill="#fff" opacity="0.86"/>
+  <circle class="tw2" style="animation-delay:2.47s" cx="63.48" cy="49.35" r="0.12" fill="#fff" opacity="0.86"/>
+  <circle class="tw2" style="animation-delay:0.62s" cx="8.93" cy="73.25" r="0.12" fill="#fff" opacity="0.36"/>
+  <circle style="animation-delay:0.42s" cx="19.60" cy="68.02" r="0.15" fill="#fff" opacity="0.75"/>
+  <circle style="animation-delay:2.81s" cx="8.47" cy="47.98" r="0.2" fill="#fff" opacity="0.83"/>
+  <circle style="animation-delay:3.46s" cx="1.60" cy="59.50" r="0.15" fill="#fff" opacity="0.64"/>
+  <circle class="tw2" style="animation-delay:2.96s" cx="15.07" cy="20.32" r="0.15" fill="#fff" opacity="0.80"/>
+  <circle style="animation-delay:0.78s" cx="62.28" cy="29.69" r="0.2" fill="#fff" opacity="0.78"/>
+  <circle class="tw2" style="animation-delay:0.35s" cx="13.42" cy="9.11" r="0.15" fill="#fff" opacity="0.56"/>
+  <circle class="tw2" style="animation-delay:2.51s" cx="30.00" cy="88.47" r="0.15" fill="#fff" opacity="0.79"/>
+  <circle style="animation-delay:3.87s" cx="6.63" cy="53.57" r="0.2" fill="#fff" opacity="0.41"/>
+  <rect x="5.5" y="5.5" width="58" height="83" rx="3" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.8"/>
+  <rect x="6.9" y="6.9" width="55.2" height="80.2" rx="2.2" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.2"/>
+  <path d="M5.5,3.9 L7.1,5.5 L5.5,7.1 L3.9,5.5 Z" fill="url(#night-moth-foil)"/>
+  <path d="M63.5,3.9 L65.1,5.5 L63.5,7.1 L61.9,5.5 Z" fill="url(#night-moth-foil)"/>
+  <path d="M5.5,86.9 L7.1,88.5 L5.5,90.1 L3.9,88.5 Z" fill="url(#night-moth-foil)"/>
+  <path d="M63.5,86.9 L65.1,88.5 L63.5,90.1 L61.9,88.5 Z" fill="url(#night-moth-foil)"/>
+  <rect x="9" y="9" width="51" height="52" rx="2" fill="#000" fill-opacity="0.28"/>
+  <g clip-path="url(#night-moth-win)"><g transform="translate(34.5 36)">
+    <circle cx="0" cy="-4" r="17" fill="url(#moon)"/>
+    <g>
+      <path d="M1,-4 C6,-15 18,-18 21.5,-11.5 C24,-6 17,1.5 1.6,1.2 Z" fill="#1b1546" stroke="url(#night-moth-foil)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M1.6,1.4 C12,1 17.5,7 14.5,13 C11.5,17.5 4,14.5 1.4,7 Z" fill="#1b1546" stroke="url(#night-moth-foil)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M2,-2 L18,-11.5 M2,-1 L15,-3.5 M2.5,-3 Q8,-12 13,-15.5 M2,3 L13,11"
+            fill="none" stroke="url(#night-moth-foil)" stroke-width="0.25" stroke-linecap="round"/>
+      <circle cx="12" cy="-8" r="3" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.4"/>
+      <circle cx="12" cy="-8" r="1.3" fill="url(#night-moth-foil)"/>
+      <circle cx="9" cy="8.5" r="1.7" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.35"/>
+      <path d="M0.6,-8.6 C2,-13 5,-16 8.5,-17.5" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.35" stroke-linecap="round"/>
+      <path d="M2.6,-12.4 l1.2,-0.3 M4.2,-14.6 l1.2,0 M6,-16.3 l1.1,0.3"
+            stroke="url(#night-moth-foil)" stroke-width="0.25" stroke-linecap="round"/>
+    </g>
+    <g transform="scale(-1 1)">
+      <path d="M1,-4 C6,-15 18,-18 21.5,-11.5 C24,-6 17,1.5 1.6,1.2 Z" fill="#1b1546" stroke="url(#night-moth-foil)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M1.6,1.4 C12,1 17.5,7 14.5,13 C11.5,17.5 4,14.5 1.4,7 Z" fill="#1b1546" stroke="url(#night-moth-foil)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M2,-2 L18,-11.5 M2,-1 L15,-3.5 M2.5,-3 Q8,-12 13,-15.5 M2,3 L13,11"
+            fill="none" stroke="url(#night-moth-foil)" stroke-width="0.25" stroke-linecap="round"/>
+      <circle cx="12" cy="-8" r="3" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.4"/>
+      <circle cx="12" cy="-8" r="1.3" fill="url(#night-moth-foil)"/>
+      <circle cx="9" cy="8.5" r="1.7" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.35"/>
+      <path d="M0.6,-8.6 C2,-13 5,-16 8.5,-17.5" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.35" stroke-linecap="round"/>
+      <path d="M2.6,-12.4 l1.2,-0.3 M4.2,-14.6 l1.2,0 M6,-16.3 l1.1,0.3"
+            stroke="url(#night-moth-foil)" stroke-width="0.25" stroke-linecap="round"/>
+    </g>
+    <ellipse cx="0" cy="2.5" rx="1.7" ry="8.5" fill="#1b1546" stroke="url(#night-moth-foil)" stroke-width="0.5"/>
+    <path d="M-1.4,0 h2.8 M-1.5,2.5 h3 M-1.4,5 h2.8 M-1,7.5 h2" stroke="url(#night-moth-foil)" stroke-width="0.25"/>
+    <circle cx="0" cy="-7.2" r="1.9" fill="#1b1546" stroke="url(#night-moth-foil)" stroke-width="0.5"/>
+    </g></g>
+  <rect x="9" y="9" width="51" height="52" rx="2" fill="none" stroke="url(#night-moth-foil)" stroke-width="0.35"/>
+  <g transform="translate(14.00 15.00) scale(1.60)"><path class="tw" style="animation-delay:0.00s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(54.00 16.00) scale(1.20)"><path class="tw" style="animation-delay:0.37s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(52.00 53.00) scale(1.80)"><path class="tw" style="animation-delay:0.74s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(16.00 54.00) scale(1.00)"><path class="tw" style="animation-delay:1.11s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(47.00 12.00) scale(0.70)"><path class="tw" style="animation-delay:1.48s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(13.00 33.00) scale(0.80)"><path class="tw" style="animation-delay:1.85s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(57.00 37.00) scale(0.90)"><path class="tw" style="animation-delay:2.22s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(35.00 12.50) scale(0.60)"><path class="tw" style="animation-delay:2.59s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(34.77 47.39) scale(0.58)"><path class="tw" style="animation-delay:0.36s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(43.23 20.07) scale(0.42)"><path class="tw" style="animation-delay:0.73s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(15.99 12.80) scale(0.59)"><path class="tw" style="animation-delay:1.10s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(35.20 38.30) scale(0.45)"><path class="tw" style="animation-delay:1.47s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(19.67 20.79) scale(0.69)"><path class="tw" style="animation-delay:1.84s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <g transform="translate(57.54 55.49) scale(0.43)"><path class="tw" style="animation-delay:2.21s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#night-moth-foil)"/></g>
+  <text x="34.5" y="69.2" text-anchor="middle" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="4.3" font-weight="700" letter-spacing="0.6" fill="url(#night-moth-foil)">NIGHT MOTH</text>
+  <path d="M17,71.8 H52" stroke="url(#night-moth-foil)" stroke-width="0.2"/>
+  <path d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" transform="translate(34.5 71.8) scale(0.7)" fill="url(#night-moth-foil)"/>
+  <text x="34.5" y="75.6" text-anchor="middle" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="2.2" letter-spacing="0.5" fill="#e8e4ff" fill-opacity="0.8">LUNAR · NOCTURNE</text>
+  <text text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="2.4" fill="#f3efff" fill-opacity="0.85"><tspan x="34.5" y="79.2">“Drinks the moonlight</tspan><tspan x="34.5" y="82.2">others leave behind.”</tspan></text>
+  <text x="11" y="85.8" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="2" letter-spacing="0.3" fill="url(#night-moth-foil)">No. 01 / 03</text>
+  <g transform="translate(57 85.1)"><path d="M1.2,-1.6 A1.8,1.8 0 1 0 1.2,1.6 A1.4,1.4 0 1 1 1.2,-1.6 Z" fill="url(#night-moth-foil)"/></g></svg><svg x="73" y="0" width="69" height="94" viewBox="0 0 69 94"><rect width="69" height="94" fill="url(#comet-fox-bg)"/>
+  <circle class="tw2" style="animation-delay:1.23s" cx="63.82" cy="89.17" r="0.12" fill="#fff" opacity="0.56"/>
+  <circle style="animation-delay:0.88s" cx="24.71" cy="68.24" r="0.2" fill="#fff" opacity="0.60"/>
+  <circle style="animation-delay:2.05s" cx="1.71" cy="8.06" r="0.28" fill="#fff" opacity="0.75"/>
+  <circle style="animation-delay:2.63s" cx="24.77" cy="5.41" r="0.12" fill="#fff" opacity="0.69"/>
+  <circle style="animation-delay:1.13s" cx="66.98" cy="34.10" r="0.2" fill="#fff" opacity="0.89"/>
+  <circle style="animation-delay:2.36s" cx="39.54" cy="76.54" r="0.15" fill="#fff" opacity="0.60"/>
+  <circle style="animation-delay:2.69s" cx="44.32" cy="17.11" r="0.15" fill="#fff" opacity="0.64"/>
+  <circle class="tw2" style="animation-delay:1.10s" cx="40.18" cy="7.74" r="0.28" fill="#fff" opacity="0.67"/>
+  <circle style="animation-delay:2.17s" cx="56.63" cy="31.10" r="0.2" fill="#fff" opacity="0.84"/>
+  <circle class="tw2" style="animation-delay:3.14s" cx="31.38" cy="20.52" r="0.15" fill="#fff" opacity="0.74"/>
+  <circle style="animation-delay:2.37s" cx="57.17" cy="22.37" r="0.15" fill="#fff" opacity="0.87"/>
+  <circle style="animation-delay:1.57s" cx="11.54" cy="91.65" r="0.12" fill="#fff" opacity="0.44"/>
+  <circle style="animation-delay:3.80s" cx="15.57" cy="1.20" r="0.15" fill="#fff" opacity="0.65"/>
+  <circle class="tw2" style="animation-delay:3.15s" cx="68.19" cy="70.41" r="0.2" fill="#fff" opacity="0.62"/>
+  <circle style="animation-delay:1.84s" cx="2.55" cy="24.85" r="0.15" fill="#fff" opacity="0.51"/>
+  <circle style="animation-delay:2.23s" cx="6.32" cy="52.30" r="0.15" fill="#fff" opacity="0.48"/>
+  <circle style="animation-delay:1.37s" cx="6.90" cy="15.50" r="0.12" fill="#fff" opacity="0.84"/>
+  <circle class="tw2" style="animation-delay:3.84s" cx="56.15" cy="84.15" r="0.28" fill="#fff" opacity="0.84"/>
+  <circle style="animation-delay:3.09s" cx="51.46" cy="51.31" r="0.28" fill="#fff" opacity="0.66"/>
+  <circle class="tw2" style="animation-delay:0.56s" cx="37.95" cy="77.69" r="0.12" fill="#fff" opacity="0.88"/>
+  <circle style="animation-delay:0.31s" cx="50.28" cy="40.46" r="0.15" fill="#fff" opacity="0.66"/>
+  <circle style="animation-delay:3.95s" cx="37.39" cy="22.10" r="0.28" fill="#fff" opacity="0.50"/>
+  <circle style="animation-delay:1.61s" cx="23.33" cy="2.22" r="0.15" fill="#fff" opacity="0.79"/>
+  <circle style="animation-delay:1.68s" cx="2.08" cy="61.53" r="0.28" fill="#fff" opacity="0.50"/>
+  <circle style="animation-delay:1.19s" cx="41.22" cy="93.25" r="0.15" fill="#fff" opacity="0.84"/>
+  <circle style="animation-delay:0.07s" cx="5.96" cy="82.40" r="0.28" fill="#fff" opacity="0.60"/>
+  <circle class="tw2" style="animation-delay:1.21s" cx="28.42" cy="64.04" r="0.28" fill="#fff" opacity="0.88"/>
+  <circle style="animation-delay:2.67s" cx="23.55" cy="36.43" r="0.28" fill="#fff" opacity="0.77"/>
+  <circle style="animation-delay:3.57s" cx="60.95" cy="50.65" r="0.12" fill="#fff" opacity="0.89"/>
+  <circle style="animation-delay:1.11s" cx="10.09" cy="34.88" r="0.28" fill="#fff" opacity="0.77"/>
+  <circle class="tw2" style="animation-delay:3.93s" cx="0.52" cy="3.48" r="0.12" fill="#fff" opacity="0.70"/>
+  <circle class="tw2" style="animation-delay:2.26s" cx="2.94" cy="75.87" r="0.2" fill="#fff" opacity="0.69"/>
+  <circle style="animation-delay:1.44s" cx="53.83" cy="16.95" r="0.28" fill="#fff" opacity="0.89"/>
+  <circle class="tw2" style="animation-delay:0.48s" cx="43.10" cy="65.46" r="0.15" fill="#fff" opacity="0.76"/>
+  <circle style="animation-delay:1.18s" cx="68.02" cy="12.79" r="0.15" fill="#fff" opacity="0.84"/>
+  <circle style="animation-delay:2.41s" cx="20.36" cy="74.72" r="0.12" fill="#fff" opacity="0.68"/>
+  <circle class="tw2" style="animation-delay:0.86s" cx="22.55" cy="12.60" r="0.12" fill="#fff" opacity="0.88"/>
+  <circle style="animation-delay:3.44s" cx="68.45" cy="71.21" r="0.15" fill="#fff" opacity="0.59"/>
+  <circle style="animation-delay:2.64s" cx="24.97" cy="61.21" r="0.2" fill="#fff" opacity="0.88"/>
+  <circle style="animation-delay:0.16s" cx="44.04" cy="33.52" r="0.2" fill="#fff" opacity="0.57"/>
+  <circle class="tw2" style="animation-delay:1.63s" cx="49.97" cy="71.28" r="0.15" fill="#fff" opacity="0.38"/>
+  <circle style="animation-delay:1.66s" cx="21.78" cy="40.17" r="0.15" fill="#fff" opacity="0.49"/>
+  <circle style="animation-delay:1.60s" cx="21.75" cy="63.05" r="0.28" fill="#fff" opacity="0.55"/>
+  <circle style="animation-delay:0.73s" cx="34.38" cy="1.53" r="0.28" fill="#fff" opacity="0.59"/>
+  <circle style="animation-delay:0.01s" cx="13.13" cy="72.68" r="0.12" fill="#fff" opacity="0.70"/>
+  <circle style="animation-delay:3.90s" cx="17.57" cy="69.29" r="0.28" fill="#fff" opacity="0.76"/>
+  <circle style="animation-delay:0.57s" cx="48.91" cy="62.83" r="0.2" fill="#fff" opacity="0.89"/>
+  <circle style="animation-delay:0.49s" cx="51.83" cy="76.29" r="0.28" fill="#fff" opacity="0.39"/>
+  <circle class="tw2" style="animation-delay:0.07s" cx="32.65" cy="13.68" r="0.2" fill="#fff" opacity="0.64"/>
+  <circle style="animation-delay:1.25s" cx="14.39" cy="60.68" r="0.2" fill="#fff" opacity="0.74"/>
+  <circle class="tw2" style="animation-delay:2.96s" cx="29.69" cy="85.75" r="0.2" fill="#fff" opacity="0.47"/>
+  <circle class="tw2" style="animation-delay:3.12s" cx="46.15" cy="74.03" r="0.15" fill="#fff" opacity="0.43"/>
+  <circle style="animation-delay:0.44s" cx="63.94" cy="65.48" r="0.2" fill="#fff" opacity="0.80"/>
+  <circle style="animation-delay:3.83s" cx="5.47" cy="7.64" r="0.12" fill="#fff" opacity="0.70"/>
+  <circle style="animation-delay:2.59s" cx="35.31" cy="25.57" r="0.28" fill="#fff" opacity="0.83"/>
+  <circle style="animation-delay:0.53s" cx="13.62" cy="69.09" r="0.12" fill="#fff" opacity="0.81"/>
+  <circle class="tw2" style="animation-delay:3.71s" cx="33.72" cy="69.23" r="0.15" fill="#fff" opacity="0.68"/>
+  <circle style="animation-delay:2.55s" cx="26.65" cy="4.28" r="0.28" fill="#fff" opacity="0.43"/>
+  <circle class="tw2" style="animation-delay:1.99s" cx="54.98" cy="33.26" r="0.28" fill="#fff" opacity="0.60"/>
+  <circle style="animation-delay:0.83s" cx="19.74" cy="67.50" r="0.12" fill="#fff" opacity="0.79"/>
+  <circle style="animation-delay:2.68s" cx="54.90" cy="13.43" r="0.15" fill="#fff" opacity="0.41"/>
+  <circle style="animation-delay:2.09s" cx="57.86" cy="70.71" r="0.15" fill="#fff" opacity="0.65"/>
+  <circle style="animation-delay:1.06s" cx="40.94" cy="87.62" r="0.15" fill="#fff" opacity="0.68"/>
+  <circle class="tw2" style="animation-delay:1.72s" cx="56.79" cy="67.51" r="0.15" fill="#fff" opacity="0.39"/>
+  <circle style="animation-delay:0.40s" cx="46.76" cy="35.57" r="0.2" fill="#fff" opacity="0.49"/>
+  <circle class="tw2" style="animation-delay:2.23s" cx="25.51" cy="83.20" r="0.28" fill="#fff" opacity="0.79"/>
+  <circle style="animation-delay:2.94s" cx="23.14" cy="52.99" r="0.12" fill="#fff" opacity="0.43"/>
+  <circle style="animation-delay:0.21s" cx="38.76" cy="59.87" r="0.12" fill="#fff" opacity="0.86"/>
+  <circle style="animation-delay:2.69s" cx="18.32" cy="69.41" r="0.28" fill="#fff" opacity="0.52"/>
+  <circle style="animation-delay:2.67s" cx="55.32" cy="85.59" r="0.12" fill="#fff" opacity="0.56"/>
+  <rect x="5.5" y="5.5" width="58" height="83" rx="3" fill="none" stroke="url(#comet-fox-foil)" stroke-width="0.8"/>
+  <rect x="6.9" y="6.9" width="55.2" height="80.2" rx="2.2" fill="none" stroke="url(#comet-fox-foil)" stroke-width="0.2"/>
+  <path d="M5.5,3.9 L7.1,5.5 L5.5,7.1 L3.9,5.5 Z" fill="url(#comet-fox-foil)"/>
+  <path d="M63.5,3.9 L65.1,5.5 L63.5,7.1 L61.9,5.5 Z" fill="url(#comet-fox-foil)"/>
+  <path d="M5.5,86.9 L7.1,88.5 L5.5,90.1 L3.9,88.5 Z" fill="url(#comet-fox-foil)"/>
+  <path d="M63.5,86.9 L65.1,88.5 L63.5,90.1 L61.9,88.5 Z" fill="url(#comet-fox-foil)"/>
+  <rect x="9" y="9" width="51" height="52" rx="2" fill="#000" fill-opacity="0.28"/>
+  <g clip-path="url(#comet-fox-win)"><g transform="translate(39.0 36)">
+    <path d="M-6.5,-1.5 C-13,-3 -21,3 -26,16 C-19,9 -12,5.5 -5.5,2.5 Z" fill="url(#trail)" opacity="0.8"/>
+    <path d="M-6.5,-1.5 C-13,-3 -21,3 -26,16 C-19,9 -12,5.5 -5.5,2.5 Z" fill="#0b2347" fill-opacity="0.35" stroke="url(#comet-fox-foil)" stroke-width="0.5" stroke-linejoin="round"/>
+    <path d="M-9,-3.6 C-15,-3 -22,1 -27,9 M-12,6 C-17,9 -21,13 -23,19 M-8,4 C-15,7 -19,12 -21,15.5" fill="none" stroke="url(#comet-fox-foil)" stroke-width="0.3" stroke-linecap="round"/>
+    <path d="M17.5,-9 L12.5,-7.6 L10.4,-4.6 L8.6,-0.8 L10.6,4.6 L13.8,8.6 L11.4,9.6 L6.4,2.6 L0,3.4 L-4,6.4 L-9.4,11.2 L-10.6,10 L-6.2,1.8 L-7.6,-1.2 L-2,-4.4 L5,-7.2 L8,-11 L9,-17.4 L11,-12.4 L13.2,-16.8 L13.8,-11.6 Z" fill="#0b2347" stroke="url(#comet-fox-foil)" stroke-width="0.6" stroke-linejoin="round"/>
+    <path d="M8,-11 L10.4,-4.6 M5,-7.2 L8.6,-0.8 M-2,-4.4 L0,3.4 M5,-7.2 L6.4,2.6 M-6.2,1.8 L0,3.4" fill="none" stroke="url(#comet-fox-foil)" stroke-width="0.22" stroke-linecap="round"/>
+    <path d="M12.5,-7.6 L10.4,-4.6 L14,-6.4 Z" fill="url(#comet-fox-foil)"/>
+    <path d="M13,-10.6 l1.4,-0.4" stroke="url(#comet-fox-foil)" stroke-width="0.55" stroke-linecap="round"/>
+    <circle cx="17.5" cy="-9" r="0.55" fill="url(#comet-fox-foil)"/>
+    <g transform="translate(-26 16)">
+      <path d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" transform="scale(2.6)" fill="url(#comet-fox-foil)"/>
+    </g>
+    </g></g>
+  <rect x="9" y="9" width="51" height="52" rx="2" fill="none" stroke="url(#comet-fox-foil)" stroke-width="0.35"/>
+  <g transform="translate(14.00 15.00) scale(1.60)"><path class="tw" style="animation-delay:0.00s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(54.00 16.00) scale(1.20)"><path class="tw" style="animation-delay:0.37s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(52.00 53.00) scale(1.80)"><path class="tw" style="animation-delay:0.74s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(16.00 54.00) scale(1.00)"><path class="tw" style="animation-delay:1.11s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(47.00 12.00) scale(0.70)"><path class="tw" style="animation-delay:1.48s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(13.00 33.00) scale(0.80)"><path class="tw" style="animation-delay:1.85s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(57.00 37.00) scale(0.90)"><path class="tw" style="animation-delay:2.22s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(35.00 12.50) scale(0.60)"><path class="tw" style="animation-delay:2.59s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(45.44 19.36) scale(0.71)"><path class="tw" style="animation-delay:0.36s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(55.39 12.14) scale(0.70)"><path class="tw" style="animation-delay:0.73s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(47.57 44.26) scale(0.44)"><path class="tw" style="animation-delay:1.10s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(45.44 48.04) scale(0.62)"><path class="tw" style="animation-delay:1.47s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(56.29 56.45) scale(0.62)"><path class="tw" style="animation-delay:1.84s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <g transform="translate(54.48 17.90) scale(0.50)"><path class="tw" style="animation-delay:2.21s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#comet-fox-foil)"/></g>
+  <text x="34.5" y="69.2" text-anchor="middle" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="4.3" font-weight="700" letter-spacing="0.6" fill="url(#comet-fox-foil)">COMET FOX</text>
+  <path d="M17,71.8 H52" stroke="url(#comet-fox-foil)" stroke-width="0.2"/>
+  <path d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" transform="translate(34.5 71.8) scale(0.7)" fill="url(#comet-fox-foil)"/>
+  <text x="34.5" y="75.6" text-anchor="middle" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="2.2" letter-spacing="0.5" fill="#e8e4ff" fill-opacity="0.8">CELESTIAL · SWIFT</text>
+  <text text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="2.4" fill="#f3efff" fill-opacity="0.85"><tspan x="34.5" y="79.2">“Leaves a trail of wishes</tspan><tspan x="34.5" y="82.2">wherever it runs.”</tspan></text>
+  <text x="11" y="85.8" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="2" letter-spacing="0.3" fill="url(#comet-fox-foil)">No. 02 / 03</text>
+  <g transform="translate(57 85.1)"><path d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" transform="translate(1 -0.6) scale(1.2)" fill="url(#comet-fox-foil)"/><path d="M0,0 L-2.4,1.6 M0.2,0.6 L-1.6,2" stroke="url(#comet-fox-foil)" stroke-width="0.3" stroke-linecap="round"/></g></svg><svg x="146" y="0" width="69" height="94" viewBox="0 0 69 94"><rect width="69" height="94" fill="url(#ember-beetle-bg)"/>
+  <circle style="animation-delay:1.48s" cx="47.06" cy="8.61" r="0.12" fill="#fff" opacity="0.64"/>
+  <circle style="animation-delay:3.89s" cx="7.44" cy="64.20" r="0.2" fill="#fff" opacity="0.58"/>
+  <circle class="tw2" style="animation-delay:0.30s" cx="9.96" cy="75.22" r="0.12" fill="#fff" opacity="0.51"/>
+  <circle style="animation-delay:2.29s" cx="24.92" cy="66.27" r="0.2" fill="#fff" opacity="0.37"/>
+  <circle class="tw2" style="animation-delay:0.03s" cx="36.34" cy="20.04" r="0.28" fill="#fff" opacity="0.63"/>
+  <circle class="tw2" style="animation-delay:1.41s" cx="24.90" cy="66.47" r="0.15" fill="#fff" opacity="0.44"/>
+  <circle style="animation-delay:1.25s" cx="59.38" cy="68.43" r="0.15" fill="#fff" opacity="0.47"/>
+  <circle class="tw2" style="animation-delay:2.87s" cx="44.81" cy="28.36" r="0.12" fill="#fff" opacity="0.61"/>
+  <circle style="animation-delay:0.42s" cx="14.70" cy="58.07" r="0.12" fill="#fff" opacity="0.71"/>
+  <circle style="animation-delay:1.36s" cx="18.41" cy="22.48" r="0.28" fill="#fff" opacity="0.37"/>
+  <circle style="animation-delay:2.63s" cx="68.95" cy="6.03" r="0.15" fill="#fff" opacity="0.80"/>
+  <circle style="animation-delay:1.18s" cx="19.91" cy="2.45" r="0.15" fill="#fff" opacity="0.47"/>
+  <circle style="animation-delay:0.27s" cx="47.92" cy="40.32" r="0.12" fill="#fff" opacity="0.81"/>
+  <circle class="tw2" style="animation-delay:0.78s" cx="15.47" cy="16.14" r="0.28" fill="#fff" opacity="0.88"/>
+  <circle style="animation-delay:2.80s" cx="3.21" cy="77.22" r="0.28" fill="#fff" opacity="0.54"/>
+  <circle style="animation-delay:2.17s" cx="37.95" cy="86.63" r="0.12" fill="#fff" opacity="0.79"/>
+  <circle style="animation-delay:2.32s" cx="49.65" cy="79.38" r="0.12" fill="#fff" opacity="0.83"/>
+  <circle class="tw2" style="animation-delay:3.02s" cx="17.96" cy="90.74" r="0.15" fill="#fff" opacity="0.69"/>
+  <circle style="animation-delay:3.40s" cx="66.61" cy="81.75" r="0.2" fill="#fff" opacity="0.62"/>
+  <circle style="animation-delay:2.30s" cx="4.72" cy="42.03" r="0.15" fill="#fff" opacity="0.40"/>
+  <circle style="animation-delay:2.94s" cx="44.88" cy="3.48" r="0.15" fill="#fff" opacity="0.52"/>
+  <circle style="animation-delay:0.70s" cx="31.45" cy="54.11" r="0.28" fill="#fff" opacity="0.74"/>
+  <circle class="tw2" style="animation-delay:3.80s" cx="46.67" cy="88.81" r="0.15" fill="#fff" opacity="0.81"/>
+  <circle class="tw2" style="animation-delay:0.88s" cx="11.70" cy="77.21" r="0.12" fill="#fff" opacity="0.36"/>
+  <circle class="tw2" style="animation-delay:2.60s" cx="7.79" cy="51.62" r="0.15" fill="#fff" opacity="0.78"/>
+  <circle class="tw2" style="animation-delay:1.00s" cx="5.16" cy="51.36" r="0.2" fill="#fff" opacity="0.72"/>
+  <circle style="animation-delay:3.33s" cx="3.99" cy="77.06" r="0.2" fill="#fff" opacity="0.67"/>
+  <circle style="animation-delay:0.61s" cx="31.75" cy="50.39" r="0.15" fill="#fff" opacity="0.62"/>
+  <circle class="tw2" style="animation-delay:0.62s" cx="31.05" cy="23.09" r="0.15" fill="#fff" opacity="0.80"/>
+  <circle class="tw2" style="animation-delay:0.61s" cx="0.56" cy="65.48" r="0.2" fill="#fff" opacity="0.42"/>
+  <circle style="animation-delay:0.31s" cx="44.77" cy="79.67" r="0.28" fill="#fff" opacity="0.64"/>
+  <circle style="animation-delay:2.89s" cx="9.63" cy="49.33" r="0.15" fill="#fff" opacity="0.49"/>
+  <circle style="animation-delay:2.94s" cx="55.65" cy="21.56" r="0.2" fill="#fff" opacity="0.62"/>
+  <circle style="animation-delay:2.35s" cx="62.04" cy="46.22" r="0.28" fill="#fff" opacity="0.38"/>
+  <circle class="tw2" style="animation-delay:3.48s" cx="54.53" cy="57.72" r="0.15" fill="#fff" opacity="0.55"/>
+  <circle class="tw2" style="animation-delay:1.99s" cx="50.79" cy="10.99" r="0.28" fill="#fff" opacity="0.59"/>
+  <circle style="animation-delay:3.41s" cx="44.35" cy="34.04" r="0.15" fill="#fff" opacity="0.73"/>
+  <circle style="animation-delay:0.57s" cx="58.51" cy="61.62" r="0.28" fill="#fff" opacity="0.40"/>
+  <circle style="animation-delay:0.36s" cx="34.53" cy="5.81" r="0.15" fill="#fff" opacity="0.52"/>
+  <circle class="tw2" style="animation-delay:1.10s" cx="61.18" cy="77.91" r="0.12" fill="#fff" opacity="0.81"/>
+  <circle style="animation-delay:0.24s" cx="2.82" cy="46.85" r="0.2" fill="#fff" opacity="0.65"/>
+  <circle style="animation-delay:3.21s" cx="52.62" cy="67.87" r="0.12" fill="#fff" opacity="0.61"/>
+  <circle style="animation-delay:0.80s" cx="23.77" cy="87.30" r="0.2" fill="#fff" opacity="0.65"/>
+  <circle style="animation-delay:2.08s" cx="33.00" cy="89.42" r="0.2" fill="#fff" opacity="0.55"/>
+  <circle style="animation-delay:3.83s" cx="44.89" cy="13.27" r="0.28" fill="#fff" opacity="0.84"/>
+  <circle class="tw2" style="animation-delay:2.57s" cx="55.32" cy="71.80" r="0.12" fill="#fff" opacity="0.45"/>
+  <circle style="animation-delay:0.82s" cx="50.03" cy="74.62" r="0.12" fill="#fff" opacity="0.66"/>
+  <circle style="animation-delay:0.01s" cx="19.76" cy="91.79" r="0.28" fill="#fff" opacity="0.44"/>
+  <circle class="tw2" style="animation-delay:0.48s" cx="45.40" cy="30.55" r="0.2" fill="#fff" opacity="0.68"/>
+  <circle style="animation-delay:0.74s" cx="8.89" cy="36.44" r="0.15" fill="#fff" opacity="0.88"/>
+  <circle class="tw2" style="animation-delay:2.87s" cx="16.54" cy="4.94" r="0.12" fill="#fff" opacity="0.77"/>
+  <circle class="tw2" style="animation-delay:1.27s" cx="8.24" cy="83.72" r="0.12" fill="#fff" opacity="0.68"/>
+  <circle style="animation-delay:0.29s" cx="66.98" cy="14.70" r="0.15" fill="#fff" opacity="0.74"/>
+  <circle style="animation-delay:0.18s" cx="5.33" cy="79.28" r="0.2" fill="#fff" opacity="0.69"/>
+  <circle class="tw2" style="animation-delay:2.11s" cx="55.12" cy="53.25" r="0.28" fill="#fff" opacity="0.76"/>
+  <circle style="animation-delay:1.07s" cx="35.92" cy="69.88" r="0.28" fill="#fff" opacity="0.89"/>
+  <circle style="animation-delay:1.81s" cx="31.13" cy="68.27" r="0.15" fill="#fff" opacity="0.60"/>
+  <circle style="animation-delay:2.04s" cx="12.61" cy="11.33" r="0.12" fill="#fff" opacity="0.78"/>
+  <circle style="animation-delay:1.49s" cx="1.62" cy="30.78" r="0.28" fill="#fff" opacity="0.69"/>
+  <circle class="tw2" style="animation-delay:3.52s" cx="11.52" cy="56.27" r="0.2" fill="#fff" opacity="0.70"/>
+  <circle style="animation-delay:1.62s" cx="42.26" cy="21.04" r="0.28" fill="#fff" opacity="0.39"/>
+  <circle class="tw2" style="animation-delay:3.18s" cx="66.67" cy="77.94" r="0.15" fill="#fff" opacity="0.66"/>
+  <circle class="tw2" style="animation-delay:3.31s" cx="22.60" cy="39.01" r="0.28" fill="#fff" opacity="0.78"/>
+  <circle style="animation-delay:3.78s" cx="7.86" cy="22.65" r="0.28" fill="#fff" opacity="0.44"/>
+  <circle style="animation-delay:2.19s" cx="52.17" cy="12.42" r="0.28" fill="#fff" opacity="0.78"/>
+  <circle class="tw2" style="animation-delay:1.64s" cx="23.44" cy="39.72" r="0.2" fill="#fff" opacity="0.89"/>
+  <circle class="tw2" style="animation-delay:1.49s" cx="11.65" cy="58.53" r="0.2" fill="#fff" opacity="0.83"/>
+  <circle class="tw2" style="animation-delay:1.18s" cx="48.25" cy="34.41" r="0.28" fill="#fff" opacity="0.42"/>
+  <circle class="tw2" style="animation-delay:0.19s" cx="47.97" cy="59.33" r="0.28" fill="#fff" opacity="0.52"/>
+  <circle style="animation-delay:0.58s" cx="29.23" cy="27.44" r="0.12" fill="#fff" opacity="0.88"/>
+  <rect x="5.5" y="5.5" width="58" height="83" rx="3" fill="none" stroke="url(#ember-beetle-foil)" stroke-width="0.8"/>
+  <rect x="6.9" y="6.9" width="55.2" height="80.2" rx="2.2" fill="none" stroke="url(#ember-beetle-foil)" stroke-width="0.2"/>
+  <path d="M5.5,3.9 L7.1,5.5 L5.5,7.1 L3.9,5.5 Z" fill="url(#ember-beetle-foil)"/>
+  <path d="M63.5,3.9 L65.1,5.5 L63.5,7.1 L61.9,5.5 Z" fill="url(#ember-beetle-foil)"/>
+  <path d="M5.5,86.9 L7.1,88.5 L5.5,90.1 L3.9,88.5 Z" fill="url(#ember-beetle-foil)"/>
+  <path d="M63.5,86.9 L65.1,88.5 L63.5,90.1 L61.9,88.5 Z" fill="url(#ember-beetle-foil)"/>
+  <rect x="9" y="9" width="51" height="52" rx="2" fill="#000" fill-opacity="0.28"/>
+  <g clip-path="url(#ember-beetle-win)"><g transform="translate(34.5 36)">
+    <circle cx="0" cy="2" r="22" fill="url(#ember)"/>
+    <g>
+      <path d="M0.35,-4.5 L7,-4.5 C9.5,1 9.5,10 0.35,16.5 Z" fill="#2a0b06" stroke="url(#ember-beetle-foil)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M2.2,-2.5 L4,0.5 L3,3.6 L5.2,7.4 L3.6,11 M4,0.5 L6.6,1.6 M5.2,7.4 L7.4,6.6"
+            fill="none" stroke="url(#emberline)" stroke-width="0.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M6,-8 L11,-11 L13,-16.5 M7,-1 L12.5,0 L15.5,-3.5 M6.5,5 L11,9 L13,14.5"
+            fill="none" stroke="url(#ember-beetle-foil)" stroke-width="0.55" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M1.4,-15 L4,-19 L7,-20.4 M2.6,-14.6 Q4,-15.5 4.6,-17.2"
+            fill="none" stroke="url(#ember-beetle-foil)" stroke-width="0.35" stroke-linecap="round"/>
+    </g>
+    <g transform="scale(-1 1)">
+      <path d="M0.35,-4.5 L7,-4.5 C9.5,1 9.5,10 0.35,16.5 Z" fill="#2a0b06" stroke="url(#ember-beetle-foil)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M2.2,-2.5 L4,0.5 L3,3.6 L5.2,7.4 L3.6,11 M4,0.5 L6.6,1.6 M5.2,7.4 L7.4,6.6"
+            fill="none" stroke="url(#emberline)" stroke-width="0.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M6,-8 L11,-11 L13,-16.5 M7,-1 L12.5,0 L15.5,-3.5 M6.5,5 L11,9 L13,14.5"
+            fill="none" stroke="url(#ember-beetle-foil)" stroke-width="0.55" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M1.4,-15 L4,-19 L7,-20.4 M2.6,-14.6 Q4,-15.5 4.6,-17.2"
+            fill="none" stroke="url(#ember-beetle-foil)" stroke-width="0.35" stroke-linecap="round"/>
+    </g>
+    <rect x="-6.5" y="-11" width="13" height="6.2" rx="2.6" fill="#2a0b06" stroke="url(#ember-beetle-foil)" stroke-width="0.6"/>
+    <path d="M-3.5,-8 h7" stroke="url(#ember-beetle-foil)" stroke-width="0.25"/>
+    <ellipse cx="0" cy="-13" rx="3.4" ry="2.4" fill="#2a0b06" stroke="url(#ember-beetle-foil)" stroke-width="0.5"/>
+    <circle cx="-1.6" cy="-13.4" r="0.55" fill="url(#ember-beetle-foil)"/>
+    <circle cx="1.6" cy="-13.4" r="0.55" fill="url(#ember-beetle-foil)"/>
+    </g></g>
+  <rect x="9" y="9" width="51" height="52" rx="2" fill="none" stroke="url(#ember-beetle-foil)" stroke-width="0.35"/>
+  <g transform="translate(14.00 15.00) scale(1.60)"><path class="tw" style="animation-delay:0.00s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(54.00 16.00) scale(1.20)"><path class="tw" style="animation-delay:0.37s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(52.00 53.00) scale(1.80)"><path class="tw" style="animation-delay:0.74s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(16.00 54.00) scale(1.00)"><path class="tw" style="animation-delay:1.11s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(47.00 12.00) scale(0.70)"><path class="tw" style="animation-delay:1.48s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(13.00 33.00) scale(0.80)"><path class="tw" style="animation-delay:1.85s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(57.00 37.00) scale(0.90)"><path class="tw" style="animation-delay:2.22s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(35.00 12.50) scale(0.60)"><path class="tw" style="animation-delay:2.59s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(28.48 15.60) scale(0.58)"><path class="tw" style="animation-delay:0.36s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(26.33 45.86) scale(0.62)"><path class="tw" style="animation-delay:0.73s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(49.56 52.84) scale(0.68)"><path class="tw" style="animation-delay:1.10s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(28.33 35.51) scale(0.57)"><path class="tw" style="animation-delay:1.47s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(44.12 40.31) scale(0.61)"><path class="tw" style="animation-delay:1.84s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <g transform="translate(26.77 34.55) scale(0.54)"><path class="tw" style="animation-delay:2.21s" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" fill="url(#ember-beetle-foil)"/></g>
+  <text x="34.5" y="69.2" text-anchor="middle" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="4.3" font-weight="700" letter-spacing="0.6" fill="url(#ember-beetle-foil)">EMBER BEETLE</text>
+  <path d="M17,71.8 H52" stroke="url(#ember-beetle-foil)" stroke-width="0.2"/>
+  <path d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z" transform="translate(34.5 71.8) scale(0.7)" fill="url(#ember-beetle-foil)"/>
+  <text x="34.5" y="75.6" text-anchor="middle" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="2.2" letter-spacing="0.5" fill="#e8e4ff" fill-opacity="0.8">EMBER · HEARTH</text>
+  <text text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="2.4" fill="#f3efff" fill-opacity="0.85"><tspan x="34.5" y="79.2">“Carries the last warm coal</tspan><tspan x="34.5" y="82.2">of every campfire.”</tspan></text>
+  <text x="11" y="85.8" font-family="Cinzel, 'Cormorant SC', 'Palatino Linotype', Palatino, Georgia, serif" font-size="2" letter-spacing="0.3" fill="url(#ember-beetle-foil)">No. 03 / 03</text>
+  <g transform="translate(57 85.1)"><path d="M0,-2 C1.6,-0.4 1.4,0.6 1,1.6 Q0,2.4 -1,1.6 C-1.4,0.6 -0.6,-0.2 0,-2 Z" fill="url(#ember-beetle-foil)"/></g></svg></g>
+<use href="#row" xlink:href="#row" y="98"/>
+<path d="M44.00,2.0 V7.0 M44.00,203.0 V208.0 M107.00,2.0 V7.0 M107.00,203.0 V208.0 M117.00,2.0 V7.0 M117.00,203.0 V208.0 M180.00,2.0 V7.0 M180.00,203.0 V208.0 M190.00,2.0 V7.0 M190.00,203.0 V208.0 M253.00,2.0 V7.0 M253.00,203.0 V208.0 M34.0,12.00 H39.0 M258.0,12.00 H263.0 M34.0,100.00 H39.0 M258.0,100.00 H263.0 M34.0,110.00 H39.0 M258.0,110.00 H263.0 M34.0,198.00 H39.0 M258.0,198.00 H263.0" stroke="#000" stroke-width="0.15" fill="none"/>
+</svg>

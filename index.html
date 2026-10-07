@@ -1,0 +1,259 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prompt Receipts</title>
+<style>
+body{font:16px/1.5 system-ui,sans-serif;margin:0;background:#f4f2ee;color:#222}
+main{max-width:860px;margin:auto;padding:16px}
+header h1{margin:.3em 0 .1em} header p{margin:.2em 0;color:#444}
+article{background:#fff;border:1px solid #ddd;border-radius:10px;padding:14px 18px;margin:18px 0}
+h2{margin:.1em 0 .4em;font-size:1.2em} h3{font-size:1em;margin:1em 0 .4em}
+.prompt{margin:.4em 0;padding:.7em .9em;background:#f6f6f6;border-left:3px solid #888;font-family:ui-monospace,monospace;font-size:.92em}
+mark.yours{background:#fdf0c4} mark.added{background:#d9f2dc}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin:.5em 0}
+.btn{font:inherit;font-size:.92em;padding:.35em .9em;border:1px solid #333;border-radius:6px;background:#fff;color:#222;text-decoration:none;cursor:pointer;display:inline-block}
+.btn.report{background:#222;color:#fff}
+a img{cursor:zoom-in} .hero img,.hero video{width:100%;max-width:640px;display:block;border-radius:4px}
+.row{display:flex;gap:12px;margin:.6em 0;font-size:.93em}
+.thumb{width:150px;flex:none} .thumb img,.thumb video{width:150px;max-height:170px;object-fit:contain;background:#fafafa;border:1px solid #ddd;border-radius:3px;display:block}
+.thumb audio{width:150px} .nothumb{height:70px;display:flex;align-items:center;justify-content:center;color:#999;font-size:.8em;border:1px solid #ddd;border-radius:3px}
+.v{font-size:.8em;padding:1px 7px;border-radius:8px} .worked{background:#d9f2dc} .partly{background:#fbefc9} .no{background:#f6d5d5}
+.dim{color:#666;font-size:.88em}
+details{margin-top:.8em} summary{cursor:pointer;color:#444}
+.draft{background:#c62828;color:#fff;padding:6px 12px;text-align:center}
+body.bare mark{background:none;color:inherit} body.bare .arm-receipt{display:none} body.receipt .arm-bare{display:none}
+footer{color:#555;font-size:.88em;margin:24px 0}
+@media (max-width:560px){.thumb,.thumb img,.thumb video,.thumb audio{width:110px}}
+</style></head><body>
+
+<main>
+<header><h1>Prompt Receipts</h1>
+<p>Prompts for making things with Claude Code. Copy one, run it, and tell us how it went.</p></header>
+
+<article id="p1">
+ <h2>1. Pigeon postman comic</h2>
+ <blockquote class="prompt">A three-panel comic page, <mark class="added">drawn as a finished image file</mark>, about a pigeon who&#x27;s convinced he&#x27;s the town postman, <mark class="yours">for the kids&#x27; corner of our local newsletter</mark>.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="A three-panel comic page, drawn as a finished image file, about a pigeon who&#x27;s convinced he&#x27;s the town postman, for the kids&#x27; corner of our local newsletter.">Copy prompt</button><a class="btn report" data-sid="db8e7d88-142" data-title="Pigeon postman comic" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/db8e7d88-142-framed_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/db8e7d88-142-framed_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/db8e7d88-142-framed_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/db8e7d88-142-framed_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>a full page with captions and speech bubbles<br><span class="dim">$0.80 · 4 min</span></div></div><div class="row"><div class="thumb"><a href="m/db8e7d88-142-framed_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/db8e7d88-142-framed_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>a clean flat comic page (PNG and SVG)<br><span class="dim">$0.21 · 81 s</span></div></div><div class="row"><div class="thumb"><a href="m/db8e7d88-142-framed_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/db8e7d88-142-framed_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>a painted page, drawn by GPT&#x27;s built-in image model<br><span class="dim">on the ChatGPT plan · 4 min</span></div></div><div class="row"><div class="thumb"><a href="m/db8e7d88-142-framed_haiku_0.svg" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/db8e7d88-142-framed_haiku_0.svg" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v partly">partly</span><br>a rough comic; the title runs into the panels<br><span class="dim">$0.04 · 34 s</span></div></div>
+  
+  <p><b>Say what to make.</b> Without these words Sonnet only wrote the comic as a script. The words that fixed it are <mark class="added">highlighted</mark>.</p>
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Say where it will go. That sets the tone and the look.</p>
+ </div>
+</article>
+<article id="p2">
+ <h2>2. Holographic foil cards</h2>
+ <blockquote class="prompt">Three foil cards with twinkling stars as collectible inserts for the zine I&#x27;m putting together: <mark class="yours">a night moth, a comet fox and an ember beetle</mark>.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="Three foil cards with twinkling stars as collectible inserts for the zine I&#x27;m putting together: a night moth, a comet fox and an ember beetle.">Copy prompt</button><a class="btn report" data-sid="ed16ba61-d98" data-title="Holographic foil cards" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/ed16ba61-d98_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/ed16ba61-d98_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/ed16ba61-d98_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/ed16ba61-d98_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>print-ready cards with a separate foil layer, and a preview you can tilt<br><span class="dim">$0.73 · 3 min</span></div></div><div class="row"><div class="thumb"><a href="m/ed16ba61-d98_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/ed16ba61-d98_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>three shiny cards in a web page<br><span class="dim">$0.11 · 45 s</span></div></div><div class="row"><div class="thumb"><a href="m/ed16ba61-d98_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/ed16ba61-d98_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>three ornate cards, drawn by GPT&#x27;s built-in image model<br><span class="dim">on the ChatGPT plan · 3 min</span></div></div><div class="row"><div class="thumb"><a href="m/ed16ba61-d98_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/ed16ba61-d98_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v partly">partly</span><br>three simple cards in a web page<br><span class="dim">$0.04 · 40 s</span></div></div>
+  <a class="btn" href="play/ed16ba61-d98/cards/preview.html" target="_blank" rel="noopener">Play the Opus 5.5 version</a>
+  
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Swap in your own three creatures.</p>
+ </div>
+</article>
+<article id="p3">
+ <h2>3. Desktop axolotl pet</h2>
+ <blockquote class="prompt">A little axolotl that lives on my desktop <mark class="added">as a small app I can run on my computer</mark>, <mark class="yours">wanders along the taskbar and curls up for a nap when I leave the mouse alone</mark>.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="A little axolotl that lives on my desktop as a small app I can run on my computer, wanders along the taskbar and curls up for a nap when I leave the mouse alone.">Copy prompt</button><a class="btn report" data-sid="eae2a142-c91" data-title="Desktop axolotl pet" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/eae2a142-c91-framed_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/eae2a142-c91-framed_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/eae2a142-c91-framed_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/eae2a142-c91-framed_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>a pixel-art axolotl that walks along the bottom of the screen (one Python file)<br><span class="dim">$0.47 · 2 min</span></div></div><div class="row"><div class="thumb"><a href="m/eae2a142-c91-framed_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/eae2a142-c91-framed_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>an axolotl that walks along the bottom of the screen and naps (one Python file)<br><span class="dim">$0.12 · 49 s</span></div></div><div class="row"><div class="thumb"><a href="m/eae2a142-c91-framed_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/eae2a142-c91-framed_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v partly">partly</span><br>a desktop app (Electron) with petting and snacks; it needs npm install, so we only ran its browser preview<br><span class="dim">on the ChatGPT plan · 10 min</span></div></div><div class="row"><div class="thumb"><div class=nothumb>no picture</div></div><div><b>Claude Haiku 4.5</b> <span class="v no">no</span><br>asked what I wanted instead of making it<br><span class="dim">$0.01 · 6 s</span></div></div>
+  
+  <p><b>Say what to make.</b> Without these words GPT made a web page and Haiku asked a question. With them GPT made a desktop app; Haiku still asked. The words that fixed it are <mark class="added">highlighted</mark>.</p>
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Say what it should do.</p>
+ </div>
+</article>
+<article id="p4">
+ <h2>4. Galaxy slime toy</h2>
+ <blockquote class="prompt">A stretchy galaxy slime you can pull apart and squish back together, <mark class="added">as a browser toy I can play with on a laptop</mark>, <mark class="yours">for my kids&#x27; stall at the school science night</mark>.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="A stretchy galaxy slime you can pull apart and squish back together, as a browser toy I can play with on a laptop, for my kids&#x27; stall at the school science night.">Copy prompt</button><a class="btn report" data-sid="5590dfa9-ad9" data-title="Galaxy slime toy" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/5590dfa9-ad9-framed_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/5590dfa9-ad9-framed_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/5590dfa9-ad9-framed_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/5590dfa9-ad9-framed_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>a galaxy blob you can tear apart and merge, with colours, x-ray and sound<br><span class="dim">$1.98 · 11 min</span></div></div><div class="row"><div class="thumb"><a href="m/5590dfa9-ad9-framed_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/5590dfa9-ad9-framed_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>a glittery blob you can stretch, pull apart and reset<br><span class="dim">$0.36 · 3 min</span></div></div><div class="row"><div class="thumb"><a href="m/5590dfa9-ad9-framed_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/5590dfa9-ad9-framed_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>a slime page with colours, a firmness slider, split and squish<br><span class="dim">on the ChatGPT plan · 4 min</span></div></div><div class="row"><div class="thumb"><a href="m/5590dfa9-ad9-framed_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/5590dfa9-ad9-framed_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v partly">partly</span><br>a ball of coloured dots you can drag; doesn&#x27;t read as slime<br><span class="dim">$0.04 · 33 s</span></div></div>
+  <a class="btn" href="play/5590dfa9-ad9/galaxy-slime.html" target="_blank" rel="noopener">Play the Opus 5.5 version</a>
+  <p><b>Say what to make.</b> Without these words all four models wrote a real slime recipe. The words that fixed it are <mark class="added">highlighted</mark>.</p>
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Say who will play with it.</p>
+ </div>
+</article>
+<article id="p5">
+ <h2>5. 3D park trees</h2>
+ <blockquote class="prompt">3D tree models for my park scene: <mark class="yours">a weeping willow, a silver birch, a gnarled old olive, a cherry in blossom and a young oak</mark>.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="3D tree models for my park scene: a weeping willow, a silver birch, a gnarled old olive, a cherry in blossom and a young oak.">Copy prompt</button><a class="btn report" data-sid="c72d931b-3cf" data-title="3D park trees" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/c72d931b-3cf_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/c72d931b-3cf_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/c72d931b-3cf_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/c72d931b-3cf_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>five detailed, realistic GLB models; the best of the four (our read)<br><span class="dim">$2.10 · 13 min</span></div></div><div class="row"><div class="thumb"><a href="m/c72d931b-3cf_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/c72d931b-3cf_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>five OBJ models with leaves and blossom<br><span class="dim">$0.33 · 3 min</span></div></div><div class="row"><div class="thumb"><a href="m/c72d931b-3cf_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/c72d931b-3cf_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>five low-poly GLB models<br><span class="dim">on the ChatGPT plan · 4 min</span></div></div><div class="row"><div class="thumb"><a href="m/c72d931b-3cf_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/c72d931b-3cf_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v partly">partly</span><br>blob-shaped trees in a web page; no model files<br><span class="dim">$0.05 · 45 s</span></div></div>
+  
+  
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. List the trees your scene needs.</p>
+ </div>
+</article>
+<article id="p6">
+ <h2>6. 90s airbrush wallpaper</h2>
+ <blockquote class="prompt">A 90s neon airbrush wallpaper with rainbow gradients, leopard spots, sparkles and glitter <mark class="yours">for my roller-disco birthday invites</mark>, plus a matching phone wallpaper.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="A 90s neon airbrush wallpaper with rainbow gradients, leopard spots, sparkles and glitter for my roller-disco birthday invites, plus a matching phone wallpaper.">Copy prompt</button><a class="btn report" data-sid="6339cadc-5a1" data-title="90s airbrush wallpaper" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/6339cadc-5a1_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6339cadc-5a1_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/6339cadc-5a1_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6339cadc-5a1_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>a print-size invite wallpaper and a phone wallpaper<br><span class="dim">$0.58 · 3 min</span></div></div><div class="row"><div class="thumb"><a href="m/6339cadc-5a1_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6339cadc-5a1_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>invite and phone wallpapers (PNG and SVG)<br><span class="dim">$0.28 · 2 min</span></div></div><div class="row"><div class="thumb"><a href="m/6339cadc-5a1_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6339cadc-5a1_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>invite and phone wallpapers, drawn by GPT&#x27;s built-in image model<br><span class="dim">on the ChatGPT plan · 2 min</span></div></div><div class="row"><div class="thumb"><a href="m/6339cadc-5a1_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6339cadc-5a1_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v partly">partly</span><br>an invite page with text on it, not a wallpaper<br><span class="dim">$0.06 · 53 s</span></div></div>
+  
+  
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Say what it&#x27;s for.</p>
+ </div>
+</article>
+<article id="p7">
+ <h2>7. 3D terrarium in a jar</h2>
+ <blockquote class="prompt">Build a terrarium in a glass jar in 3D that I can look around, with moss, ferns and a tiny ceramic deer, <mark class="yours">so I can plan the real one I&#x27;m making for my nan&#x27;s birthday</mark>.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="Build a terrarium in a glass jar in 3D that I can look around, with moss, ferns and a tiny ceramic deer, so I can plan the real one I&#x27;m making for my nan&#x27;s birthday.">Copy prompt</button><a class="btn report" data-sid="7636abb9-056" data-title="3D terrarium in a jar" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/7636abb9-056_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/7636abb9-056_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/7636abb9-056_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/7636abb9-056_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>a 3D jar you can look around; the best of the four (our read)<br><span class="dim">$0.99 · 7 min</span></div></div><div class="row"><div class="thumb"><a href="m/7636abb9-056_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/7636abb9-056_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>a 3D jar you can look around<br><span class="dim">$0.31 · 3 min</span></div></div><div class="row"><div class="thumb"><a href="m/7636abb9-056_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/7636abb9-056_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>a 3D app; you have to run npm to open it<br><span class="dim">on the ChatGPT plan · 3 min</span></div></div><div class="row"><div class="thumb"><a href="m/7636abb9-056_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/7636abb9-056_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v no">no</span><br>the 3D scene didn&#x27;t render<br><span class="dim">$0.04 · 40 s</span></div></div>
+  <a class="btn" href="play/7636abb9-056/terrarium.html" target="_blank" rel="noopener">Play the Opus 5.5 version</a>
+  
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Swap in what you&#x27;re planning and what goes in the jar.</p>
+ </div>
+</article>
+<article id="p8">
+ <h2>8. Film title shots</h2>
+ <blockquote class="prompt">Three short simulated shots for my film&#x27;s title sequence: <mark class="yours">a teacup smashing on a stone floor, smoke curling off a snuffed candle, and water pouring into a glass bowl</mark>.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="Three short simulated shots for my film&#x27;s title sequence: a teacup smashing on a stone floor, smoke curling off a snuffed candle, and water pouring into a glass bowl.">Copy prompt</button><a class="btn report" data-sid="38cf0e80-73c" data-title="Film title shots" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><video controls preload="metadata" src="m/38cf0e80-73c_opus_0.mp4"></video></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><video controls preload="metadata" src="m/38cf0e80-73c_opus_0.mp4"></video></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>three short videos: teacup, candle smoke, water<br><span class="dim">$2.17 · 26 min</span></div></div><div class="row"><div class="thumb"><video controls preload="metadata" src="m/38cf0e80-73c_sonnet_0.mp4"></video></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>three short videos: teacup, candle smoke, water<br><span class="dim">$1.15 · 9 min</span></div></div><div class="row"><div class="thumb"><a href="m/38cf0e80-73c_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/38cf0e80-73c_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v partly">partly</span><br>an animated web page, not video files<br><span class="dim">on the ChatGPT plan · 5 min</span></div></div><div class="row"><div class="thumb"><a href="m/38cf0e80-73c_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/38cf0e80-73c_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v no">no</span><br>a crude web page<br><span class="dim">$0.04 · 37 s</span></div></div>
+  
+  
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Swap in your own three moments.</p>
+ </div>
+</article>
+<article id="p9">
+ <h2>9. Pokeable blob mascot</h2>
+ <blockquote class="prompt">A mascot <mark class="yours">for my habit-tracker app</mark>: a round blob that breathes, blinks and giggles when you poke it. I&#x27;d like it in four moods: idle, happy, sleepy and surprised.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="A mascot for my habit-tracker app: a round blob that breathes, blinks and giggles when you poke it. I&#x27;d like it in four moods: idle, happy, sleepy and surprised.">Copy prompt</button><a class="btn report" data-sid="1bfe1ef0-9a8" data-title="Pokeable blob mascot" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/1bfe1ef0-9a8_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/1bfe1ef0-9a8_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/1bfe1ef0-9a8_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/1bfe1ef0-9a8_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>a web page with the blob in four moods; the best of the four (our read)<br><span class="dim">$0.83 · 4 min</span></div></div><div class="row"><div class="thumb"><a href="m/1bfe1ef0-9a8_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/1bfe1ef0-9a8_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>a web page with the blob in four moods<br><span class="dim">$0.12 · 51 s</span></div></div><div class="row"><div class="thumb"><a href="m/1bfe1ef0-9a8_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/1bfe1ef0-9a8_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v partly">partly</span><br>a still concept picture, nothing to poke<br><span class="dim">on the ChatGPT plan · 49 s</span></div></div><div class="row"><div class="thumb"><a href="m/1bfe1ef0-9a8_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/1bfe1ef0-9a8_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v worked">worked</span><br>a web page with the blob in four moods<br><span class="dim">$0.06 · 45 s</span></div></div>
+  <a class="btn" href="play/1bfe1ef0-9a8/index.html" target="_blank" rel="noopener">Play the Opus 5.5 version</a>
+  
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Name your app and the moods you want.</p>
+ </div>
+</article>
+<article id="p10">
+ <h2>10. Mushroom ranger sprite sheet</h2>
+ <blockquote class="prompt">A sprite sheet for a mushroom-capped forest ranger with walk, attack, hurt and death animations in 4 directions, <mark class="yours">for my top-down adventure game</mark>.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="A sprite sheet for a mushroom-capped forest ranger with walk, attack, hurt and death animations in 4 directions, for my top-down adventure game.">Copy prompt</button><a class="btn report" data-sid="6d703c77-eaf" data-title="Mushroom ranger sprite sheet" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/6d703c77-eaf_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6d703c77-eaf_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/6d703c77-eaf_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6d703c77-eaf_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>a sprite sheet with a JSON map and a preview page; the best of the four (our read)<br><span class="dim">$0.84 · 5 min</span></div></div><div class="row"><div class="thumb"><a href="m/6d703c77-eaf_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6d703c77-eaf_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>a sprite sheet with a JSON map<br><span class="dim">$0.34 · 3 min</span></div></div><div class="row"><div class="thumb"><a href="m/6d703c77-eaf_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6d703c77-eaf_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>a sheet drawn by GPT&#x27;s built-in image model<br><span class="dim">on the ChatGPT plan · 84 s</span></div></div><div class="row"><div class="thumb"><a href="m/6d703c77-eaf_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6d703c77-eaf_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v partly">partly</span><br>a small, rough sheet<br><span class="dim">$0.06 · 56 s</span></div></div>
+  
+  
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Swap the character and the moves your game needs.</p>
+ </div>
+</article>
+<article id="p11">
+ <h2>11. PETSCII meetup screens</h2>
+ <blockquote class="prompt">Three PETSCII screens of generative patterns <mark class="yours">for our retro computing meetup&#x27;s video</mark>: an intro, a break card and an outro.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="Three PETSCII screens of generative patterns for our retro computing meetup&#x27;s video: an intro, a break card and an outro.">Copy prompt</button><a class="btn report" data-sid="4ff74fcf-da0" data-title="PETSCII meetup screens" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/4ff74fcf-da0_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/4ff74fcf-da0_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/4ff74fcf-da0_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/4ff74fcf-da0_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>three screens as real Commodore 64 programs, plus pictures; the best of the four (our read)<br><span class="dim">$1.13 · 5 min</span></div></div><div class="row"><div class="thumb"><a href="m/4ff74fcf-da0_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/4ff74fcf-da0_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>three screens as pictures<br><span class="dim">$0.35 · 2 min</span></div></div><div class="row"><div class="thumb"><a href="m/4ff74fcf-da0_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/4ff74fcf-da0_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>three screens drawn by GPT&#x27;s built-in image model to look like PETSCII<br><span class="dim">on the ChatGPT plan · 2 min</span></div></div><div class="row"><div class="thumb"><div class=nothumb>no picture</div></div><div><b>Claude Haiku 4.5</b> <span class="v no">no</span><br>three plain text files, no colour screens<br><span class="dim">$0.03 · 18 s</span></div></div>
+  
+  
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Say what the screens are for.</p>
+ </div>
+</article>
+<article id="p12">
+ <h2>12. Isometric island tiles</h2>
+ <blockquote class="prompt">Isometric tiles and a starter map for my little island trading game, <mark class="yours">with beach, palm grove and a wooden dock</mark>, that I can open in Tiled and Godot.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="Isometric tiles and a starter map for my little island trading game, with beach, palm grove and a wooden dock, that I can open in Tiled and Godot.">Copy prompt</button><a class="btn report" data-sid="986b5085-79b" data-title="Isometric island tiles" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/986b5085-79b_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/986b5085-79b_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/986b5085-79b_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/986b5085-79b_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>tiles, props and a Godot project<br><span class="dim">$1.36 · 6 min</span></div></div><div class="row"><div class="thumb"><a href="m/986b5085-79b_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/986b5085-79b_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>tiles, a Tiled map and a Godot project<br><span class="dim">$0.67 · 5 min</span></div></div><div class="row"><div class="thumb"><a href="m/986b5085-79b_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/986b5085-79b_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>tiles drawn by GPT&#x27;s built-in image model, with a project<br><span class="dim">on the ChatGPT plan · 5 min</span></div></div><div class="row"><div class="thumb"><a href="m/986b5085-79b_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/986b5085-79b_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v partly">partly</span><br>three plain diamond tiles<br><span class="dim">$0.10 · 84 s</span></div></div>
+  
+  
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Swap in your own places.</p>
+ </div>
+</article>
+<article id="p13">
+ <h2>13. Marbled endpapers</h2>
+ <blockquote class="prompt">I&#x27;m hand-binding notebooks for a craft fair and need endpapers. Make 4 combed marbled-paper patterns like the inside covers of old books: <mark class="yours">oxblood and gold, navy and cream, sage and rust, and plum and silver</mark>.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="I&#x27;m hand-binding notebooks for a craft fair and need endpapers. Make 4 combed marbled-paper patterns like the inside covers of old books: oxblood and gold, navy and cream, sage and rust, and plum and silver.">Copy prompt</button><a class="btn report" data-sid="6151b9da-57e" data-title="Marbled endpapers" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/6151b9da-57e_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6151b9da-57e_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/6151b9da-57e_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6151b9da-57e_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>four PNG patterns and a contact sheet; the best of the four (our read)<br><span class="dim">$0.43 · 6 min</span></div></div><div class="row"><div class="thumb"><a href="m/6151b9da-57e_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6151b9da-57e_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>four PNG patterns<br><span class="dim">$0.32 · 3 min</span></div></div><div class="row"><div class="thumb"><a href="m/6151b9da-57e_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6151b9da-57e_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>four images from GPT&#x27;s built-in image model<br><span class="dim">on the ChatGPT plan · 3 min</span></div></div><div class="row"><div class="thumb"><a href="m/6151b9da-57e_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/6151b9da-57e_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v partly">partly</span><br>patterns in a web page; weak<br><span class="dim">$0.04 · 35 s</span></div></div>
+  
+  
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Swap in your own colour pairs.</p>
+ </div>
+</article>
+<article id="p14">
+ <h2>14. Clockwork crab boss music</h2>
+ <blockquote class="prompt">Write an 8-bit boss-battle loop <mark class="yours">for the giant clockwork crab at the end of my beach platformer</mark>.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="Write an 8-bit boss-battle loop for the giant clockwork crab at the end of my beach platformer.">Copy prompt</button><a class="btn report" data-sid="e3cdb386-498" data-title="Clockwork crab boss music" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><audio controls preload="none" src="m/e3cdb386-498_opus_0.mp3"></audio></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><audio controls preload="none" src="m/e3cdb386-498_opus_0.mp3"></audio></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>a WAV loop, plus a second-phase version<br><span class="dim">$0.43 · 2 min</span></div></div><div class="row"><div class="thumb"><audio controls preload="none" src="m/e3cdb386-498_sonnet_0.mp3"></audio></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>a WAV loop<br><span class="dim">$0.09 · 39 s</span></div></div><div class="row"><div class="thumb"><audio controls preload="none" src="m/e3cdb386-498_gpt_0.mp3"></audio></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>a WAV loop<br><span class="dim">on the ChatGPT plan · 2 min</span></div></div><div class="row"><div class="thumb"><a href="m/e3cdb386-498_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/e3cdb386-498_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v worked">worked</span><br>plays in a web page; no audio file<br><span class="dim">$0.03 · 33 s</span></div></div>
+  
+  
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Swap in your boss and your level.</p>
+ </div>
+</article>
+<article id="p15">
+ <h2>15. Sleepy terminal owl</h2>
+ <blockquote class="prompt">A sleepy little owl that looks busy typing away <mark class="yours">while my coding agent works</mark>, <mark class="added">as a small looping ASCII animation I can run</mark> in a corner of my terminal.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="A sleepy little owl that looks busy typing away while my coding agent works, as a small looping ASCII animation I can run in a corner of my terminal.">Copy prompt</button><a class="btn report" data-sid="94cc76ab-e18" data-title="Sleepy terminal owl" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/94cc76ab-e18-framed_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/94cc76ab-e18-framed_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/94cc76ab-e18-framed_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/94cc76ab-e18-framed_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v worked">worked</span><br>types fake code, blinks and dozes; the best of the four (our read)<br><span class="dim">$0.13 · 43 s</span></div></div><div class="row"><div class="thumb"><a href="m/94cc76ab-e18-framed_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/94cc76ab-e18-framed_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v worked">worked</span><br>nods off at the keyboard while z&#x27;s drift up<br><span class="dim">$0.07 · 32 s</span></div></div><div class="row"><div class="thumb"><a href="m/94cc76ab-e18-framed_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/94cc76ab-e18-framed_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>types, blinks and briefly nods off<br><span class="dim">on the ChatGPT plan · 79 s</span></div></div><div class="row"><div class="thumb"><a href="m/94cc76ab-e18-framed_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/94cc76ab-e18-framed_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v partly">partly</span><br>an owl script that barely moves<br><span class="dim">$0.02 · 16 s</span></div></div>
+  
+  <p><b>Say what to make.</b> Without these words the models pasted text, drew a picture, or built a Claude Code plugin. The words that fixed it are <mark class="added">highlighted</mark>.</p>
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Swap the owl for any creature, and say what it&#x27;s doing.</p>
+ </div>
+</article>
+<article id="p16">
+ <h2>16. Animated ASCII fog</h2>
+ <blockquote class="prompt">An animated colour ASCII background of drifting fog <mark class="yours">for my portfolio site</mark>.</blockquote>
+ <div class="acts"><button class="btn copy" data-prompt="An animated colour ASCII background of drifting fog for my portfolio site.">Copy prompt</button><a class="btn report" data-sid="b8088611-a3d" data-title="Animated ASCII fog" href="#">Tried it? Tell us how it went</a></div>
+ <div class="arm-bare"><div class="hero"><a href="m/b8088611-a3d_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/b8088611-a3d_opus_0.webp" alt=""></a></div><p class="dim">Made with Claude Code (Opus 5.5).</p></div>
+ <div class="arm-receipt">
+  <h3>Plain runs, no add-ons, one try each</h3>
+  <div class="row"><div class="thumb"><a href="m/b8088611-a3d_opus_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/b8088611-a3d_opus_0.webp" alt=""></a></div><div><b>Claude Opus 5.5</b> <span class="v no">no</span><br>the fog is drawn but hidden behind the page background; one line of CSS fixes it<br><span class="dim">$0.36 · 2 min</span></div></div><div class="row"><div class="thumb"><a href="m/b8088611-a3d_sonnet_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/b8088611-a3d_sonnet_0.webp" alt=""></a></div><div><b>Claude Sonnet 5.5</b> <span class="v no">no</span><br>the same: fog drawn but hidden behind the page background<br><span class="dim">$0.06 · 21 s</span></div></div><div class="row"><div class="thumb"><a href="m/b8088611-a3d_gpt_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/b8088611-a3d_gpt_0.webp" alt=""></a></div><div><b>GPT via Codex</b> <span class="v worked">worked</span><br>a drifting fog of characters behind a sample page<br><span class="dim">on the ChatGPT plan · 3 min</span></div></div><div class="row"><div class="thumb"><a href="m/b8088611-a3d_haiku_0_full.webp" target="_blank" rel="noopener" title="Open full size"><img loading="lazy" src="m/b8088611-a3d_haiku_0.webp" alt=""></a></div><div><b>Claude Haiku 4.5</b> <span class="v partly">partly</span><br>scattered characters, not much like fog<br><span class="dim">$0.03 · 24 s</span></div></div>
+  <a class="btn" href="play/b8088611-a3d/index.html" target="_blank" rel="noopener">Play the GPT via Codex version</a>
+  
+  <p><b>Make it yours.</b> Change <mark class="yours">the highlighted part</mark>. Say where it will sit.</p>
+ </div>
+</article>
+<footer>
+<p class="arm-receipt">How we ran them: Claude Code with no skills, plugins or settings, and Codex with its add-ons switched off. One run per model, on 6–7 Oct 2026. Costs are API prices for that run; "worked" is our read of the result.</p>
+<p>Prompts are free to use under CC BY 4.0.</p>
+</footer>
+</main>
+<script>
+const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfo7LHk0Ljj2NES_qAX3-OMIbxbql9fhCsSNSzVLF_bEXoXNA/viewform?usp=pp_url&entry.773686417={title}&entry.349092046={arm}";
+const q = new URLSearchParams(location.search).get('arm');
+let arm = (q === 'bare' || q === 'receipt') ? q : localStorage.getItem('pr_arm');
+if (arm !== 'bare' && arm !== 'receipt') { arm = Math.random() < 0.5 ? 'bare' : 'receipt'; }
+if (!q) localStorage.setItem('pr_arm', arm);
+document.body.classList.add(arm);
+document.querySelectorAll('.copy').forEach(b => b.onclick = () => navigator.clipboard.writeText(b.dataset.prompt)
+  .then(() => { b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy prompt', 1500); }));
+document.querySelectorAll('.report').forEach(a => {
+  a.href = FORM_URL ? FORM_URL.replace('{sid}', a.dataset.sid).replace('{title}', encodeURIComponent(a.dataset.title)).replace('{arm}', arm) : '#';
+  if (FORM_URL) { a.target = '_blank'; a.rel = 'noopener'; }
+  else a.onclick = e => { e.preventDefault(); alert('Draft: the report form is not set up yet.'); };
+});
+</script></body></html>
