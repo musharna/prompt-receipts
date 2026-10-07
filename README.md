@@ -5,3 +5,5 @@ Prompts for making things with Claude Code, each run once on plain Claude Code (
 Site: https://musharna.github.io/prompt-receipts/
 
 Tried one? Use the "Tell us how it went" button on its card. Runs that didn't work are as useful as ones that did.
+
+Prompts and page text are CC BY 4.0. See LICENSE.
