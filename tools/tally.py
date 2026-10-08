@@ -19,6 +19,7 @@ TEXT = "Your prompt, exactly as you ran it"
 NAME = "Name to credit you by"
 ARM = "Page version (filled in for you, leave as is)"
 OK = "Can we show your prompt and result on the site under CC BY 4.0?"
+RECEIPT = "Paste your receipt (optional)"  # added 10-07; older CSVs don't have it
 
 ap = argparse.ArgumentParser()
 ap.add_argument("csv")
@@ -33,8 +34,14 @@ if rows:
     if missing:
         sys.exit(f"CSV is missing columns {missing}; got {list(rows[0])}")
 
-real = [r for r in rows if not (r.get(NAME, "").startswith("TEST") or r.get(TEXT, "").startswith("TEST"))]
-print(f"{len(rows)} rows, {len(rows) - len(real)} test rows skipped, {len(real)} reports")
+real = [
+    r
+    for r in rows
+    if not (r.get(NAME, "").startswith("TEST") or r.get(TEXT, "").startswith("TEST"))
+]
+print(
+    f"{len(rows)} rows, {len(rows) - len(real)} test rows skipped, {len(real)} reports"
+)
 
 
 def when(r):
@@ -56,6 +63,15 @@ table("by page version", lambda r: r[ARM].strip(), real)
 table("by prompt", lambda r: r[PROMPT], real)
 table("by model", lambda r: r[MODEL], real)
 table("did it work", lambda r: r[WORKED], real)
+with_receipt = sum(1 for r in real if r.get(RECEIPT, "").strip())
+print(
+    f"\n{with_receipt} of {len(real)} reports pasted a receipt"
+    + (
+        ""
+        if RECEIPT in (rows[0] if rows else {})
+        else " (no receipt column in this CSV)"
+    )
+)
 
 by_arm = collections.defaultdict(collections.Counter)
 for r in real:

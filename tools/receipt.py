@@ -23,6 +23,7 @@ import argparse
 import collections
 import datetime
 import glob
+import itertools
 import json
 import os
 import re
@@ -558,7 +559,10 @@ def text(r, hide, with_prompt):
     if "version" not in hide:
         head += f" {r['version']}"
     if "date" not in hide:
-        head += f" · {when(r['started']):%-d %b %Y}"
+        day = when(
+            r["started"]
+        )  # not %-d: Windows' strftime has no way to drop the leading zero
+        head += f" · {day.day} {day:%b %Y}"
     if r["part"] != "whole session":
         head += f" · {r['part']}"
     out = [head]
@@ -603,7 +607,13 @@ def text(r, hide, with_prompt):
         line = f"add-ons  {sk} · {mc}"
         if "plugins_used" in r:
             pu = r["plugins_used"]
-            pu = (f"{pu} used" if isinstance(pu, int) else ", ".join(pu)) or "none"
+            pu = (
+                f"{pu} used"
+                if isinstance(pu, int) and pu
+                else ""
+                if isinstance(pu, int)
+                else ", ".join(pu)
+            ) or "none"
             line += f" · plugins {pu}" + (
                 f" (of {r['plugins_available']} installed)"
                 if r.get("plugins_available")
@@ -709,6 +719,10 @@ def main():
     ap.add_argument("--md", action="store_true")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
+    # Windows writes files and pipes in its old code page, which has no "→" and would crash; use UTF-8
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     hide = {h.strip() for h in a.hide.split(",") if h.strip()}
     if hide - set(PARTS):
         sys.exit(
@@ -720,33 +734,38 @@ def main():
     if path:
         is_codex = (
             is_codex
-            or "/.codex/" in os.path.abspath(path)
+            or "/.codex/" in os.path.abspath(path).replace(os.sep, "/")
             or os.path.basename(path).startswith("rollout-")
         )
     else:
         fs, where = sessions(a.codex)
-        if not fs:
-            kind = "Codex" if a.codex else "Claude Code"
-            sys.exit(
-                f"receipt: no {kind} session found for this folder (looked in {where})"
-            )
+        # a log with none of your prompts isn't a run (opening Claude Code and quitting leaves one), so skip it
+        runs = ((f, p) for f in fs for p in [first_prompt_of(f, a.codex)] if p)
+        kind = "Codex" if a.codex else "Claude Code"
         if a.list:
-            for i, f in enumerate(fs[:15], 1):
+            shown = list(itertools.islice(runs, 15))
+            if not shown:
+                sys.exit(
+                    f"receipt: no {kind} session found for this folder (looked in {where})"
+                )
+            for i, (f, p) in enumerate(shown, 1):
                 stamp = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime(
                     "%d %b %H:%M"
                 )
-                print(f"{i:3}  {stamp}  {first_prompt_of(f, a.codex)[:70]}")
-            print(
-                "\nthen: python3 receipt.py --pick N" + (" --codex" if a.codex else ""),
-                file=sys.stderr,
-            )
+                print(f"{i:3}  {stamp}  {p[:70]}")
+            print("\nthen run it again with --pick N", file=sys.stderr)
             return
         n = a.pick or 1
-        if not 1 <= n <= len(fs):
+        if n < 1:
+            sys.exit("receipt: --pick needs a number from --list, 1 or more")
+        path = next(itertools.islice(runs, n - 1, None), (None,))[0]
+        if not path:
+            found = sum(1 for f in fs if first_prompt_of(f, a.codex))
             sys.exit(
-                f"receipt: --pick {n}, but this folder has {len(fs)} sessions (see --list)"
+                f"receipt: no {kind} session found for this folder (looked in {where})"
+                if not found
+                else f"receipt: --pick {n}, but this folder has {found} sessions (see --list)"
             )
-        path = fs[n - 1]
     r = codex(path, a.last) if is_codex else claude(path, a.last)
     if a.rename:
         rename(r, a.rename)

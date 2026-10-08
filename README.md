@@ -14,6 +14,12 @@ In the folder where you ran Claude Code:
 curl -sO https://musharna.github.io/prompt-receipts/tools/receipt.py && python3 receipt.py
 ```
 
+On Windows, in PowerShell:
+
+```
+curl.exe -sO https://musharna.github.io/prompt-receipts/tools/receipt.py; py receipt.py
+```
+
 Add `--codex` for a Codex session. It reads the log Claude Code and Codex already keep, so it works on runs you've already finished. It needs only Python 3 and never prints paths, your email, account ids or file contents.
 
 Here is one prompt from the site, run once on plain Opus 5.5, and its receipt:
@@ -65,7 +71,7 @@ Read the receipt before you share it. Prompts, tool names and times can say more
 - Claude Code deletes session logs after 30 days unless you raise `cleanupPeriodDays` in `~/.claude/settings.json`. Logs can be large, so check your free disk space before raising it a lot. Codex keeps its logs.
 - For a whole Claude Code session, the cost and tokens are Claude Code's own totals and include subagents. With `--last`, the cost stays the whole session's, because Claude Code doesn't log cost per prompt.
 - Codex logs don't record hooks. Claude Code logs a hook run only when the hook prints something, so hook counts are a floor.
-- Tested on Linux (WSL) only. On Windows you may need `py` instead of `python3`.
+- Tested on Linux (WSL) and Windows 11 (Python 3.10 and 3.13), not yet on macOS.
 - A Claude Code session resumed into a new log file gets its own receipt; the parts aren't joined.
 - A receipt is text you can edit. It shows what someone reports, not proof.
 
