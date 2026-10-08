@@ -14,7 +14,11 @@ In the folder where you ran Claude Code:
 curl -sO https://musharna.github.io/prompt-receipts/tools/receipt.py && python3 receipt.py
 ```
 
-It reads the session log Claude Code or Codex already keeps (`~/.claude/projects/` or `~/.codex/sessions/`), needs only Python 3, and never prints paths, your email, account ids or file contents. For a whole Claude Code session, the cost and token totals are Claude Code's own and include subagents. Example:
+It reads the session log Claude Code or Codex already keeps (`~/.claude/projects/` or `~/.codex/sessions/`), needs only Python 3, and never prints paths, your email, account ids or file contents. For a whole Claude Code session, the cost and token totals are Claude Code's own and include subagents.
+
+You don't need to set anything up first: it works on any past session whose log is still there. Claude Code deletes logs older than 30 days unless you raise `cleanupPeriodDays` in `~/.claude/settings.json`; Codex keeps them. Logs can be large, so check your free disk space before raising it a lot.
+
+Example:
 
 ```
 Receipt · Codex CLI 0.153.4 · 7 Oct 2026
