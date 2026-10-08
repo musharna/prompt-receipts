@@ -27,6 +27,7 @@ import json
 import os
 import re
 import sys
+import textwrap
 
 PARTS = [
     "version",
@@ -641,7 +642,18 @@ def text(r, hide, with_prompt):
     if "settings" not in hide:
         out.append(f"settings {r['permissions']}")
     if with_prompt and r.get("first_prompt"):
-        out.append("prompt   " + r["first_prompt"].strip().replace("\n", "\n         "))
+        # wrap long lines so the receipt pastes without scrolling sideways; keep the prompt's own line breaks
+        wrapped = [
+            w
+            for p in r["first_prompt"].strip().split("\n")
+            for w in textwrap.wrap(p, 80) or [""]
+        ]
+        out.append(
+            "\n".join(
+                (("prompt   " if i == 0 else "         ") + w).rstrip()
+                for i, w in enumerate(wrapped)
+            )
+        )
     return "\n".join(out)
 
 
