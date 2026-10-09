@@ -1,34 +1,66 @@
-"""Make a receipt for your own Claude Code or Codex run: what ran, how long, what it cost, what was switched on.
+"""Make a receipt for your own Claude Code, Codex or OpenCode run: what ran, how long, what it cost, what was switched on.
 
-usage: python3 receipt.py [SESSION.jsonl] [options]
+usage: python3 receipt.py [SESSION] [options]
 
-  no file          the newest Claude Code session for the current folder (~/.claude/projects/...)
-  --codex          use Codex sessions instead (~/.codex/sessions/...)
+  no SESSION       the newest Claude Code session for the current folder
+  --codex          use Codex sessions instead; --opencode for OpenCode
   --list           list this folder's recent sessions; then --pick N to choose one
-  --last N         only your last N prompts (cost stays whole-session: Claude Code doesn't log it per prompt)
+  --all            with --list or --pick: sessions from every folder, not just this one
+  --last N         only your last N prompts (Claude Code cost stays whole-session: it isn't logged per prompt)
 
   leaving things out (check the receipt before you share it):
-  --hide a,b       drop parts: version, date, model, time, cost, tokens, work, addons, hooks, memory, settings
+  --hide a,b       drop parts: version, date, model, time, cost, billing, tokens, work, files, addons, hooks, memory, settings
   --counts         numbers instead of names for skills, MCP servers, plugins, subagent types and memory files
   --rename a=b     show name a as b (repeatable); fails if a isn't on the receipt, so a typo can't leak it
-  --prompt         also print your first prompt (left out by default; it can hold paths or names)
+  --prompt         also print your first prompt (home folders become ~; stops if it holds an email address or a key)
+  --redact         with --prompt: replace email addresses and keys with [email] and [key] instead of stopping
+  --prompt-id      add a short fingerprint of the prompt (not the prompt), so --compare can tell runs of one prompt
+  --file-names     name the files the run wrote (off by default: only their count and types)
 
-  --md             wrap it in a code block for GitHub or Discord
-  --json           machine-readable (the same parts left out)
+  output:
+  --md, --json     wrap it for GitHub or Discord, or print it as JSON (hidden parts stay out)
+  --out PATH       save it to a file (.txt, .md, .json or .png) or into a folder
+  --png            with --out: draw it as a picture, for posting where text gets mangled
+  --report         also print a link to the Prompt Receipts form with this receipt filled in
+  --hook           read a Claude Code hook's input from stdin (for a SessionEnd hook; needs --out)
+  --combine A B    add several --json receipts into one (one task spread over sessions)
+  --compare A B    put several --json receipts side by side (one prompt on several models or efforts)
 
 Paths, your email, account ids and file contents never print. Standard library only.
 Prompts and page text: https://musharna.github.io/prompt-receipts/ (CC BY 4.0)."""
 
 import argparse
+import base64
 import collections
 import datetime
 import glob
+import hashlib
 import itertools
 import json
 import os
 import re
+import sqlite3
+import struct
 import sys
 import textwrap
+import unicodedata
+import urllib.parse
+import zlib
+
+VERSION = "3.0"
+ISSUES = "https://github.com/musharna/prompt-receipts/issues"
+FORM = (
+    "https://docs.google.com/forms/d/e/1FAIpQLSfo7LHk0Ljj2NES_qAX3-OMIbxbql9fhCsSNSzVLF_bEXoXNA/viewform"
+    "?usp=pp_url&entry.349092046=tool&entry.1393206370="
+)
+TOOLS = {"claude": "Claude Code", "codex": "Codex CLI", "opencode": "OpenCode"}
+LOCAL = {"ollama", "lmstudio", "oss", "llama.cpp", "llamacpp", "local", "vllm"}
+PLANS = {
+    "claude_max": "Max plan",
+    "claude_pro": "Pro plan",
+    "claude_team": "Team plan",
+    "claude_enterprise": "Enterprise plan",
+}
 
 PARTS = [
     "version",
@@ -36,8 +68,10 @@ PARTS = [
     "model",
     "time",
     "cost",
+    "billing",
     "tokens",
     "work",
+    "files",
     "addons",
     "hooks",
     "memory",
@@ -46,6 +80,7 @@ PARTS = [
 
 
 def lines(path):
+    """one log entry at a time: a session log can be a gigabyte, so it is never read whole"""
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
             try:
@@ -56,6 +91,10 @@ def lines(path):
 
 def when(ts):
     return datetime.datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone()
+
+
+def iso(ms):
+    return datetime.datetime.fromtimestamp(ms / 1000, datetime.timezone.utc).isoformat()
 
 
 def mins(ms):
@@ -86,7 +125,7 @@ def span(vals):
 
 
 def cut_at(stamps, last):
-    """-> timestamp of the Nth-last prompt, or None for the whole session"""
+    """-> the Nth-last prompt's position, or None for the whole session"""
     if not last:
         return None
     if last > len(stamps):
@@ -96,38 +135,284 @@ def cut_at(stamps, last):
     return stamps[-last]
 
 
+def home():
+    return os.path.expanduser("~")
+
+
+def tilde(p):
+    h = home()
+    return "~" + p[len(h) :] if p.startswith(h) else p
+
+
+def heres():
+    """the current folder as a tool may have logged it (macOS logs /private/var for /var, say)"""
+    here = os.getcwd()
+    return {here, os.path.realpath(here)}
+
+
+def same_folder(cwd):
+    return bool(cwd) and (
+        cwd in heres()
+        or os.path.realpath(cwd) in {os.path.realpath(h) for h in heres()}
+    )
+
+
+def base_name(p):
+    return re.split(r"[\\/]", p.rstrip("\\/"))[-1]
+
+
+def files_part(r, paths, deleted=0):
+    names_ = [base_name(p) for p in paths]
+    r["files_written"] = len(paths)
+    r["files_deleted"] = deleted
+    r["file_types"] = dict(
+        collections.Counter(os.path.splitext(n)[1].lower() or "no type" for n in names_)
+    )
+    r["file_names"] = sorted(set(names_))
+
+
+# ---------- where each tool keeps its logs ----------
+
+
+def claude_dir():
+    return os.path.expanduser(
+        os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(home(), ".claude")
+    )
+
+
+def codex_dir():
+    return os.path.expanduser(
+        os.environ.get("CODEX_HOME") or os.path.join(home(), ".codex")
+    )
+
+
+def opencode_db():
+    data = os.environ.get("XDG_DATA_HOME") or os.path.join(home(), ".local", "share")
+    return os.path.join(os.path.expanduser(data), "opencode", "opencode.db")
+
+
+def slug(path):
+    return re.sub(r"[^A-Za-z0-9]", "-", path)
+
+
+def claude_cwd(path):
+    for i, d in enumerate(lines(path)):
+        if d.get("cwd"):
+            return d["cwd"]
+        if i > 50:
+            break
+    return ""
+
+
+def codex_cwd(path):
+    for i, d in enumerate(lines(path)):
+        if d.get("type") == "session_meta":
+            return (d.get("payload") or {}).get("cwd") or ""
+        if i > 20:
+            break
+    return ""
+
+
+_OC = None
+
+
+def oc():
+    """OpenCode's database, opened read-only"""
+    global _OC
+    if _OC is None:
+        db = opencode_db()
+        if not os.path.exists(db):
+            sys.exit(f"receipt: no OpenCode database at {tilde(db)}")
+        # file:///home/me/... or file:///C:/Users/me/...; mode=ro so a receipt can never change it
+        path = os.path.abspath(db).replace("\\", "/").lstrip("/")
+        _OC = sqlite3.connect(
+            "file:///" + urllib.parse.quote(path, safe="/:") + "?mode=ro", uri=True
+        )
+    return _OC
+
+
+def oc_rows():
+    """-> [(session id, folder, last change in ms)], newest first; subagent sessions left out"""
+    if not os.path.exists(opencode_db()):
+        return []
+    return (
+        oc()
+        .execute(
+            "select id, directory, time_updated from session where parent_id is null order by time_updated desc"
+        )
+        .fetchall()
+    )
+
+
+def sessions(tool, everywhere=False):
+    """-> session keys (a log path, or an OpenCode session id), newest first"""
+    if tool == "opencode":
+        return [i for i, d, _ in oc_rows() if everywhere or same_folder(d)]
+    if tool == "codex":
+        fs = glob.glob(
+            os.path.join(codex_dir(), "sessions", "*", "*", "*", "rollout-*.jsonl")
+        )
+        fs.sort(key=os.path.getmtime, reverse=True)
+        return fs if everywhere else [f for f in fs if same_folder(codex_cwd(f))]
+    fs = glob.glob(os.path.join(claude_dir(), "projects", "*", "*.jsonl"))
+    if not everywhere:
+        slugs = {slug(h) for h in heres()}
+        fs = [f for f in fs if os.path.basename(os.path.dirname(f)) in slugs]
+    fs.sort(key=os.path.getmtime, reverse=True)
+    return fs
+
+
+def where(tool):
+    return {
+        "claude": tilde(os.path.join(claude_dir(), "projects", slug(os.getcwd()))),
+        "codex": tilde(os.path.join(codex_dir(), "sessions")) + " (matched on folder)",
+        "opencode": tilde(opencode_db()) + " (matched on folder)",
+    }[tool]
+
+
+def folder_of(tool, key):
+    if tool == "opencode":
+        return next((d for i, d, _ in oc_rows() if i == key), "")
+    return codex_cwd(key) if tool == "codex" else claude_cwd(key)
+
+
+def changed(tool, key):
+    if tool == "opencode":
+        ms = next((t for i, _, t in oc_rows() if i == key), 0)
+        return datetime.datetime.fromtimestamp(ms / 1000)
+    return datetime.datetime.fromtimestamp(os.path.getmtime(key))
+
+
+def first_prompt_of(tool, key):
+    if tool == "opencode":
+        for text in oc_prompts(key):
+            return text.strip().replace("\n", " ")
+        return ""
+    for d in lines(key):
+        t = codex_prompt(d) if tool == "codex" else claude_prompt(d)
+        if t is not None:
+            return t.strip().replace("\n", " ")
+    return ""
+
+
+def elsewhere(tool):
+    """-> why nothing was found here, and where to look instead"""
+    hints = []
+    if tool == "claude":
+        fs = sessions("claude", True)
+        others = {os.path.basename(os.path.dirname(f)) for f in fs} - {
+            slug(h) for h in heres()
+        }
+        n = sum(1 for f in fs if os.path.basename(os.path.dirname(f)) in others)
+    elif tool == "codex":
+        cwds = [codex_cwd(f) for f in sessions("codex", True)]
+        others = {c for c in cwds if not same_folder(c)}
+        n = sum(1 for c in cwds if c in others)
+    else:
+        rows = oc_rows()
+        others = {d for _, d, _ in rows if not same_folder(d)}
+        n = sum(1 for _, d, _ in rows if d in others)
+    if n:
+        hints.append(
+            f"{TOOLS[tool]} has {many(n, 'session')} from {many(len(others), 'other folder')}: "
+            "run this from the folder you worked in, or see them all with --list --all"
+        )
+    for other in TOOLS:
+        if other == tool:
+            continue
+        if other == "opencode" and not os.path.exists(opencode_db()):
+            continue
+        k = len(sessions(other))
+        if k:
+            how = (
+                "leave out --codex and --opencode"
+                if other == "claude"
+                else f"add --{other}"
+            )
+            hints.append(f"this folder has {many(k, TOOLS[other] + ' session')}: {how}")
+    return hints
+
+
 # ---------- Claude Code ----------
 
 
-def claude_prompt(d):
-    """-> your prompt text if this entry is one, else None"""
+def claude_text(d):
+    """-> the text of a user entry you typed (or that stands for you), else None"""
     if d.get("type") != "user" or d.get("isSidechain") or d.get("isMeta"):
         return None
     if (d.get("origin") or {}).get("kind", "human") != "human":
         return None
     c = (d.get("message") or {}).get("content")
-    text = c if isinstance(c, str) else None
+    if isinstance(c, str):
+        return c
     if (
         isinstance(c, list)
         and c
         and all(isinstance(b, dict) and b.get("type") == "text" for b in c)
     ):
-        text = "\n".join(b.get("text", "") for b in c)
+        return "\n".join(b.get("text", "") for b in c)
+    return None
+
+
+def claude_prompt(d):
+    """-> your prompt text if this entry is one, else None"""
+    text = claude_text(d)
     if (
         text
         and not text.startswith("<")
         and not text.startswith("This session is being continued")
+        and not text.startswith(
+            "[Request interrupted"
+        )  # Claude Code's note that you pressed Esc
     ):
         return text
     return None
 
 
+def claude_billing():
+    files = [os.path.join(home(), ".claude.json")]
+    if os.environ.get("CLAUDE_CONFIG_DIR"):
+        files.insert(0, os.path.join(claude_dir(), ".claude.json"))
+    for f in files:
+        try:
+            with open(f, encoding="utf-8") as fh:
+                d = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        oa = (
+            d.get("oauthAccount") or {}
+        )  # read for the plan only; it also holds your email
+        if oa:
+            plan = PLANS.get(oa.get("organizationType")) or "subscription"
+            extra = "; extra usage on" if oa.get("hasExtraUsageEnabled") else ""
+            return (
+                f"{plan}: a flat fee, not charged per run (your account today{extra})"
+            )
+        if d.get("primaryApiKey") or os.environ.get("ANTHROPIC_API_KEY"):
+            return "API key: charged per token, so the cost above is close to what you paid"
+        return "not found in Claude Code's settings"
+    return "not found (no Claude Code settings file)"
+
+
+EDIT_TOOLS = {
+    "Write": "file_path",
+    "Edit": "file_path",
+    "MultiEdit": "file_path",
+    "NotebookEdit": "notebook_path",
+}
+
+
 def claude(path, last=None):
-    entries = list(lines(path))
-    prompt_stamps = [
-        d.get("timestamp") or "" for d in entries if claude_prompt(d) is not None
-    ]
-    cut = cut_at(prompt_stamps, last)
+    cut = None
+    if last:
+        cut = cut_at(
+            [
+                d.get("timestamp") or ""
+                for d in lines(path)
+                if claude_prompt(d) is not None
+            ],
+            last,
+        )
     r = {
         "tool": "Claude Code",
         "part": ("last prompt" if last == 1 else f"last {last} prompts")
@@ -140,7 +425,8 @@ def claude(path, last=None):
     invoked_before, invoked_after = set(), set()
     skill_count, prompts, first_prompt, cost = None, 0, None, None
     usage_by_msg, server_web, context_hooks = {}, 0, 0
-    for d in entries:
+    edits, failed, errors, interrupted = {}, set(), 0, 0
+    for d in lines(path):
         t, ts = d.get("type"), d.get("timestamp") or ""
         inside = cut is None or (ts and ts >= cut)
         # what was loaded: whole session, whatever part the receipt covers
@@ -195,6 +481,18 @@ def claude(path, last=None):
         if text is not None:
             prompts += 1
             first_prompt = first_prompt or text
+        elif t == "user" and not d.get("isSidechain"):
+            if (claude_text(d) or "").startswith("[Request interrupted"):
+                interrupted += 1
+            c = (d.get("message") or {}).get("content")
+            for b in c if isinstance(c, list) else []:
+                if (
+                    isinstance(b, dict)
+                    and b.get("type") == "tool_result"
+                    and b.get("is_error")
+                ):
+                    errors += 1
+                    failed.add(b.get("tool_use_id"))
         elif t == "assistant" and not d.get("isSidechain"):
             m = d.get("message") or {}
             if m.get("model") and not m["model"].startswith("<"):
@@ -216,6 +514,8 @@ def claude(path, last=None):
                 elif n.startswith("mcp__"):
                     mcp[n.split("__")[1]] += 1
                     mcp_servers.add(n.split("__")[1])
+                elif n in EDIT_TOOLS and inp.get(EDIT_TOOLS[n]):
+                    edits[b.get("id")] = inp[EDIT_TOOLS[n]]
     if not stamps:
         sys.exit(
             f"receipt: {path} has no timestamped entries; is it a Claude Code session log?"
@@ -251,6 +551,10 @@ def claude(path, last=None):
         r["cost_note"] = "Claude Code's estimate at API prices" + (
             "; some model costs unknown" if cost.get("hasUnknownModelCost") else ""
         )
+        if models and not any("claude" in m.lower() for m in models):
+            r["cost_note"] += (
+                "; the model isn't Anthropic's, so the estimate doesn't apply"
+            )
         if cut:
             r["cost_note"] = "whole session; " + r["cost_note"]
         mu = cost.get("modelUsage") or {}
@@ -274,6 +578,7 @@ def claude(path, last=None):
             r["tokens_out"] = sum(v.get("outputTokens", 0) for v in mu.values())
     else:
         r["cost_note"] = "not in this log (older Claude Code versions don't write it)"
+    r["billing"] = claude_billing()
     if cut is not None or "tokens_in" not in r:
         us = usage_by_msg.values()
         r["tokens_in"] = sum(
@@ -288,6 +593,9 @@ def claude(path, last=None):
     r["tool_calls"] = sum(tools.values())
     r["shell_commands"] = tools.get("Bash", 0)
     r["web"] = tools.get("WebSearch", 0) + tools.get("WebFetch", 0) + server_web
+    r["tool_errors"] = errors
+    r["interrupted"] = interrupted
+    files_part(r, sorted({p for i, p in edits.items() if i not in failed}))
     r["skills_used"] = dict(skills)
     r["skills_available"] = skill_count
     r["mcp_used"] = dict(mcp)
@@ -342,20 +650,55 @@ def codex_prompt(d):
     return "\n".join(mine) if mine else None
 
 
+def codex_billing(providers):
+    if providers and all(p in LOCAL for p in providers):
+        return "none: the model ran on this computer"
+    other = [p for p in providers if p != "openai"]
+    if other:
+        return f"through {', '.join(other)}, not your ChatGPT plan"
+    try:
+        with open(os.path.join(codex_dir(), "auth.json"), encoding="utf-8") as fh:
+            d = json.load(fh)
+    except (OSError, ValueError):
+        return "not found (no Codex login file)"
+    mode = d.get("auth_mode") or (
+        "chatgpt" if d.get("tokens") else "apikey" if d.get("OPENAI_API_KEY") else ""
+    )
+    if mode == "chatgpt":
+        plan = ""
+        parts = ((d.get("tokens") or {}).get("id_token") or "").split(".")
+        if len(parts) == 3:  # read for the plan only; the login also holds your email
+            try:
+                claims = json.loads(
+                    base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4))
+                )
+                plan = (claims.get("https://api.openai.com/auth") or {}).get(
+                    "chatgpt_plan_type"
+                ) or ""
+            except ValueError:
+                plan = ""
+        plan = f"ChatGPT {plan.capitalize()} plan" if plan else "ChatGPT plan"
+        return f"{plan}: a flat fee, not charged per run (your account today)"
+    if mode:
+        return "API key: charged per token"
+    return "not found in Codex's login file"
+
+
 def codex(path, last=None):
-    entries = list(lines(path))
-    prompt_at = [i for i, d in enumerate(entries) if codex_prompt(d) is not None]
-    cut = cut_at(prompt_at, last)
-    if (
-        cut is not None
-    ):  # a turn's settings are logged just before its prompt: start at the turn
-        starts = [
-            i
-            for i, d in enumerate(entries[: cut + 1])
-            if d.get("type") == "event_msg"
-            and (d.get("payload") or {}).get("type") == "task_started"
-        ]
-        cut = starts[-1] if starts else cut
+    cut = None
+    if last:
+        prompt_at, starts = [], []
+        for i, d in enumerate(lines(path)):
+            if codex_prompt(d) is not None:
+                prompt_at.append(i)
+            elif (
+                d.get("type") == "event_msg"
+                and (d.get("payload") or {}).get("type") == "task_started"
+            ):
+                starts.append(i)
+        cut = cut_at(prompt_at, last)
+        # a turn's settings are logged just before its prompt: start at the turn
+        cut = max([s for s in starts if s <= cut], default=cut)
     r = {
         "tool": "Codex CLI",
         "part": ("last prompt" if last == 1 else f"last {last} prompts")
@@ -363,20 +706,24 @@ def codex(path, last=None):
         else "whole session",
     }
     versions, models, efforts, sandboxes, approvals, stamps = [], [], [], [], [], []
+    providers = []
     calls, skills, mcp = (
         collections.Counter(),
         collections.Counter(),
         collections.Counter(),
     )
     prompts, first_prompt, agents_md, web, images, busy = 0, None, False, 0, 0, 0
+    errors, interrupted, call_names = 0, 0, {}
+    written, deleted, patched_by_event, patch_inputs = set(), set(), False, []
     # Codex's running total restarts with each process (every `codex exec resume`), so add up each
     # model call's own usage instead; the same event is often logged twice, so skip unchanged totals
     usage, last_total = collections.Counter(), None
-    for i, d in enumerate(entries):
+    for i, d in enumerate(lines(path)):
         t, p, ts = d.get("type"), d.get("payload") or {}, d.get("timestamp") or ""
         inside = cut is None or i >= cut
         if t == "session_meta":
             versions.append(p.get("cli_version"))
+            providers.append(p.get("model_provider"))
         elif t == "event_msg" and p.get("type") == "token_count" and p.get("info"):
             total = p["info"].get("total_token_usage")
             if inside and total != last_total:
@@ -407,8 +754,22 @@ def codex(path, last=None):
                 else "no sandbox"
             )
             approvals.append(p.get("approval_policy"))
-        elif t == "event_msg" and p.get("type") == "task_complete":
-            busy += p.get("duration_ms") or 0
+        elif t == "event_msg":
+            et = p.get("type")
+            if et == "task_complete":
+                busy += p.get("duration_ms") or 0
+            elif et == "turn_aborted" and p.get("reason") == "interrupted":
+                interrupted += 1
+            elif et == "exec_command_end" and p.get("exit_code") not in (0, None):
+                errors += 1
+            elif et == "patch_apply_end":
+                patched_by_event = True
+                if not p.get("success"):
+                    errors += 1
+                elif isinstance(p.get("changes"), dict):
+                    for f, ch in p["changes"].items():
+                        kind = (ch or {}).get("type") if isinstance(ch, dict) else None
+                        (deleted if kind == "delete" else written).add(f)
         elif t == "response_item":
             pt = p.get("type")
             text = codex_prompt(d)
@@ -424,13 +785,27 @@ def codex(path, last=None):
             elif pt in ("function_call", "custom_tool_call"):
                 n = p.get("name", "?")
                 calls[n] += 1
+                call_names[p.get("call_id")] = n
                 if "mcp" in n or "__" in n:
                     mcp[n] += 1
-                for s in re.findall(
-                    r"skills/(?:\.system/)?([\w.-]+)/SKILL\.md",
-                    json.dumps(p.get("input") or p.get("arguments") or ""),
-                ):
+                arg = json.dumps(p.get("input") or p.get("arguments") or "")
+                for s in re.findall(r"skills/(?:\.system/)?([\w.-]+)/SKILL\.md", arg):
                     skills[s] += 1
+                if n == "apply_patch":
+                    patch_inputs.append(p.get("input") or p.get("arguments") or "")
+            elif pt in ("function_call_output", "custom_tool_call_output"):
+                # the `exec` tool runs a script and reports "Script failed" instead of an exit code
+                if call_names.get(p.get("call_id")) == "exec":
+                    o = p.get("output")
+                    first = (
+                        o
+                        if isinstance(o, str)
+                        else (o[0] or {}).get("text", "")
+                        if isinstance(o, list) and o and isinstance(o[0], dict)
+                        else ""
+                    )
+                    if first.startswith("Script failed"):
+                        errors += 1
             elif pt == "web_search_call":
                 web += 1
             elif pt == "image_generation_call":
@@ -439,28 +814,279 @@ def codex(path, last=None):
         sys.exit(
             f"receipt: {path} has no timestamped entries; is it a Codex session log?"
         )
+    if not patched_by_event:  # older Codex logs the patch text but no result event
+        for s in patch_inputs:
+            s = s if isinstance(s, str) else json.dumps(s)
+            written |= set(re.findall(r"\*\*\* (?:Add|Update) File: ([^\n\\]+)", s))
+            deleted |= set(re.findall(r"\*\*\* Delete File: ([^\n\\]+)", s))
+    providers = list(dict.fromkeys(p for p in providers if p))
     r["version"] = span(versions)
     r["models"] = list(dict.fromkeys(m for m in models if m))
+    r["providers"] = providers
     r["effort"] = span(efforts)
     r["permissions"] = f"sandbox {span(sandboxes)} · approvals {span(approvals)}"
     r["started"], r["ended"] = min(stamps), max(stamps)
     r["prompts"] = prompts
     r["model_time_ms"] = busy or None
-    r["cost_note"] = "Codex logs no price (ChatGPT plans don't bill per run)"
+    r["cost_note"] = "Codex logs no price"
+    r["billing"] = codex_billing(providers)
     if last_total is not None:
         r["tokens_in"] = usage["input_tokens"]
         r["tokens_cached"] = usage["cached_input_tokens"]
         r["tokens_out"] = usage["output_tokens"]
     r["tool_calls"] = sum(calls.values())
-    r["shell_commands"] = calls.get("exec", 0) + calls.get("shell", 0)
+    r["shell_commands"] = (
+        calls.get("exec", 0) + calls.get("shell", 0) + calls.get("exec_command", 0)
+    )
     r["web"] = web
     r["images_made"] = images
+    r["tool_errors"] = errors
+    r["interrupted"] = interrupted
+    files_part(r, sorted(written - deleted), len(deleted))
     r["skills_used"] = dict(skills)
     r["mcp_used"] = dict(mcp)
     r["hooks"] = None  # Codex session logs don't record hook runs
     r["memory"] = ["AGENTS.md"] if agents_md else []
     r["first_prompt"] = first_prompt
     return r
+
+
+# ---------- OpenCode ----------
+
+OC_BUILTIN = {
+    "bash", "read", "write", "edit", "multiedit", "patch", "glob", "grep", "list", "ls",
+    "todowrite", "todoread", "task", "webfetch", "websearch", "codesearch", "skill",
+    "question", "batch", "invalid", "lsp",
+}  # fmt: skip
+
+
+def oc_prompts(sid, with_time=False):
+    """-> your prompts in one OpenCode session, oldest first (text OpenCode adds itself is marked synthetic)"""
+    out = []
+    for mid, created, data in oc().execute(
+        "select id, time_created, data from message where session_id = ? order by time_created",
+        (sid,),
+    ):
+        if json.loads(data).get("role") != "user":
+            continue
+        texts = [
+            p.get("text", "")
+            for (pd,) in oc().execute(
+                "select data from part where message_id = ? order by time_created",
+                (mid,),
+            )
+            for p in [json.loads(pd)]
+            if p.get("type") == "text" and not p.get("synthetic")
+        ]
+        text = "\n".join(t for t in texts if t.strip())
+        if text:
+            out.append((created, text) if with_time else text)
+    return out
+
+
+def opencode(sid, last=None):
+    row = (
+        oc()
+        .execute("select version, agent, permission from session where id = ?", (sid,))
+        .fetchone()
+    )
+    if not row:
+        sys.exit(f"receipt: no OpenCode session {sid!r} (see --opencode --list)")
+    version, agent, permission = row
+    prompts_t = oc_prompts(sid, with_time=True)
+    cut = cut_at([t for t, _ in prompts_t], last) if last else None
+    r = {
+        "tool": "OpenCode",
+        "part": ("last prompt" if last == 1 else f"last {last} prompts")
+        if cut is not None
+        else "whole session",
+        "version": version or "not recorded",
+    }
+    models, providers, efforts, stamps = [], [], [], []
+    tools, skills, mcp, agents = (collections.Counter() for _ in range(4))
+    cost, tin, tcached, tout, busy = 0.0, 0, 0, 0, 0
+    errors, model_errors, interrupted, written = 0, 0, 0, set()
+    # subagents run in child sessions: their cost and tokens count, as in Claude Code's totals
+    children = []
+    for c, kind in oc().execute(
+        "select id, agent from session where parent_id = ?", (sid,)
+    ):
+        children.append(c)
+        agents[kind or "general"] += 1
+    for s in [sid] + children:
+        for created, data in oc().execute(
+            "select time_created, data from message where session_id = ? order by time_created",
+            (s,),
+        ):
+            if cut is not None and created < cut:
+                continue
+            m = json.loads(data)
+            tm = m.get("time") or {}
+            for k in ("created", "completed"):
+                if tm.get(k):
+                    stamps.append(tm[k])
+            if m.get("variant"):
+                efforts.append(str(m["variant"]))
+            if m.get("role") != "assistant":
+                continue
+            cost += m.get("cost") or 0
+            tk = m.get("tokens") or {}
+            cache = tk.get("cache") or {}
+            tin += (
+                (tk.get("input") or 0)
+                + (cache.get("read") or 0)
+                + (cache.get("write") or 0)
+            )
+            tcached += cache.get("read") or 0
+            tout += (tk.get("output") or 0) + (tk.get("reasoning") or 0)
+            if s != sid:
+                continue
+            if m.get(
+                "modelID"
+            ):  # one session can switch providers, so each model names its own
+                pid = m.get("providerID") or "?"
+                where_ = ", on this computer" if pid in LOCAL else ""
+                models.append(f"{m['modelID']} ({pid}{where_})")
+                providers.append(pid)
+            if tm.get("created") and tm.get("completed"):
+                busy += tm["completed"] - tm["created"]
+            err = (m.get("error") or {}).get("name")
+            if err == "MessageAbortedError":
+                interrupted += 1
+            elif err:
+                model_errors += 1
+    for mcreated, pdata in oc().execute(
+        "select m.time_created, p.data from part p join message m on m.id = p.message_id where p.session_id = ?",
+        (sid,),
+    ):
+        if cut is not None and mcreated < cut:
+            continue
+        p = json.loads(pdata)
+        if p.get("type") == "patch":
+            written |= set(p.get("files") or [])
+        if p.get("type") != "tool":
+            continue
+        n, st = p.get("tool", "?"), p.get("state") or {}
+        tools[n] += 1
+        inp = st.get("input") or {}
+        if st.get("status") == "error":
+            errors += 1
+        elif n in ("write", "edit", "multiedit") and inp.get("filePath"):
+            written.add(inp["filePath"])
+        if n == "skill":
+            skills[inp.get("name") or "?"] += 1
+        elif n not in OC_BUILTIN and "_" in n:  # MCP tools are named server_tool
+            mcp[n.split("_")[0]] += 1
+    if not stamps:
+        sys.exit(f"receipt: OpenCode session {sid} has no messages")
+    prompts_in = [t for t, _ in prompts_t if cut is None or t >= cut]
+    providers = list(dict.fromkeys(p for p in providers if p))
+    r["models"] = list(dict.fromkeys(models))
+    r["providers"] = providers
+    r["effort"] = span(efforts) if efforts else "not set"
+    r["permissions"] = f"agent {agent or '?'}" + (
+        " · own permission rules" if permission else ""
+    )
+    r["started"], r["ended"] = iso(min(stamps)), iso(max(stamps))
+    r["prompts"] = len(prompts_in)
+    r["model_time_ms"] = busy or None
+    r["cost_usd"] = round(cost, 2)
+    r["cost_note"] = "as OpenCode recorded it" + (
+        "; includes subagents" if children else ""
+    )
+    r["billing"] = (
+        "none: the model ran on this computer"
+        if providers and all(p in LOCAL for p in providers)
+        else f"through {', '.join(providers) or 'an unrecorded provider'}"
+    )
+    r["tokens_in"], r["tokens_cached"], r["tokens_out"] = tin, tcached, tout
+    r["tool_calls"] = sum(tools.values())
+    r["shell_commands"] = tools.get("bash", 0)
+    r["web"] = tools.get("websearch", 0) + tools.get("webfetch", 0)
+    r["tool_errors"] = errors
+    r["interrupted"] = interrupted
+    r["model_errors"] = model_errors
+    files_part(r, sorted(written))
+    r["skills_used"] = dict(skills)
+    r["mcp_used"] = dict(mcp)
+    r["subagents"] = dict(agents)
+    r["hooks"] = None
+    r["memory"] = None
+    r["first_prompt"] = next((t for c, t in prompts_t if cut is None or c >= cut), None)
+    return r
+
+
+# ---------- checks on what was read ----------
+
+
+def check(r):
+    """a log that parses but holds none of what a run leaves behind usually means the tool changed its format"""
+    w = []
+    if not r.get("prompts"):
+        w.append("found no prompts from you in this log")
+    elif not r.get("models"):
+        w.append("found your prompts but no model reply")
+    elif not (r.get("tokens_in") or r.get("tokens_out")):
+        w.append("found model replies but no token counts")
+    r["warnings"] = w
+    for msg in w:
+        print(
+            f"receipt: warning: {msg}. If this run did get replies, {r['tool']} may have changed how it "
+            f"writes its logs and parts of this receipt may be wrong; please report it at {ISSUES} "
+            f"(receipt.py {VERSION})",
+            file=sys.stderr,
+        )
+
+
+HOME_PATH = re.compile(
+    r"(?:/home/|/Users/|/mnt/[a-z]/Users/|[A-Za-z]:\\+Users\\+|[A-Za-z]:/Users/)[^/\\\s'\"`]+",
+    re.I,
+)
+# the same folders as Claude Code names its project folders: -home-me, -Users-me, C--Users-me, -mnt-c-Users-me
+HOME_SLUG = re.compile(r"(?:[A-Za-z]-|-mnt-[a-z])?-(?:home|Users)-[A-Za-z0-9_]+")
+SECRETS = [
+    ("email", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[A-Za-z]{2,}")),
+    ("key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    (
+        "key",
+        re.compile(
+            r"\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|AKIA[0-9A-Z]{16}"
+            r"|xox[abposr]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{30,}|hf_[A-Za-z0-9]{30,}|glpat-[\w-]{20,})"
+        ),
+    ),
+    # a long run of letters and digits mixing cases looks like a token; hex hashes are one case, so they pass
+    (
+        "key",
+        re.compile(r"\b(?=[\w-]*[a-z])(?=[\w-]*[A-Z])(?=[\w-]*\d)[A-Za-z0-9_-]{32,}\b"),
+    ),
+]
+
+
+def scrub(text, redact):
+    """home folders -> ~; an email address or key stops the receipt unless --redact"""
+    text = HOME_PATH.sub("~", text.replace(slug(home()), "~"))
+    text = HOME_SLUG.sub("~", text)
+    found = collections.Counter()
+    for kind, rx in SECRETS:
+        if redact:
+            text = rx.sub(f"[{kind}]", text)
+        else:
+            found[kind] += len(rx.findall(text))
+    if found and sum(found.values()):
+        what = " and ".join(
+            many(n, "email address" if k == "email" else "key-like string")
+            for k, n in found.items()
+            if n
+        )
+        sys.exit(
+            f"receipt: your prompt holds {what}, so it was not printed. Leave out --prompt, "
+            "or add --redact to print it with [email] and [key] in their place"
+        )
+    return text
+
+
+def prompt_id(text):
+    return hashlib.sha256(" ".join(text.split()).encode()).hexdigest()[:12]
 
 
 # ---------- leaving things out ----------
@@ -473,6 +1099,8 @@ NAMED = [
     "memory",
     "models",
     "background_models",
+    "providers",
+    "file_names",
 ]
 
 
@@ -514,17 +1142,36 @@ def counts_only(r):
         r["subagents"] = {"count": sum(r["subagents"].values())}
     if "plugins_used" in r:
         r["plugins_used"] = len(r["plugins_used"])
-    r["memory"] = len(r.get("memory") or [])
+    if r.get("memory") is not None:
+        r["memory"] = len(r["memory"])
+    r.pop("file_names", None)
 
 
 DROP = {
     "version": ["version"],
     "date": ["started", "ended"],
-    "model": ["models", "background_models", "effort"],
-    "time": ["started", "ended", "model_time_ms", "prompts"],
+    "model": ["models", "background_models", "effort", "providers"],
+    "time": ["started", "ended", "duration_ms", "model_time_ms", "prompts"],
     "cost": ["cost_usd", "cost_note"],
+    "billing": ["billing"],
     "tokens": ["tokens_in", "tokens_cached", "tokens_out", "tokens_note"],
-    "work": ["tool_calls", "shell_commands", "web", "images_made", "lines_changed"],
+    "work": [
+        "tool_calls",
+        "shell_commands",
+        "web",
+        "images_made",
+        "lines_changed",
+        "tool_errors",
+        "interrupted",
+        "model_errors",
+    ],
+    "files": [
+        "files_written",
+        "files_deleted",
+        "file_types",
+        "file_names",
+        "files_note",
+    ],
     "addons": [
         "skills_used",
         "skills_available",
@@ -538,6 +1185,230 @@ DROP = {
     "memory": ["memory"],
     "settings": ["permissions"],
 }
+
+
+# ---------- adding receipts up, or setting them side by side ----------
+
+
+def load(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            r = json.load(fh)
+    except (OSError, ValueError) as e:
+        sys.exit(
+            f"receipt: can't read {path} as a JSON receipt ({e}); make one with --json --out FILE.json"
+        )
+    if not isinstance(r, dict) or "tool" not in r or "part" not in r:
+        sys.exit(f"receipt: {path} isn't a receipt made with --json")
+    if "duration_ms" not in r and r.get("started") and r.get("ended"):
+        r["duration_ms"] = (
+            when(r["ended"]) - when(r["started"])
+        ).total_seconds() * 1000
+    return r
+
+
+def hidden_in(rs):
+    """parts left out of any of the receipts, which a total therefore can't include"""
+    return {
+        part
+        for part, keys in DROP.items()
+        if any(not any(k in r for k in keys) for r in rs)
+    }
+
+
+def counted(v):
+    """a names dict or a {"count": n} -> how many"""
+    if isinstance(v, dict):
+        return v["count"] if set(v) == {"count"} else len(v)
+    return v if isinstance(v, int) else len(v or [])
+
+
+def combine(rs):
+    hide = hidden_in(rs)
+    rs = sorted(rs, key=lambda x: x.get("started") or "")
+    tools = list(dict.fromkeys(x["tool"] for x in rs))
+    r = {
+        "tool": " + ".join(tools),
+        "part": f"{len(rs)} receipts added up",
+        "receipt_version": VERSION,
+        "combined": len(rs),
+    }
+    # each tool's versions in time order: "Claude Code 2.1.268 → 2.1.278 + Codex CLI 0.128.0"
+    r["version"] = " + ".join(
+        (f"{t} " if len(tools) > 1 else "")
+        + span(x.get("version") for x in rs if x["tool"] == t)
+        for t in tools
+    )
+    if len(tools) > 1:
+        r["tool"] = ""
+    r["models"] = list(dict.fromkeys(m for x in rs for m in x.get("models") or []))
+    r["background_models"] = sorted(
+        {m for x in rs for m in x.get("background_models") or []}
+    )
+    r["providers"] = list(
+        dict.fromkeys(m for x in rs for m in x.get("providers") or [])
+    )
+    r["effort"] = span(x.get("effort") for x in rs)
+    r["permissions"] = span(x.get("permissions") for x in rs)
+    r["billing"] = " + ".join(
+        dict.fromkeys(x["billing"] for x in rs if x.get("billing"))
+    )
+    if all(x.get("started") for x in rs):
+        r["started"] = min(x["started"] for x in rs)
+        r["ended"] = max(x["ended"] for x in rs)
+    for k in (
+        "prompts", "duration_ms", "model_time_ms", "tool_calls", "shell_commands", "web",
+        "images_made", "tool_errors", "interrupted", "model_errors", "hooks_added_context",
+        "files_written", "files_deleted",
+    ):  # fmt: skip
+        if any(x.get(k) is not None for x in rs):
+            r[k] = sum(x.get(k) or 0 for x in rs)
+    with_cost = [x for x in rs if "cost_usd" in x]
+    if with_cost:
+        r["cost_usd"] = round(sum(x["cost_usd"] for x in with_cost), 2)
+        r["cost_note"] = (
+            "added up"
+            if len(with_cost) == len(rs)
+            else f"{len(with_cost)} of {len(rs)} receipts have a cost; the others' tools log no price"
+        )
+    else:
+        r["cost_note"] = span(x.get("cost_note") for x in rs)
+    with_tokens = [x for x in rs if "tokens_in" in x]
+    if with_tokens:
+        for k in ("tokens_in", "tokens_cached", "tokens_out"):
+            r[k] = sum(x.get(k) or 0 for x in with_tokens)
+        if len(with_tokens) < len(rs):
+            r["tokens_note"] = (
+                f"{len(with_tokens)} of {len(rs)} receipts have token counts"
+            )
+    if all(x.get("lines_changed") for x in rs):
+        r["lines_changed"] = [sum(x["lines_changed"][i] for x in rs) for i in (0, 1)]
+    r["file_types"] = dict(
+        sum(
+            (collections.Counter(x.get("file_types") or {}) for x in rs),
+            collections.Counter(),
+        )
+    )
+    if all("file_names" in x for x in rs):
+        r["file_names"] = sorted({n for x in rs for n in x["file_names"]})
+    if len(rs) > 1:
+        r["files_note"] = "added up, so a file edited in two parts counts twice"
+    for k in ("skills_used", "mcp_used", "subagents"):
+        vals = [x.get(k) for x in rs if x.get(k) is not None]
+        if any(isinstance(v, dict) and set(v) == {"count"} for v in vals):
+            r[k] = {"count": sum(counted(v) for v in vals)}
+        elif vals:
+            r[k] = dict(
+                sum((collections.Counter(v) for v in vals), collections.Counter())
+            )
+    for k in ("skills_available", "mcp_connected", "plugins_available"):
+        vals = [x[k] for x in rs if x.get(k) is not None]
+        if vals:
+            r[k] = max(vals)
+    for k in ("plugins_used", "memory"):
+        vals = [x.get(k) for x in rs if x.get(k) is not None]
+        if any(isinstance(v, int) for v in vals):
+            r[k] = sum(counted(v) for v in vals)
+        elif vals:
+            r[k] = sorted({n for v in vals for n in v})
+        elif k == "memory":
+            r[k] = None
+    hk = [x.get("hooks") for x in rs if x.get("hooks") is not None]
+    r["hooks"] = (
+        dict(sum((collections.Counter(h) for h in hk), collections.Counter()))
+        if hk
+        else None
+    )
+    r["warnings"] = sorted({w for x in rs for w in x.get("warnings") or []})
+    prompts = {x.get("first_prompt") for x in rs}
+    if len(prompts) == 1:
+        r["first_prompt"] = prompts.pop()
+    ids = {x.get("prompt_id") for x in rs}
+    if len(ids) == 1 and None not in ids:
+        r["prompt_id"] = ids.pop()
+    for part in hide:
+        for k in DROP[part]:
+            r.pop(k, None)
+        print(
+            f"receipt: {part} is left out of at least one receipt, so the total leaves it out",
+            file=sys.stderr,
+        )
+    return r, hide
+
+
+def same_prompt(rs):
+    ids = [x.get("prompt_id") for x in rs]
+    if None in ids:
+        return None
+    return len(set(ids)) == 1
+
+
+def compare(rs, hide):
+    def cell(r, row):
+        if row == "tool":
+            return f"{r['tool']} {r.get('version', '')}".strip()
+        if row == "model":
+            return ", ".join(r.get("models") or []) or "?"
+        if row == "effort":
+            return r.get("effort") or "?"
+        if row == "date":
+            return (
+                f"{when(r['started']).day} {when(r['started']):%b %Y}"
+                if r.get("started")
+                else "-"
+            )
+        if row == "time":
+            return mins(r["duration_ms"]) if r.get("duration_ms") is not None else "-"
+        if row == "cost":
+            c = r.get("cost_usd")
+            return "-" if c is None else f"${c:.2f}" if c >= 0.01 else "<$0.01"
+        if row == "tokens":
+            return (
+                f"{toks(r['tokens_in'])} in, {toks(r['tokens_out'])} out"
+                if "tokens_in" in r
+                else "-"
+            )
+        if row == "calls":
+            return (
+                f"{r['tool_calls']} ({r.get('tool_errors') or 0} failed)"
+                if "tool_calls" in r
+                else "-"
+            )
+        if row == "files":
+            return str(r["files_written"]) if "files_written" in r else "-"
+        if row == "prompt":
+            return r.get("prompt_id") or "-"
+
+    rows = [
+        ("tool", "version"), ("model", "model"), ("effort", "model"), ("date", "date"),
+        ("time", "time"), ("cost", "cost"), ("tokens", "tokens"), ("calls", "work"),
+        ("files", "files"), ("prompt", None),
+    ]  # fmt: skip
+    hide = hide | hidden_in(rs)
+    grid = [
+        [row] + [cell(r, row) for r in rs]
+        for row, part in rows
+        if part is None or part not in hide
+    ]
+    width = [min(max(len(line[i]) for line in grid), 26) for i in range(len(grid[0]))]
+    width[0] = 7  # labels line up with a receipt's: 7 wide + 2 spaces
+    same = same_prompt(rs)
+    head = f"Comparison · {len(rs)} runs · " + (
+        f"the same prompt (id {rs[0]['prompt_id']})"
+        if same
+        else "different prompts"
+        if same is False
+        else "prompt not fingerprinted (make each receipt with --prompt-id)"
+    )
+    out = [f"Receipt v{VERSION} · {head}"]
+    for line in grid:
+        out.append(
+            "  ".join(
+                (c if len(c) <= w else c[: w - 1] + "…").ljust(w)
+                for c, w in zip(line, width)
+            ).rstrip()
+        )
+    return "\n".join(out), same
 
 
 # ---------- printing ----------
@@ -554,26 +1425,42 @@ def names(d):
     )
 
 
-def text(r, hide, with_prompt):
-    head = f"Receipt · {r['tool']}"
+def text(r, hide, with_prompt, width=80):
+    head = f"Receipt v{VERSION} · {r['tool']}"
     if "version" not in hide:
-        head += f" {r['version']}"
-    if "date" not in hide:
+        head = f"{head} {r['version']}".replace("·  ", "· ")
+    elif not r["tool"]:  # several tools added up, and their versions hidden
+        head += " several tools"
+    if "date" not in hide and r.get("started"):
         day = when(
             r["started"]
         )  # not %-d: Windows' strftime has no way to drop the leading zero
+        end = when(r["ended"])
         head += f" · {day.day} {day:%b %Y}"
+        if r.get("combined") and end.date() != day.date():
+            head += f" → {end.day} {end:%b %Y}"
     if r["part"] != "whole session":
         head += f" · {r['part']}"
     out = [head]
     if "model" not in hide:
         bg = r.get("background_models")
         bg = f" (+ {', '.join(bg)} in the background)" if bg else ""
+        via = [
+            p
+            for p in r.get("providers") or []
+            if p != "openai" and not any(f"({p}" in m for m in r["models"])
+        ]
+        via = (
+            " via "
+            + ", ".join(p + (" (on this computer)" if p in LOCAL else "") for p in via)
+            if via
+            else ""
+        )
         out.append(
-            f"model    {', '.join(r['models']) or 'no model reply in this log'}{bg} · effort {r['effort']}"
+            f"model    {', '.join(r['models']) or 'no model reply in this log'}{via}{bg} · effort {r['effort']}"
         )
     if "time" not in hide:
-        took = mins((when(r["ended"]) - when(r["started"])).total_seconds() * 1000)
+        took = mins(r["duration_ms"])
         if r.get("model_time_ms"):
             took += f" (model working {mins(r['model_time_ms'])})"
         out.append(
@@ -585,6 +1472,8 @@ def text(r, hide, with_prompt):
             out.append(f"cost     {money} ({r['cost_note']})")
         else:
             out.append(f"cost     {r['cost_note']}")
+    if "billing" not in hide and r.get("billing"):
+        out.append(f"billing  {r['billing']}")
     if "tokens" not in hide and "tokens_in" in r:
         note = f" ({r['tokens_note']})" if r.get("tokens_note") else ""
         out.append(
@@ -596,12 +1485,35 @@ def text(r, hide, with_prompt):
             work += f" · images made {r['images_made']}"
         if any(r.get("lines_changed") or []):
             work += f" · lines +{r['lines_changed'][0]} -{r['lines_changed'][1]}"
+        if r.get("tool_errors"):
+            work += f" · {many(r['tool_errors'], 'failed call')}"
+        if r.get("model_errors"):
+            work += f" · {many(r['model_errors'], 'model error')}"
+        if r.get("interrupted"):
+            work += f" · interrupted {r['interrupted']}×"
         out.append(f"work     {work}")
+    if "files" not in hide and "files_written" in r:
+        n = r["files_written"]
+        if r.get("file_names"):
+            fn = r["file_names"][
+                :12
+            ]  # names repeat across folders, so count the rest from n
+            what = ", ".join(fn) + (f" and {n - len(fn)} more" if n > len(fn) else "")
+        else:
+            what = names(r.get("file_types"))
+        line = f"files    {many(n, 'file')} written or edited" + (
+            f" ({what})" if n else ""
+        )
+        if r.get("files_deleted"):
+            line += f" · {r['files_deleted']} deleted"
+        if r.get("files_note"):
+            line += f" · {r['files_note']}"
+        out.append(line)
     if "addons" not in hide:
-        sk = f"skills {names(r['skills_used'])}"
+        sk = f"skills {names(r.get('skills_used'))}"
         if r.get("skills_available") is not None:
             sk += f" (of {r['skills_available']} available)"
-        mc = f"MCP {names(r['mcp_used'])}"
+        mc = f"MCP {names(r.get('mcp_used'))}"
         if r.get("mcp_connected") is not None:
             mc += f" (of {r['mcp_connected']} connected)"
         line = f"add-ons  {sk} · {mc}"
@@ -630,7 +1542,7 @@ def text(r, hide, with_prompt):
     if "hooks" not in hide:
         h = r.get("hooks")
         if h is None:
-            out.append("hooks    not in Codex logs")
+            out.append(f"hooks    not in {r['tool'] or 'these'} logs")
         else:
             # Claude Code logs a hook run only when the hook says something, so the count is a floor
             line = (
@@ -642,21 +1554,25 @@ def text(r, hide, with_prompt):
                 line += f" · added context {many(r['hooks_added_context'], 'time')}"
             out.append(line)
     if "memory" not in hide:
-        m = r["memory"]
+        m = r.get("memory")
         m = (
-            (f"{m} file{'s' if m != 1 else ''}" if m else "none loaded")
+            f"not in {r['tool'] or 'these'} logs"
+            if m is None
+            else (f"{m} file{'s' if m != 1 else ''}" if m else "none loaded")
             if isinstance(m, int)
             else (", ".join(m) or "none loaded")
         )
         out.append(f"memory   {m}")
     if "settings" not in hide:
         out.append(f"settings {r['permissions']}")
+    if r.get("prompt_id"):
+        out.append(f"id       {r['prompt_id']} (prompt fingerprint)")
     if with_prompt and r.get("first_prompt"):
         # wrap long lines so the receipt pastes without scrolling sideways; keep the prompt's own line breaks
         wrapped = [
             w
             for p in r["first_prompt"].strip().split("\n")
-            for w in textwrap.wrap(p, 80) or [""]
+            for w in textwrap.wrap(p, width) or [""]
         ]
         out.append(
             "\n".join(
@@ -664,42 +1580,171 @@ def text(r, hide, with_prompt):
                 for i, w in enumerate(wrapped)
             )
         )
+    for w in r.get("warnings") or []:
+        out.append(
+            f"warning  {w}; receipt.py may not read this {r['tool'] or 'tool'} version right"
+        )
     return "\n".join(out)
 
 
-# ---------- finding sessions ----------
+# ---------- a picture of the receipt ----------
+
+# font8x8 by Daniel Hepper, public domain (github.com/dhepper/font8x8): 8 bytes per character from
+# space to ~, one per row, lowest bit leftmost; then four drawn here for · → × …
+FONT = bytes.fromhex(
+    "0000000000000000183c3c1818001800363600000000000036367f367f3636000c3e031e301f0c00"
+    "006333180c6663001c361c6e3b336e000606030000000000180c0606060c1800060c1818180c0600"
+    "00663cff3c660000000c0c3f0c0c000000000000000c0c060000003f0000000000000000000c0c00"
+    "6030180c060301003e63737b6f673e000c0e0c0c0c0c3f001e33301c06333f001e33301c30331e00"
+    "383c36337f3078003f031f3030331e001c06031f33331e003f3330180c0c0c001e33331e33331e00"
+    "1e33333e30180e00000c0c00000c0c00000c0c00000c0c06180c0603060c180000003f00003f0000"
+    "060c1830180c06001e3330180c000c003e637b7b7b031e000c1e33333f3333003f66663e66663f00"
+    "3c66030303663c001f36666666361f007f46161e16467f007f46161e16060f003c66030373667c00"
+    "3333333f333333001e0c0c0c0c0c1e007830303033331e006766361e366667000f06060646667f00"
+    "63777f7f6b63630063676f7b736363001c36636363361c003f66663e06060f001e3333333b1e3800"
+    "3f66663e366667001e33070e38331e003f2d0c0c0c0c1e003333333333333f0033333333331e0c00"
+    "6363636b7f7763006363361c1c3663003333331e0c0c1e007f6331184c667f001e06060606061e00"
+    "03060c18306040001e18181818181e00081c36630000000000000000000000ff0c0c180000000000"
+    "00001e303e336e000706063e66663b0000001e3303331e003830303e33336e0000001e333f031e00"
+    "1c36060f06060f0000006e33333e301f0706366e666667000c000e0c0c0c1e00300030303033331e"
+    "070666361e3667000e0c0c0c0c0c1e000000337f7f6b630000001f333333330000001e3333331e00"
+    "00003b66663e060f00006e33333e307800003b6e66060f0000003e031e301f00080c3e0c0c2c1800"
+    "0000333333336e0000003333331e0c000000636b7f7f3600000063361c36630000003333333e301f"
+    "00003f190c263f00380c0c070c0c38001818180018181800070c0c380c0c07006e3b000000000000"
+)
+FONT_EXTRA = {
+    "·": bytes.fromhex("0000001818000000"),
+    "→": bytes.fromhex("0010307f7f301000"),
+    "×": bytes.fromhex("00663c183c660000"),
+    "…": bytes.fromhex("000000000000db00"),
+}
+SAME = {"—": "-", "–": "-", "‘": "'", "’": "'", "“": '"', "”": '"', "\t": " "}
 
 
-def sessions(codex_mode):
-    home, here = os.path.expanduser("~"), os.getcwd()
-    if codex_mode:
-        out = []
-        for f in sorted(
-            glob.glob(f"{home}/.codex/sessions/*/*/*/rollout-*.jsonl"),
-            key=os.path.getmtime,
-            reverse=True,
-        ):
-            for d in lines(f):
-                if d.get("type") == "session_meta":
-                    if (d.get("payload") or {}).get("cwd") == here:
-                        out.append(f)
-                    break
-        return out, f"~/.codex/sessions (cwd {here})"
-    slug = re.sub(r"[^A-Za-z0-9]", "-", here)
-    fs = sorted(
-        glob.glob(f"{home}/.claude/projects/{slug}/*.jsonl"),
-        key=os.path.getmtime,
-        reverse=True,
+def glyph(ch):
+    if " " <= ch <= "~":
+        o = (ord(ch) - 32) * 8
+        return FONT[o : o + 8]
+    if ch in FONT_EXTRA:
+        return FONT_EXTRA[ch]
+    plain = (
+        SAME.get(ch)
+        or unicodedata.normalize("NFKD", ch).encode("ascii", "ignore").decode()[:1]
     )
-    return fs, f"~/.claude/projects/{slug}/"
+    return glyph(plain) if plain else glyph("?")
 
 
-def first_prompt_of(path, codex_mode):
-    for d in lines(path):
-        t = codex_prompt(d) if codex_mode else claude_prompt(d)
-        if t is not None:
-            return t.strip().replace("\n", " ")
-    return ""
+def png(rows, scale=2):
+    """rows: [(text, ink)] with ink 1 = dark, 3 = faint -> PNG bytes; paper strip with torn ends"""
+    cw, lh, pad, tooth = 8 * scale, 12 * scale, 20 * scale, 5 * scale
+    cols = max(len(t) for t, _ in rows)
+    w = cols * cw + 2 * pad
+    h = len(rows) * lh + 2 * pad + 2 * tooth
+    img = [bytearray(w) for _ in range(h)]
+    cache = {}
+    for i, (line, ink) in enumerate(rows):
+        y0 = tooth + pad + i * lh
+        for gy in range(8):
+            row = bytearray()
+            for ch in line:
+                key = (ch, gy, ink)
+                if key not in cache:
+                    bits = glyph(ch)[gy]
+                    cache[key] = bytes(
+                        ink if bits >> x & 1 else 0
+                        for x in range(8)
+                        for _ in range(scale)
+                    )
+                row += cache[key]
+            for sy in range(scale):
+                img[y0 + gy * scale + sy][pad : pad + len(row)] = row
+    for x in range(w):  # torn paper at both ends: a zigzag of background
+        d = abs(x % (2 * tooth) - tooth)
+        for y in range(d):
+            img[y][x] = 2
+            img[h - 1 - y][x] = 2
+    raw = b"".join(b"\x00" + bytes(r) for r in img)
+
+    def chunk(kind, data):
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+        )
+
+    palette = bytes([251, 248, 240, 38, 34, 30, 44, 49, 61, 100, 93, 85])
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 3, 0, 0, 0))
+        + chunk(b"PLTE", palette)
+        + chunk(b"IDAT", zlib.compress(raw, 9))
+        + chunk(b"IEND", b"")
+    )
+
+
+PNG_COLS = 62  # narrow enough to stay legible when a feed shrinks the picture to a phone's width
+
+
+def fold(value, n):
+    """split a line's value into pieces of at most n characters, breaking between its "·" items,
+    and before a bracketed note rather than inside it"""
+    out, cur = [], ""
+    for item in value.split(" · "):
+        joined = f"{cur} · {item}" if cur else item
+        if len(joined) <= n:
+            cur = joined
+            continue
+        if cur:
+            out.append(cur)
+        before, bracket, note = item.partition(" (")
+        if len(item) <= n:
+            pieces = [item]
+        elif bracket and len(before) <= n and len(note) + 1 <= n:
+            pieces = [before, "(" + note]
+        else:  # names hold hyphens (claude-haiku-4-5): break at spaces only
+            pieces = textwrap.wrap(item, n, break_on_hyphens=False) or [""]
+        out += pieces[:-1]
+        cur = pieces[-1]
+    return out + [cur]
+
+
+def picture(s, table=False):
+    """a receipt's lines wrap under their label (s is made at PNG_COLS); a comparison table keeps its columns"""
+    head, *body = s.split("\n")
+    heads = fold(head, max([PNG_COLS] + [len(b) for b in body if table]))
+    if not table:
+        body = [
+            (label if i == 0 else " " * 9) + piece
+            for line in body
+            for label, value in [(line[:9], line[9:])]
+            for i, piece in enumerate(fold(value, PNG_COLS - 9))
+        ]
+    cols = max(len(x) for x in body + heads)
+    rows = [(x, 1) for x in heads] + [("-" * cols, 3)]
+    rows += [(x, 1) for x in body]
+    rows += [
+        ("-" * cols, 3),
+        (f"made with receipt.py {VERSION} · musharna.github.io/prompt-receipts", 3),
+    ]
+    return png(rows)
+
+
+# ---------- main ----------
+
+
+def out_path(a, r, ext):
+    p = os.path.expanduser(a.out)
+    if os.path.isdir(p) or a.out.endswith(("/", "\\")):
+        os.makedirs(p, exist_ok=True)
+        day = (
+            when(r["started"]).strftime("%Y-%m-%d-%H%M%S")
+            if r.get("started")
+            else "receipt"
+        )
+        tool = re.sub(r"[^a-z]+", "-", r["tool"].lower()).strip("-") or "combined"
+        p = os.path.join(p, f"receipt-{day}-{tool}.{ext}")
+    return p
 
 
 def main():
@@ -708,16 +1753,28 @@ def main():
         epilog="parts for --hide: " + ", ".join(PARTS),
     )
     ap.add_argument("session", nargs="?")
+    ap.add_argument("--version", action="version", version=f"receipt.py {VERSION}")
     ap.add_argument("--codex", action="store_true")
+    ap.add_argument("--opencode", action="store_true")
     ap.add_argument("--list", action="store_true")
+    ap.add_argument("--all", action="store_true")
     ap.add_argument("--pick", type=int)
     ap.add_argument("--last", type=int)
     ap.add_argument("--hide", default="")
     ap.add_argument("--counts", action="store_true")
     ap.add_argument("--rename", action="append", default=[])
     ap.add_argument("--prompt", action="store_true")
+    ap.add_argument("--redact", action="store_true")
+    ap.add_argument("--prompt-id", action="store_true")
+    ap.add_argument("--file-names", action="store_true")
     ap.add_argument("--md", action="store_true")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--png", action="store_true")
+    ap.add_argument("--out")
+    ap.add_argument("--report", action="store_true")
+    ap.add_argument("--hook", action="store_true")
+    ap.add_argument("--combine", nargs="+", metavar="RECEIPT.json")
+    ap.add_argument("--compare", nargs="+", metavar="RECEIPT.json")
     a = ap.parse_args()
     # Windows writes files and pipes in its old code page, which has no "→" and would crash; use UTF-8
     for stream in (sys.stdout, sys.stderr):
@@ -730,62 +1787,181 @@ def main():
         )
     if a.last is not None and a.last < 1:
         sys.exit("receipt: --last needs a number of prompts, 1 or more")
-    path, is_codex = a.session, a.codex
-    if path:
-        is_codex = (
-            is_codex
-            or "/.codex/" in os.path.abspath(path).replace(os.sep, "/")
-            or os.path.basename(path).startswith("rollout-")
+    if a.codex and a.opencode:
+        sys.exit("receipt: pick one of --codex and --opencode")
+    if a.redact and not a.prompt:
+        sys.exit("receipt: --redact only changes the prompt, so it needs --prompt")
+    if a.out and a.out.lower().endswith(".png"):
+        a.png = True
+    if a.out and a.out.lower().endswith(".json"):
+        a.json = True
+    if a.out and a.out.lower().endswith(".md"):
+        a.md = True
+    if a.png and not a.out:
+        sys.exit("receipt: a picture needs a file: --out receipt.png")
+    if sum(map(bool, (a.png, a.json, a.md))) > 1:
+        sys.exit("receipt: pick one of --md, --json and --png")
+    if a.hook and not a.out:
+        sys.exit(
+            "receipt: --hook needs --out (a file or folder), since hooks' output isn't shown"
         )
+    many_in = a.combine or a.compare
+    if a.combine and a.compare:
+        sys.exit("receipt: pick one of --combine and --compare")
+    if many_in and (a.session or a.list or a.pick or a.last or a.hook):
+        sys.exit("receipt: --combine and --compare read JSON receipts, not sessions")
+    tool = "codex" if a.codex else "opencode" if a.opencode else "claude"
+
+    if a.compare:
+        rs = [load(f) for f in a.compare]
+        s, same = compare(rs, hide)
+        payload = (
+            json.dumps({"same_prompt": same, "receipts": rs}, indent=1)
+            if a.json
+            else None
+        )
+        emit(a, rs[0], s, payload, table=True)
+        return
+    if a.combine:
+        r, left_out = combine([load(f) for f in a.combine])
+        hide |= left_out
     else:
-        fs, where = sessions(a.codex)
-        # a log with none of your prompts isn't a run (opening Claude Code and quitting leaves one), so skip it
-        runs = ((f, p) for f in fs for p in [first_prompt_of(f, a.codex)] if p)
-        kind = "Codex" if a.codex else "Claude Code"
-        if a.list:
-            shown = list(itertools.islice(runs, 15))
-            if not shown:
+        if a.hook:
+            try:
+                payload = json.load(sys.stdin)
+                path = payload["transcript_path"]
+            except (ValueError, KeyError, TypeError) as e:
                 sys.exit(
-                    f"receipt: no {kind} session found for this folder (looked in {where})"
+                    f"receipt: --hook expects Claude Code's hook input on stdin ({e!r})"
                 )
-            for i, (f, p) in enumerate(shown, 1):
-                stamp = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime(
-                    "%d %b %H:%M"
+            if not first_prompt_of("claude", path):
+                print(
+                    "receipt: this session has no prompts, so no receipt was saved",
+                    file=sys.stderr,
                 )
-                print(f"{i:3}  {stamp}  {p[:70]}")
-            print("\nthen run it again with --pick N", file=sys.stderr)
-            return
-        n = a.pick or 1
-        if n < 1:
-            sys.exit("receipt: --pick needs a number from --list, 1 or more")
-        path = next(itertools.islice(runs, n - 1, None), (None,))[0]
-        if not path:
-            found = sum(1 for f in fs if first_prompt_of(f, a.codex))
-            sys.exit(
-                f"receipt: no {kind} session found for this folder (looked in {where})"
-                if not found
-                else f"receipt: --pick {n}, but this folder has {found} sessions (see --list)"
-            )
-    r = codex(path, a.last) if is_codex else claude(path, a.last)
+                return
+            tool = "claude"
+        elif a.session:
+            path = a.session
+            if not (a.codex or a.opencode):
+                if a.session.startswith("ses_") and not os.path.exists(a.session):
+                    tool = "opencode"
+                elif (
+                    os.path.basename(path).startswith("rollout-")
+                    or os.path.abspath(path).startswith(codex_dir() + os.sep)
+                    or "/.codex/" in os.path.abspath(path).replace(os.sep, "/")
+                ):
+                    tool = "codex"
+        else:
+            fs = sessions(tool, a.all)
+            # a session with none of your prompts isn't a run (opening Claude Code and quitting leaves one)
+            runs = ((f, p) for f in fs for p in [first_prompt_of(tool, f)] if p)
+            scope = "any folder" if a.all else "this folder"
+            if a.list:
+                shown = list(itertools.islice(runs, 15))
+                if not shown:
+                    nothing_found(tool, a.all)
+                for i, (f, p) in enumerate(shown, 1):
+                    stamp = changed(tool, f).strftime("%d %b %H:%M")
+                    folder = (
+                        f"{base_name(folder_of(tool, f))[:18]:18}  " if a.all else ""
+                    )
+                    print(f"{i:3}  {stamp}  {folder}{p[:70]}")
+                print(
+                    "\nthen run it again with --pick N" + (" --all" if a.all else ""),
+                    file=sys.stderr,
+                )
+                return
+            n = a.pick or 1
+            if n < 1:
+                sys.exit("receipt: --pick needs a number from --list, 1 or more")
+            path = next(itertools.islice(runs, n - 1, None), (None,))[0]
+            if not path:
+                found = sum(1 for f in fs if first_prompt_of(tool, f))
+                if not found:
+                    nothing_found(tool, a.all)
+                sys.exit(
+                    f"receipt: --pick {n}, but {scope} has {found} sessions (see --list)"
+                )
+        r = (
+            opencode(path, a.last)
+            if tool == "opencode"
+            else codex(path, a.last)
+            if tool == "codex"
+            else claude(path, a.last)
+        )
+        r["receipt_version"] = VERSION
+        r["duration_ms"] = round(
+            (when(r["ended"]) - when(r["started"])).total_seconds() * 1000
+        )
+        check(r)
     if a.rename:
         rename(r, a.rename)
     if a.counts:
         counts_only(r)
+    if not a.file_names:
+        r.pop("file_names", None)
+    if r.get("first_prompt") and (a.prompt or a.prompt_id) and "prompt_id" not in r:
+        r["prompt_id"] = prompt_id(r["first_prompt"])
+    if not a.prompt_id and not a.prompt:
+        r.pop("prompt_id", None)
+    if a.prompt and r.get("first_prompt"):
+        r["first_prompt"] = scrub(r["first_prompt"], a.redact)
+    else:
+        r.pop("first_prompt", None)
+    s = text(r, hide, a.prompt)
+    if a.png:  # the picture is narrower, so its prompt wraps to fit
+        s = text(r, hide, a.prompt, width=PNG_COLS - 9)
+    payload = None
     if a.json:
         for part in hide:
             for key in DROP[part]:
                 r.pop(key, None)
-        if not a.prompt:
-            r.pop("first_prompt", None)
-        print(json.dumps(r, indent=1))
-        return
-    s = text(r, hide, a.prompt)
-    print(f"```\n{s}\n```" if a.md else s)
-    print(
-        "\nreceipt: check it before you share. To leave things out: --hide cost,date,… · --counts (no names) · "
-        "--rename name=label · --last N (just your last N prompts). More: --help",
-        file=sys.stderr,
+        payload = json.dumps(r, indent=1)
+    emit(a, r, s, payload)
+
+
+def nothing_found(tool, everywhere):
+    msg = f"receipt: no {TOOLS[tool]} session found " + (
+        "in any folder" if everywhere else f"for this folder (looked in {where(tool)})"
     )
+    hints = [] if everywhere else elsewhere(tool)
+    sys.exit("\n  ".join([msg] + hints))
+
+
+def emit(a, r, s, payload, table=False):
+    if a.png:
+        data, ext = picture(s, table), "png"
+    elif payload is not None:
+        data, ext = payload, "json"
+    else:
+        data, ext = (f"```\n{s}\n```" if a.md else s), ("md" if a.md else "txt")
+    if a.out:
+        p = out_path(a, r, ext)
+        if isinstance(data, bytes):
+            with open(p, "wb") as fh:
+                fh.write(data)
+        else:
+            with open(p, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(data + "\n")
+        print(f"receipt: saved to {p}", file=sys.stderr)
+    else:
+        print(data)
+    if a.report:
+        url = FORM + urllib.parse.quote(s, safe="")
+        if len(url) > 8000:
+            sys.exit(
+                "receipt: this receipt is too long for a form link; leave out --prompt or use --counts"
+            )
+        print(
+            f"\nTo report this run, open the form with your receipt filled in:\n{url}"
+        )
+    if not a.out and not a.hook:
+        print(
+            "\nreceipt: check it before you share. To leave things out: --hide cost,date,… · --counts (no names) · "
+            "--rename name=label · --last N (just your last N prompts). More: --help",
+            file=sys.stderr,
+        )
 
 
 if __name__ == "__main__":

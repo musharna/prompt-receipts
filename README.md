@@ -1,6 +1,8 @@
 # Prompt Receipts
 
-Prompts for making things with Claude Code and Codex, each shown with a receipt: what it cost, how long it took and what was switched on. Plus a script that prints the same receipt for your own runs.
+[![tests](https://github.com/musharna/prompt-receipts/actions/workflows/test.yml/badge.svg)](https://github.com/musharna/prompt-receipts/actions/workflows/test.yml)
+
+Prompts for making things with Claude Code and Codex, each shown with a receipt: what it cost, how long it took and what was switched on. Plus a script that prints the same receipt for your own runs in Claude Code, Codex or OpenCode.
 
 **[Browse the prompts](https://musharna.github.io/prompt-receipts/)** · **[Make a receipt for your own run](#make-a-receipt-for-your-own-run)**
 
@@ -20,7 +22,7 @@ On Windows, in PowerShell:
 curl.exe -sO https://musharna.github.io/prompt-receipts/tools/receipt.py; py receipt.py
 ```
 
-Add `--codex` for a Codex session. It reads the log Claude Code and Codex already keep, so it works on runs you've already finished. It needs only Python 3 and never prints paths, your email, account ids or file contents.
+Add `--codex` for a Codex session or `--opencode` for OpenCode. Run it somewhere else and it tells you where your sessions are; `--list --all` lists them from every folder. It reads the logs these tools already keep, so it works on runs you've already finished. It needs only Python 3 and never prints paths, your email, account ids or file contents.
 
 Here is one prompt from the site, run once on plain Opus 5.5, and its receipt:
 
@@ -28,16 +30,19 @@ Here is one prompt from the site, run once on plain Opus 5.5, and its receipt:
 
 ```
 $ python3 receipt.py --prompt
-Receipt · Claude Code 2.1.292 · 6 Oct 2026
+Receipt v3.0 · Claude Code 2.1.292 · 6 Oct 2026
 model    claude-opus-5-5 · effort medium
 time     4 min (model working 4 min) · 1 prompt from me
 cost     $0.83 (Claude Code's estimate at API prices)
+billing  Max plan: a flat fee, not charged per run (your account today)
 tokens   in 306k (273k cached) · out 25k
 work     13 tool calls, 6 shell commands · web 0 · lines +537 -0
+files    2 files written or edited (.html, .js)
 add-ons  skills none (of 14 available) · MCP none (of 0 connected) · plugins none · subagents 0
 hooks    none logged
 memory   none loaded
 settings bypassPermissions
+id       680b62f5e76e (prompt fingerprint)
 prompt   A mascot for my habit-tracker app: a round blob that breathes, blinks and
          giggles when you poke it. I'd like it in four moods: idle, happy, sleepy and
          surprised.
@@ -49,10 +54,11 @@ prompt   A mascot for my habit-tracker app: a round blob that breathes, blinks a
 
 | Option | What it does |
 |---|---|
-| `--codex` | Use Codex sessions instead of Claude Code ones |
+| `--codex`, `--opencode` | Use Codex or OpenCode sessions instead of Claude Code ones |
 | `--list`, then `--pick N` | List this folder's recent sessions, then make a receipt for one of them |
+| `--all` | With `--list` or `--pick`: sessions from every folder |
 | `--last N` | Cover only your last N prompts, when one session held several tasks |
-| `SESSION.jsonl` | Make a receipt for a log file directly |
+| `SESSION.jsonl` or `ses_…` | Make a receipt for a log file, or an OpenCode session id, directly |
 
 ### Leaving things out
 
@@ -60,19 +66,52 @@ Read the receipt before you share it. Prompts, tool names and times can say more
 
 | Option | What it does |
 |---|---|
-| `--hide cost,date` | Drop parts: version, date, model, time, cost, tokens, work, addons, hooks, memory, settings |
+| `--hide cost,date` | Drop parts: version, date, model, time, cost, billing, tokens, work, files, addons, hooks, memory, settings |
 | `--counts` | Show numbers instead of the names of skills, MCP servers, plugins, subagent types and memory files |
 | `--rename old=new` | Show one name as another. Stops with an error if the name isn't on the receipt, so a typo can't leave the real one in |
-| `--prompt` | Add your first prompt. Off by default, because prompts can hold paths or names |
+| `--prompt` | Add your first prompt. Home folders become `~`, and it stops if the prompt holds an email address or a key |
+| `--redact` | With `--prompt`: print it with `[email]` and `[key]` in their place instead of stopping |
+| `--file-names` | Name the files the run wrote. Off by default: the receipt shows only how many and their types |
+
+### Saving and sharing
+
+| Option | What it does |
+|---|---|
 | `--md`, `--json` | Wrap it for GitHub or Discord, or print it as JSON (hidden parts stay out) |
+| `--out FILE` | Save it to a `.txt`, `.md`, `.json` or `.png` file, or into a folder |
+| `--out receipt.png` | Draw it as a picture, for posting where text gets mangled |
+| `--report` | Also print a link to [the report form](https://musharna.github.io/prompt-receipts/) with this receipt filled in |
+| `--prompt-id` | Add a short fingerprint of the prompt (not the prompt itself), so `--compare` can tell runs of one prompt |
+| `--combine A.json B.json` | Add up receipts for one task spread over several sessions |
+| `--compare A.json B.json` | Set receipts side by side, for one prompt run on several models or efforts |
+
+### A receipt after every Claude Code session
+
+Put this in `~/.claude/settings.json` (merge it with any `hooks` you already have) and every session leaves a receipt in `~/receipts` when it ends:
+
+```json
+{
+  "hooks": {
+    "SessionEnd": [
+      { "hooks": [{ "type": "command", "command": "python3 ~/receipt.py --hook --out ~/receipts/" }] }
+    ]
+  }
+}
+```
+
+Keep `receipt.py` in your home folder for this, or change the path. Sessions with no prompts leave no receipt.
 
 ### Good to know
 
-- Claude Code deletes session logs after 30 days unless you raise `cleanupPeriodDays` in `~/.claude/settings.json`. Logs can be large, so check your free disk space before raising it a lot. Codex keeps its logs.
+- Claude Code deletes session logs after 30 days unless you raise `cleanupPeriodDays` in `~/.claude/settings.json`. Logs can be large, so check your free disk space before raising it a lot. Codex and OpenCode keep theirs.
+- If you moved Claude Code, Codex or OpenCode's folder with `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or `XDG_DATA_HOME`, the receipt looks there.
 - For a whole Claude Code session, the cost and tokens are Claude Code's own totals and include subagents. With `--last`, the cost stays the whole session's, because Claude Code doesn't log cost per prompt.
-- Codex logs don't record hooks. Claude Code logs a hook run only when the hook prints something, so hook counts are a floor.
-- Tested on Linux (WSL) and Windows 11 (Python 3.10 and 3.13), not yet on macOS.
-- A Claude Code session resumed into a new log file gets its own receipt; the parts aren't joined.
+- The billing line reads your account as it is today, so it shows your plan now, not necessarily when the run happened. A run on a local model (Ollama, LM Studio) says so on the model line.
+- Files count what the edit tools wrote. Files made by shell commands aren't counted.
+- Codex logs don't record hooks, and OpenCode's record neither hooks nor memory files. Claude Code logs a hook run only when the hook prints something, so hook counts are a floor.
+- If a log has your prompts but no replies or token counts, the receipt says so: the tool may have changed how it writes logs. Please [open an issue](https://github.com/musharna/prompt-receipts/issues).
+- Checked on Linux, macOS and Windows (Python 3.9 and 3.13) on every change, and by hand on WSL and Windows 11.
+- A Claude Code session resumed into a new log file gets its own receipt; `--combine` adds them up.
 - A receipt is text you can edit. It shows what someone reports, not proof.
 
 ## The prompts
