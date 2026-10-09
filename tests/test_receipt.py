@@ -769,6 +769,18 @@ class Turns(Base):
             "the turns add up to $0.01, as the priced lines do",
             self.ok("--turns").stdout,
         )
+        path = self.claude_log(
+            total=0.0613
+        )  # plus background work Claude Code priced itself, with no calls logged
+        with open(path, encoding="utf-8") as f:
+            log = f.read().replace(
+                '"costUSD": 0.0613}',
+                '"costUSD": 0.0113}, "claude-haiku-5-5": {"costUSD": 0.05}',
+            )
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(log)
+        self.assertIn("the turns add up to $0.01; the other $0.05 is background work the tool priced\n"
+                      "         itself, not tied to one prompt", self.ok("--turns").stdout)  # fmt: skip
         self.assertNotIn("turns    ", self.ok().stdout)  # control: only when asked
         hidden = self.ok("--turns", "--hide", "cost,time").stdout.split("turns    ")[1]
         self.assertNotIn("$", hidden)
@@ -828,6 +840,14 @@ class Turns(Base):
         self.assertIn(
             "\n         " + path + "\n", self.ok("--reply").stdout
         )  # a path stays whole when wrapped
+        self.claude_log(
+            said="Open \\\\wsl.localhost\\Ubuntu\\home\\alice\\proj\\index.html in Edge"
+        )
+        out = self.ok(
+            "--reply"
+        ).stdout  # a WSL home as Windows names it is a home folder too
+        self.assertIn("reply    Open ~\\proj\\index.html in Edge", out)
+        self.assertNotIn("alice", out)
         self.assertNotIn(
             "blue now", self.ok().stdout
         )  # control: the reply stays off unless asked

@@ -2548,8 +2548,9 @@ def check(r):
         )
 
 
-HOME_PATH = re.compile(
-    r"(?:/home/|/Users/|/mnt/[a-z]/Users/|[A-Za-z]:\\+Users\\+|[A-Za-z]:/Users/)[^/\\\s'\"`]+",
+HOME_PATH = re.compile(  # also a WSL home as Windows names it: \\wsl.localhost\Ubuntu\home\me, \\wsl$\...
+    r"(?:[\\/]{2,}wsl(?:\.localhost|\$)[\\/]+[^\\/\s]+[\\/]+home[\\/]+|/home/|/Users/|/mnt/[a-z]/Users/"
+    r"|[A-Za-z]:\\+Users\\+|[A-Za-z]:/Users/)[^/\\\s'\"`]+",
     re.I,
 )
 # the same folders as Claude Code names its project folders: -home-me, -Users-me, C--Users-me, -mnt-c-Users-me
@@ -3282,13 +3283,22 @@ def turn_lines(r, hide, width):
     costs = [t["cost_usd"] for t in rows if "cost_usd" in t]
     if costs and len(costs) == len(rows) and "cost_usd" in r and len(rows) > 1:
         total, chk = sum(costs), r.get("cost_check") or {}
+        # Claude Code prices some background work itself (titles, summaries) with no calls in the log to tie
+        # to a prompt: an "own figure" line that no turn can hold
+        own = sum(i["usd"] for i in r.get("items") or [] if i["kind"] == "own figure")
         if abs(total - r["cost_usd"]) < 0.005:
             note = "the turns add up to the cost above"
+        elif own and any(
+            abs(total + own - x) < 0.005
+            for x in (r["cost_usd"], chk.get("lines_usd", -1))
+        ):
+            note = (f"the turns add up to {money(total)}; the other {money(own)} is background work "
+                    "the tool priced itself, not tied to one prompt")  # fmt: skip
         elif chk and abs(total - chk["lines_usd"]) < 0.005:
             note = f"the turns add up to {money(total)}, as the priced lines do"
         else:
             note = f"the turns add up to {money(total)}, priced from the logged calls"
-        out.append(" " * 9 + note)
+        out.append(labelled(" " * 9, note, width))
     return out
 
 

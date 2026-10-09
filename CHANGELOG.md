@@ -11,6 +11,7 @@
 - Files written by subagents are counted and recorded.
 - Fixed: `--hide model` left the model names in the priced lines, and `--rename` didn't rename them there.
 - Fixed: a long prompt could be wrapped in the middle of a path or link, at a hyphen, so it no longer worked when copied.
+- Fixed: `--prompt` left your user name in a WSL home folder written the Windows way (`\\wsl.localhost\Ubuntu\home\you`); it shows as `~` now.
 
 ## receipt.py 4.0 (2026-10-09)
 

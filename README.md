@@ -143,6 +143,7 @@ Keep `receipt.py` in your home folder for this, or change the path. Sessions wit
 - Codex doesn't log a price, so a Codex cost is worked out from its token counts at API prices. OpenCode's own figure is used when it has one. The built-in prices are LiteLLM's, dated on the receipt; `python3 tools/update_prices.py` refreshes them.
 - The billing line reads your account as it is today, so it shows your plan now, not necessarily when the run happened. A run on a local model (Ollama, LM Studio) says so on the model line.
 - Files count what the edit tools wrote, subagents' included. Files made by shell commands aren't counted, and what subagents read isn't in a record.
+- With `--turns`, some background work Claude Code prices itself (titles, summaries) logs no calls, so no prompt can hold it; the receipt says how much it is. A session that's still running keeps writing its log, so its numbers can move a little between runs.
 - Codex logs don't record hooks, and OpenCode's record neither hooks nor memory files. Claude Code logs a hook run only when the hook prints something, so hook counts are a floor.
 - If a log has your prompts but no replies or token counts, the receipt says so: the tool may have changed how it writes logs. Please [open an issue](https://github.com/musharna/prompt-receipts/issues).
 - Checked on Linux, macOS and Windows (Python 3.9 and 3.13) on every change, and by hand on WSL and Windows 11.
