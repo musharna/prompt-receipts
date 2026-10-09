@@ -6,14 +6,20 @@ usage: python3 receipt.py [SESSION] [options]
   --codex          use Codex sessions instead; --opencode for OpenCode
   --list           list this folder's recent sessions; then --pick N to choose one
   --all            with --list or --pick: sessions from every folder, not just this one
-  --last N         only your last N prompts (Claude Code cost stays whole-session: it isn't logged per prompt)
+  --last N         only your last N prompts
+  --turns          one line per prompt: when, how long, what it cost, tool calls, files
+  --turns 3-5      cover only prompts 3 to 5 (also 3, 3- or -5), and list them
 
   leaving things out (check the receipt before you share it):
-  --hide a,b       drop parts: version, date, model, time, cost, billing, tokens, work, files, addons, hooks, memory, settings
+  --hide a,b       drop parts: version, date, model, time, cost, items, billing, tokens, work, files, addons, hooks,
+                   memory, settings
   --counts         numbers instead of names for skills, MCP servers, plugins, subagent types and memory files
   --rename a=b     show name a as b (repeatable); fails if a isn't on the receipt, so a typo can't leak it
-  --prompt         also print your first prompt (home folders become ~; stops if it holds an email address or a key)
-  --redact         with --prompt: replace email addresses and keys with [email] and [key] instead of stopping
+  --prompt         also print your prompts (home folders become ~; stops if one holds an email address or a key)
+  --reply          also print the model's last reply, checked the same way
+  --recipe         also print the commands that rerun your prompts with the same model and effort
+  --outcome TEXT   add your own words on how it went ("worked first try")
+  --redact         replace email addresses and keys with [email] and [key] instead of stopping
   --prompt-id      add a short fingerprint of the prompt (not the prompt), so --compare can tell runs of one prompt
   --file-names     name the files the run wrote (off by default: only their count and types)
 
@@ -21,6 +27,8 @@ usage: python3 receipt.py [SESSION] [options]
   --md, --json     wrap it for GitHub or Discord, or print it as JSON (hidden parts stay out)
   --out PATH       save it to a file (.txt, .md, .json or .png) or into a folder
   --png            with --out: draw it as a picture, for posting where text gets mangled
+  --link           also print a link that shows the receipt on the site; the receipt is inside the link, so
+                   nothing is uploaded
   --report         also print a link to the Prompt Receipts form with this receipt filled in
   --hook           read a Claude Code hook's input from stdin (for a SessionEnd hook; needs --out)
   --combine A B    add several --json receipts into one (one task spread over sessions)
@@ -33,31 +41,46 @@ usage: python3 receipt.py [SESSION] [options]
   --sign KEY       sign each saved file with your SSH key (ssh-keygen -Y sign), next to it as FILE.sig
   --verify FILE    check a signature, or with a record: say which of the other files given came in or out of it
   --signers FILE   with --verify: an allowed_signers file, to check whose key it was
+  --bundle F.zip   save one zip (an RO-Crate) with the receipt, the record and the files the run wrote
+  --shot           with --bundle: add a screenshot of the page the run made (needs Chrome, Edge or Chromium)
 
-Paths, your email, account ids and file contents never print. Standard library only.
+Paths, your email and account ids never print, and file contents only go in a --bundle. Standard library only.
 Prompts and page text: https://musharna.github.io/prompt-receipts/ (CC BY 4.0)."""
 
 import argparse
 import base64
+import bisect
 import collections
 import datetime
 import glob
+import functools
 import hashlib
+import html
+import http.server
 import itertools
 import json
+import mimetypes
 import os
 import re
+import shlex
+import shutil
+import signal
 import sqlite3
 import struct
 import subprocess
 import sys
+import tempfile
 import textwrap
+import threading
 import unicodedata
 import urllib.parse
+import zipfile
 import zlib
 
-VERSION = "4.0"
+VERSION = "5.0"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
+SITE = "https://musharna.github.io/prompt-receipts/"
+LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters
 FORM = (
     "https://docs.google.com/forms/d/e/1FAIpQLSfo7LHk0Ljj2NES_qAX3-OMIbxbql9fhCsSNSzVLF_bEXoXNA/viewform"
     "?usp=pp_url&entry.349092046=tool&entry.1393206370="
@@ -437,15 +460,42 @@ def span(vals):
     return " → ".join(vals) if vals else "not recorded"
 
 
-def cut_at(stamps, last):
-    """-> the Nth-last prompt's position, or None for the whole session"""
-    if not last:
+def pick(n, part):
+    """part: None, ("last", N) or ("turns", A, B or None) -> (first, end) prompt indices (end exclusive) or
+    None for the whole session, and the part's name"""
+    if part is None:
+        return None, "whole session"
+    if part[0] == "last":
+        k = part[1]
+        if k > n:
+            sys.exit(
+                f"receipt: --last {k}, but this session has only {many(n, 'prompt')}"
+            )
+        return (n - k, n), ("last prompt" if k == 1 else f"last {k} prompts")
+    a, b = part[1], part[2] or n
+    if a > n or b > n or a > b:
+        asked = str(a) if part[2] == a else f"{a}-{part[2] or ''}"
+        sys.exit(f"receipt: --turns {asked}, but this session has {many(n, 'prompt')}")
+    if (a, b) == (1, n):
+        return None, "whole session"
+    return (a - 1, b), (f"prompt {a}" if a == b else f"prompts {a}-{b}")
+
+
+def bounds(marks, sel):
+    """-> (from, to) for within(): the first picked prompt's mark and the mark of the prompt after the part"""
+    if sel is None:
         return None
-    if last > len(stamps):
-        sys.exit(
-            f"receipt: --last {last}, but this session has only {len(stamps)} prompts"
-        )
-    return stamps[-last]
+    first, end = sel
+    return marks[first], (marks[end] if end < len(marks) else None)
+
+
+def within(x, win):
+    """is a time (or a line number) inside the part the receipt covers? win None is the whole session"""
+    if win is None:
+        return True
+    if x is None or x == "":
+        return False
+    return x >= win[0] and (win[1] is None or x < win[1])
 
 
 def home():
@@ -707,6 +757,27 @@ def claude_billing():
     return "not found (no Claude Code settings file)"
 
 
+def claude_bill(calls):
+    """(model, usage) per call -> a Bill; the 1-hour cache writes are priced apart from the 5-minute ones"""
+    bill = Bill()
+    for model, u in calls:
+        hour = (u.get("cache_creation") or {}).get("ephemeral_1h_input_tokens") or 0
+        bill.add(
+            model,
+            [
+                u.get("input_tokens") or 0,
+                u.get("cache_read_input_tokens") or 0,
+                max((u.get("cache_creation_input_tokens") or 0) - hour, 0),
+                hour,
+                u.get("output_tokens") or 0,
+            ],
+            fast=u.get("speed") == "fast",
+            us=u.get("inference_geo") == "us",
+            searches=(u.get("server_tool_use") or {}).get("web_search_requests") or 0,
+        )
+    return bill
+
+
 EDIT_TOOLS = {
     "Write": "file_path",
     "Edit": "file_path",
@@ -715,23 +786,19 @@ EDIT_TOOLS = {
 }
 
 
-def claude(path, last=None):
-    cut = None
-    if last:
-        cut = cut_at(
-            [
-                d.get("timestamp") or ""
-                for d in lines(path)
-                if claude_prompt(d) is not None
-            ],
-            last,
-        )
-    r = {
-        "tool": "Claude Code",
-        "part": ("last prompt" if last == 1 else f"last {last} prompts")
-        if cut is not None
-        else "whole session",
-    }
+def claude_window(path, part):
+    marks = (
+        [d.get("timestamp") or "" for d in lines(path) if claude_prompt(d) is not None]
+        if part
+        else []
+    )
+    sel, name = pick(len(marks), part)
+    return bounds(marks, sel), name
+
+
+def claude(path, part=None):
+    win, name = claude_window(path, part)
+    r = {"tool": "Claude Code", "part": name}
     versions, models, efforts, perms, stamps = [], [], [], [], []
     tools, skills, mcp, agents, hooks = (collections.Counter() for _ in range(5))
     memory, mcp_servers, skill_names = {}, set(), set()
@@ -744,7 +811,7 @@ def claude(path, last=None):
     procs, calls, thinking, key = {}, {}, {}, None
     for i, d in enumerate(lines(path)):
         t, ts = d.get("type"), d.get("timestamp") or ""
-        inside = cut is None or (ts and ts >= cut)
+        inside = within(ts, win)
         key = key or d.get("sessionId")
         # what was loaded: whole session, whatever part the receipt covers
         if t == "cost-state":
@@ -855,7 +922,7 @@ def claude(path, last=None):
     metas = glob.glob(
         os.path.join(os.path.splitext(path)[0], "subagents", "*.meta.json")
     )
-    if cut is None and len(metas) > sum(agents.values()):
+    if win is None and len(metas) > sum(agents.values()):
         agents = collections.Counter()
         for f in metas:
             try:
@@ -879,25 +946,17 @@ def claude(path, last=None):
                 and m.get("usage")
                 and m.get("model")
                 and not m["model"].startswith("<")
-                and (cut is None or (ts and ts >= cut))
+                and within(ts, win)
             ):
                 calls[m.get("id") or f"{f}:{j}"] = (m["model"], m["usage"])
-    bill = Bill()
-    for model, u in calls.values():
-        hour = (u.get("cache_creation") or {}).get("ephemeral_1h_input_tokens") or 0
-        bill.add(
-            model,
-            [
-                u.get("input_tokens") or 0,
-                u.get("cache_read_input_tokens") or 0,
-                max((u.get("cache_creation_input_tokens") or 0) - hour, 0),
-                hour,
-                u.get("output_tokens") or 0,
-            ],
-            fast=u.get("speed") == "fast",
-            us=u.get("inference_geo") == "us",
-            searches=(u.get("server_tool_use") or {}).get("web_search_requests") or 0,
-        )
+            if within(ts, win):  # files subagents wrote count too
+                if d.get("type") == "assistant":
+                    for b in m.get("content") or []:
+                        if isinstance(b, dict) and b.get("type") == "tool_use":
+                            claude_edit(b, edits)
+                elif d.get("type") == "user":
+                    claude_failed(d, failed)
+    bill = claude_bill(calls.values())
     mu = {}  # Claude Code's own figures per model, added up over its processes
     for p in procs.values():
         for m, v in (p.get("modelUsage") or {}).items():
@@ -910,7 +969,7 @@ def claude(path, last=None):
     r["extras"] = {}
     if thinking:
         r["extras"]["thinking_ms"] = sum(thinking.values())
-    if cut is None and procs:
+    if win is None and procs:
         called = {re.sub(r"\[.*\]$", "", m) for m, _ in calls.values()}
         for (
             m,
@@ -962,7 +1021,7 @@ def claude(path, last=None):
     if "cost_usd" in r and models and not any("claude" in m.lower() for m in models):
         r["cost_note"] += "; the model isn't Anthropic's, so the estimate doesn't apply"
     r["billing"] = claude_billing()
-    if cut is not None or "tokens_in" not in r:
+    if win is not None or "tokens_in" not in r:
         us = usage_by_msg.values()
         r["tokens_in"] = sum(
             u.get("input_tokens", 0)
@@ -1067,27 +1126,49 @@ def codex_billing(providers):
     return "not found in Codex's login file"
 
 
-def codex(path, last=None):
-    cut = None
-    if last:
-        prompt_at, starts = [], []
-        for i, d in enumerate(lines(path)):
-            if codex_prompt(d) is not None:
-                prompt_at.append(i)
-            elif (
-                d.get("type") == "event_msg"
-                and (d.get("payload") or {}).get("type") == "task_started"
-            ):
-                starts.append(i)
-        cut = cut_at(prompt_at, last)
-        # a turn's settings are logged just before its prompt: start at the turn
-        cut = max([s for s in starts if s <= cut], default=cut)
-    r = {
-        "tool": "Codex CLI",
-        "part": ("last prompt" if last == 1 else f"last {last} prompts")
-        if cut is not None
-        else "whole session",
-    }
+def codex_window(path, part):
+    """-> line numbers bounding the picked prompts' turns, and the part's name"""
+    if not part:
+        return None, "whole session"
+    prompt_at, starts = [], []
+    for i, d in enumerate(lines(path)):
+        if codex_prompt(d) is not None:
+            prompt_at.append(i)
+        elif (
+            d.get("type") == "event_msg"
+            and (d.get("payload") or {}).get("type") == "task_started"
+        ):
+            starts.append(i)
+    # a turn's settings are logged just before its prompt: each part starts where its turn starts
+    marks = [max([s for s in starts if s <= i], default=i) for i in prompt_at]
+    sel, name = pick(len(marks), part)
+    return bounds(marks, sel), name
+
+
+def codex_call(bill, model, u):
+    # input_tokens counts the cached and cache-written tokens too; output_tokens counts reasoning
+    cached, wrote = (
+        u.get("cached_input_tokens") or 0,
+        u.get("cache_write_input_tokens") or 0,
+    )
+    bill.add(
+        model,
+        [
+            max((u.get("input_tokens") or 0) - cached - wrote, 0),
+            cached,
+            wrote,
+            0,
+            u.get("output_tokens") or 0,
+        ],
+    )
+
+
+SHELL_TOOLS = ("exec", "shell", "exec_command")
+
+
+def codex(path, part=None):
+    win, name = codex_window(path, part)
+    r = {"tool": "Codex CLI", "part": name}
     versions, models, efforts, sandboxes, approvals, stamps = [], [], [], [], [], []
     providers = []
     calls, skills, mcp = (
@@ -1108,7 +1189,7 @@ def codex(path, last=None):
     )  # each call priced at the model its turn used
     for i, d in enumerate(lines(path)):
         t, p, ts = d.get("type"), d.get("payload") or {}, d.get("timestamp") or ""
-        inside = cut is None or i >= cut
+        inside = within(i, win)
         if t == "session_meta":
             versions.append(p.get("cli_version"))
             providers.append(p.get("model_provider"))
@@ -1120,21 +1201,7 @@ def codex(path, last=None):
             if inside and total != last_total:
                 u = p["info"].get("last_token_usage") or {}
                 usage.update(u)
-                # input_tokens counts the cached and cache-written tokens too; output_tokens counts reasoning
-                cached, wrote = (
-                    u.get("cached_input_tokens") or 0,
-                    u.get("cache_write_input_tokens") or 0,
-                )
-                bill.add(
-                    model_now,
-                    [
-                        max((u.get("input_tokens") or 0) - cached - wrote, 0),
-                        cached,
-                        wrote,
-                        0,
-                        u.get("output_tokens") or 0,
-                    ],
-                )
+                codex_call(bill, model_now, u)
             last_total = total
         if (
             t == "response_item"
@@ -1256,9 +1323,7 @@ def codex(path, last=None):
         r["tokens_cached"] = usage["cached_input_tokens"]
         r["tokens_out"] = usage["output_tokens"]
     r["tool_calls"] = sum(calls.values())
-    r["shell_commands"] = (
-        calls.get("exec", 0) + calls.get("shell", 0) + calls.get("exec_command", 0)
-    )
+    r["shell_commands"] = sum(calls.get(n, 0) for n in SHELL_TOOLS)
     r["web"] = web
     r["images_made"] = images
     r["tool_errors"] = errors
@@ -1305,7 +1370,7 @@ def oc_prompts(sid, with_time=False):
     return out
 
 
-def opencode(sid, last=None):
+def opencode(sid, part=None):
     row = (
         oc()
         .execute("select version, agent, permission from session where id = ?", (sid,))
@@ -1315,14 +1380,9 @@ def opencode(sid, last=None):
         sys.exit(f"receipt: no OpenCode session {sid!r} (see --opencode --list)")
     version, agent, permission = row
     prompts_t = oc_prompts(sid, with_time=True)
-    cut = cut_at([t for t, _ in prompts_t], last) if last else None
-    r = {
-        "tool": "OpenCode",
-        "part": ("last prompt" if last == 1 else f"last {last} prompts")
-        if cut is not None
-        else "whole session",
-        "version": version or "not recorded",
-    }
+    sel, name = pick(len(prompts_t), part)
+    win = bounds([t for t, _ in prompts_t], sel)
+    r = {"tool": "OpenCode", "part": name, "version": version or "not recorded"}
     models, providers, efforts, stamps = [], [], [], []
     tools, skills, mcp, agents = (collections.Counter() for _ in range(4))
     cost, tin, tcached, tout, busy = 0.0, 0, 0, 0, 0
@@ -1340,7 +1400,7 @@ def opencode(sid, last=None):
             "select time_created, data from message where session_id = ? order by time_created",
             (s,),
         ):
-            if cut is not None and created < cut:
+            if not within(created, win):
                 continue
             m = json.loads(data)
             tm = m.get("time") or {}
@@ -1392,7 +1452,7 @@ def opencode(sid, last=None):
         "select m.time_created, p.data from part p join message m on m.id = p.message_id where p.session_id = ?",
         (sid,),
     ):
-        if cut is not None and mcreated < cut:
+        if not within(mcreated, win):
             continue
         p = json.loads(pdata)
         if p.get("type") == "patch":
@@ -1412,7 +1472,7 @@ def opencode(sid, last=None):
             mcp[n.split("_")[0]] += 1
     if not stamps:
         sys.exit(f"receipt: OpenCode session {sid} has no messages")
-    prompts_in = [t for t, _ in prompts_t if cut is None or t >= cut]
+    prompts_in = [t for t, _ in prompts_t if within(t, win)]
     providers = list(dict.fromkeys(p for p in providers if p))
     r["models"] = list(dict.fromkeys(models))
     r["providers"] = providers
@@ -1456,8 +1516,235 @@ def opencode(sid, last=None):
     r["subagents"] = dict(agents)
     r["hooks"] = None
     r["memory"] = None
-    r["first_prompt"] = next((t for c, t in prompts_t if cut is None or c >= cut), None)
+    r["first_prompt"] = next((t for c, t in prompts_t if within(c, win)), None)
     return r
+
+
+# ---------- one line per prompt ----------
+
+
+def new_turn(at, prompt):
+    return {"at": at, "end": at, "prompt": prompt, "ms": 0, "bill": Bill(), "calls": {}, "tools": 0,
+            "shell": 0, "edits": {}, "files": set(), "texts": {}, "reply_of": None, "reply": None, "own": 0,
+            "model": None, "effort": None}  # fmt: skip
+
+
+def turn_at(rows, marks, x):
+    """-> the turn that was running at time x (subagents' and child sessions' entries), or None"""
+    i = bisect.bisect_right(marks, x) - 1
+    return rows[i] if i >= 0 else None
+
+
+def done_turns(rows, failed=(), priced=True):
+    """-> the public form of each turn: no Bill, no ids"""
+    out = []
+    for n, t in enumerate(rows, 1):
+        if t["calls"]:
+            t["bill"] = claude_bill(t["calls"].values())
+        if t["reply"] is None and t["reply_of"] is not None:
+            t["reply"] = "\n\n".join(t["texts"].get(t["reply_of"], []))
+        files = t["files"] | {p for i, p in t["edits"].items() if i not in failed}
+        ms = t["ms"] or max(
+            round((when(t["end"]) - when(t["at"])).total_seconds() * 1000), 0
+        )
+        row = {"n": n, "started": t["at"], "time_ms": ms, "tool_calls": t["tools"],
+               "shell_commands": t["shell"], "files": len(files),
+               "prompt": t["prompt"], "reply": t["reply"] or None, "model": t["model"],
+               "effort": t["effort"]}  # fmt: skip
+        if priced:
+            row["cost_usd"] = round(t["own"] or t["bill"].total(), 6)
+        out.append(row)
+    return out
+
+
+def claude_turns(path):
+    """-> one row per prompt: when, how long, its calls priced (subagents' too), tool calls, files, last reply"""
+    rows, failed = [], set()
+    for i, d in enumerate(lines(path)):
+        t, ts = d.get("type"), d.get("timestamp") or ""
+        text = claude_prompt(d)
+        if text is not None:
+            rows.append(new_turn(ts, text))
+            rows[-1]["effort"] = d.get("effort")
+            continue
+        if not rows:
+            continue
+        cur = rows[-1]
+        cur["end"] = max(cur["end"], ts)
+        if t == "system" and d.get("subtype") == "turn_duration":
+            cur["ms"] += d.get("durationMs") or 0
+        elif t == "assistant":
+            m = d.get("message") or {}
+            mid = m.get("id") or i
+            if m.get("usage") and m.get("model") and not m["model"].startswith("<"):
+                cur["calls"][mid] = (m["model"], m["usage"])
+                if not d.get("isSidechain"):
+                    cur["model"] = cur["model"] or m["model"]
+            if d.get("isSidechain"):
+                continue
+            for b in m.get("content") or []:
+                if not isinstance(b, dict):
+                    continue
+                if b.get("type") == "text" and b.get("text", "").strip():
+                    cur["texts"].setdefault(mid, []).append(b["text"])
+                    cur["reply_of"] = mid  # the last message with text is the reply
+                elif b.get("type") == "tool_use":
+                    cur["tools"] += 1
+                    cur["shell"] += b.get("name") == "Bash"
+                    claude_edit(b, cur["edits"])
+        elif t == "user":
+            claude_failed(d, failed)
+    marks = [r["at"] for r in rows]
+    for f in glob.glob(os.path.join(os.path.splitext(path)[0], "subagents", "*.jsonl")):
+        for j, d in enumerate(lines(f)):
+            cur = turn_at(rows, marks, d.get("timestamp") or "")
+            if cur is None:
+                continue
+            m = d.get("message") or {}
+            if d.get("type") == "assistant":
+                if m.get("usage") and m.get("model") and not m["model"].startswith("<"):
+                    cur["calls"][m.get("id") or f"{f}:{j}"] = (m["model"], m["usage"])
+                for b in m.get("content") or []:
+                    if isinstance(b, dict) and b.get("type") == "tool_use":
+                        claude_edit(b, cur["edits"])
+            elif d.get("type") == "user":
+                claude_failed(d, failed)
+    return done_turns(rows, failed)
+
+
+def claude_edit(b, edits):
+    inp, n = b.get("input") or {}, b.get("name")
+    if n in EDIT_TOOLS and inp.get(EDIT_TOOLS[n]):
+        edits[b.get("id")] = inp[EDIT_TOOLS[n]]
+
+
+def claude_failed(d, failed):
+    c = (d.get("message") or {}).get("content")
+    for b in c if isinstance(c, list) else []:
+        if isinstance(b, dict) and b.get("type") == "tool_result" and b.get("is_error"):
+            failed.add(b.get("tool_use_id"))
+
+
+def codex_turns(path):
+    rows, last_total, model_now, effort_now, local = [], None, None, None, False
+    for d in lines(path):
+        t, p, ts = d.get("type"), d.get("payload") or {}, d.get("timestamp") or ""
+        if t == "session_meta":
+            local = local or p.get("model_provider") in LOCAL
+        elif t == "turn_context":
+            model_now = p.get("model") or model_now
+            effort_now = p.get("effort") or effort_now
+        elif t == "event_msg" and p.get("type") == "token_count" and p.get("info"):
+            total = p["info"].get("total_token_usage")
+            if rows and total != last_total:
+                codex_call(
+                    rows[-1]["bill"], model_now, p["info"].get("last_token_usage") or {}
+                )
+            last_total = total
+        text = codex_prompt(d)
+        if text is not None:
+            rows.append(new_turn(ts, text))
+            rows[-1]["model"], rows[-1]["effort"] = model_now, effort_now
+            continue
+        if not rows:
+            continue
+        cur = rows[-1]
+        cur["end"] = max(cur["end"], ts)
+        if t == "event_msg" and p.get("type") == "task_complete":
+            cur["ms"] += p.get("duration_ms") or 0
+            if p.get("last_agent_message"):
+                cur["reply"] = p["last_agent_message"]
+        elif (
+            t == "event_msg" and p.get("type") == "patch_apply_end" and p.get("success")
+        ):
+            for f, ch in (p.get("changes") or {}).items():
+                if not (isinstance(ch, dict) and ch.get("type") == "delete"):
+                    cur["files"].add(f)
+        elif (
+            t == "response_item"
+            and p.get("type") == "message"
+            and p.get("role") == "assistant"
+        ):
+            said = "".join(
+                b.get("text", "") for b in p.get("content") or [] if isinstance(b, dict)
+            )
+            if said.strip():
+                cur["texts"]["last"], cur["reply_of"] = [said], "last"
+        elif t == "response_item" and p.get("type") in (
+            "function_call",
+            "custom_tool_call",
+        ):
+            cur["tools"] += 1
+            cur["shell"] += p.get("name") in SHELL_TOOLS
+    return done_turns(rows, priced=not local)
+
+
+def opencode_turns(sid):
+    prompts_t = oc_prompts(sid, with_time=True)
+    rows = [new_turn(iso(c), t) for c, t in prompts_t]
+    marks = [c for c, _ in prompts_t]
+    local, own_total = True, 0
+    children = [
+        c for (c,) in oc().execute("select id from session where parent_id = ?", (sid,))
+    ]
+    for s in [sid] + children:
+        for created, data in oc().execute(
+            "select time_created, data from message where session_id = ? order by time_created",
+            (s,),
+        ):
+            cur = turn_at(rows, marks, created)
+            m = json.loads(data)
+            if cur is not None and s == sid and m.get("variant"):
+                cur["effort"] = cur["effort"] or str(m["variant"])
+            if cur is None or m.get("role") != "assistant":
+                continue
+            if s == sid and m.get("modelID") and not cur["model"]:
+                cur["model"] = f"{m['modelID']} ({m.get('providerID') or '?'})"
+            tm, tk = m.get("time") or {}, m.get("tokens") or {}
+            if tm.get("completed"):
+                cur["end"] = max(cur["end"], iso(tm["completed"]))
+            if (m.get("providerID") or "?") not in LOCAL:
+                local = False
+                cache = tk.get("cache") or {}
+                cur["bill"].add(m.get("modelID"), [tk.get("input") or 0, cache.get("read") or 0,
+                    cache.get("write") or 0, 0, (tk.get("output") or 0) + (tk.get("reasoning") or 0)])  # fmt: skip
+            cur["own"] += m.get("cost") or 0
+            own_total += m.get("cost") or 0
+            if s == sid and tm.get("created") and tm.get("completed"):
+                cur["ms"] += tm["completed"] - tm["created"]
+    for mid, created, mdata, pdata in oc().execute(
+        "select m.id, m.time_created, m.data, p.data from part p join message m on m.id = p.message_id "
+        "where p.session_id = ? order by p.time_created",
+        (sid,),
+    ):
+        cur = turn_at(rows, marks, created)
+        p = json.loads(pdata)
+        if cur is None:
+            continue
+        if (
+            p.get("type") == "text"
+            and p.get("text", "").strip()
+            and json.loads(mdata).get("role") == "assistant"
+        ):
+            cur["texts"].setdefault(mid, []).append(p["text"])
+            cur["reply_of"] = mid
+        elif p.get("type") == "tool":
+            st, n = p.get("state") or {}, p.get("tool")
+            inp = st.get("input") or {}
+            cur["tools"] += 1
+            cur["shell"] += n == "bash"
+            if (
+                st.get("status") != "error"
+                and n in ("write", "edit", "multiedit")
+                and inp.get("filePath")
+            ):
+                cur["files"].add(inp["filePath"])
+        elif p.get("type") == "patch":
+            cur["files"] |= set(p.get("files") or [])
+    if not own_total:  # OpenCode records $0 for providers it has no price for: priced from the tokens instead
+        for t in rows:
+            t["own"] = 0
+    return done_turns(rows, priced=not local)
 
 
 # ---------- a record of what went in and came out ----------
@@ -1521,10 +1808,11 @@ def output_subject(path, written, ended, names, n):
     """-> an in-toto subject for a file the run wrote: the content the log holds, else the file as it is now"""
     ext = os.path.splitext(base_name(path))[1].lower()
     name = base_name(path) if names else f"file{n}{ext}"
-    disk, later = None, False
+    disk, body, later = None, None, False
     try:
         with open(path, "rb") as fh:
-            disk = sha(fh.read())
+            body = fh.read()
+        disk = sha(body)
         later = os.path.getmtime(path) > when(ended).timestamp() + 2
     except OSError:
         pass
@@ -1534,29 +1822,31 @@ def output_subject(path, written, ended, names, n):
             how += "; not on disk now"
         elif disk != digest:
             how += "; changed on disk since"
+        same = disk == digest
+        body = written.encode("utf-8", "surrogatepass")
     elif disk is not None:
-        digest, how = disk, "on disk now" + ("; changed after the run" if later else "")
-    else:
-        return None
-    return {"name": name, "digest": {"sha256": digest}, "annotations": {"source": how}}
-
-
-def record_claude(path, last, names, counts):
-    cut = None
-    if last:
-        cut = cut_at(
-            [
-                d.get("timestamp") or ""
-                for d in lines(path)
-                if claude_prompt(d) is not None
-            ],
-            last,
+        digest, how, same = (
+            disk,
+            "on disk now" + ("; changed after the run" if later else ""),
+            True,
         )
+    else:
+        return None, None
+    subject = {
+        "name": name,
+        "digest": {"sha256": digest},
+        "annotations": {"source": how},
+    }
+    return subject, {"name": name, "body": body, "path": path, "same_on_disk": same}
+
+
+def record_claude(path, part, names, counts):
+    win, _ = claude_window(path, part)
     prompts, system, instructions, defs, seen, env = [], {}, {}, {}, [], {}
     uses, edits, failed = {}, {}, set()
     for d in lines(path):
         t, ts = d.get("type"), d.get("timestamp") or ""
-        inside = cut is None or (ts and ts >= cut)
+        inside = within(ts, win)
         if (
             t == "attachment"
         ):  # what was loaded counts for whatever part the record covers
@@ -1631,6 +1921,24 @@ def record_claude(path, last, names, counts):
                             f"{first}-{first + (f.get('numLines') or 0) - 1} of {f['totalLines']}"
                         )
                 seen.append(e)
+    for f in glob.glob(os.path.join(os.path.splitext(path)[0], "subagents", "*.jsonl")):
+        for d in lines(f):  # files subagents wrote are outputs too
+            if not within(d.get("timestamp") or "", win):
+                continue
+            if d.get("type") == "assistant":
+                for b in (d.get("message") or {}).get("content") or []:
+                    inp, n = (b or {}).get("input") or {}, (b or {}).get("name")
+                    if (
+                        (b or {}).get("type") == "tool_use"
+                        and n in EDIT_TOOLS
+                        and inp.get(EDIT_TOOLS[n])
+                    ):
+                        edits[b.get("id")] = (
+                            inp[EDIT_TOOLS[n]],
+                            inp.get("content") if n == "Write" else None,
+                        )
+            elif d.get("type") == "user":
+                claude_failed(d, failed)
     writes = {}
     for i, (p, content) in edits.items():
         if i not in failed:
@@ -1652,25 +1960,13 @@ def record_claude(path, last, names, counts):
     }
     limits = [
         "Claude Code logs the definitions of deferred tools only, not of its built-in ones",
-        "files written by subagents aren't included",
+        "what subagents read isn't included, only the files they wrote",
     ]
     return rec, writes, limits
 
 
-def record_codex(path, last, names, counts):
-    cut = None
-    if last:
-        prompt_at, starts = [], []
-        for i, d in enumerate(lines(path)):
-            if codex_prompt(d) is not None:
-                prompt_at.append(i)
-            elif (
-                d.get("type") == "event_msg"
-                and (d.get("payload") or {}).get("type") == "task_started"
-            ):
-                starts.append(i)
-        cut = cut_at(prompt_at, last)
-        cut = max([s for s in starts if s <= cut], default=cut)
+def record_codex(path, part, names, counts):
+    win, _ = codex_window(path, part)
     prompts, system, instructions, seen, uses, writes, git = [], {}, {}, [], {}, {}, {}
     for i, d in enumerate(lines(path)):
         t, p = d.get("type"), d.get("payload") or {}
@@ -1695,7 +1991,7 @@ def record_codex(path, last, names, counts):
                 text = (b or {}).get("text") or ""
                 if text.startswith("# AGENTS.md instructions"):
                     instructions.setdefault(("AGENTS.md", sha(text)), "AGENTS.md")
-        if cut is not None and i < cut:
+        if not within(i, win):
             continue
         text = codex_prompt(d)
         if text is not None:
@@ -1741,16 +2037,16 @@ def record_codex(path, last, names, counts):
     return rec, writes, limits
 
 
-def record_opencode(sid, last, names, counts):
+def record_opencode(sid, part, names, counts):
     prompts_t = oc_prompts(sid, with_time=True)
-    cut = cut_at([t for t, _ in prompts_t], last) if last else None
+    win = bounds([t for t, _ in prompts_t], pick(len(prompts_t), part)[0])
     seen, writes = [], {}
     for mcreated, pdata in oc().execute(
         "select m.time_created, p.data from part p join message m on m.id = p.message_id "
         "where p.session_id = ? order by p.time_created",
         (sid,),
     ):
-        if cut is not None and mcreated < cut:
+        if not within(mcreated, win):
             continue
         p = json.loads(pdata)
         if p.get("type") != "tool":
@@ -1773,9 +2069,7 @@ def record_opencode(sid, last, names, counts):
                 else None
             )
     rec = {
-        "prompts": [
-            {"sha256": sha(t)} for c, t in prompts_t if cut is None or c >= cut
-        ],
+        "prompts": [{"sha256": sha(t)} for c, t in prompts_t if within(c, win)],
         "tool_results": seen,
     }
     limits = [
@@ -1784,18 +2078,18 @@ def record_opencode(sid, last, names, counts):
     return rec, writes, limits
 
 
-def make_record(r, tool, key, last, names, counts, hide, renames):
+def make_record(r, tool, key, part, names, counts, hide, renames, turns=()):
     rec, writes, limits = {
         "claude": record_claude,
         "codex": record_codex,
         "opencode": record_opencode,
-    }[tool](key, last, names, counts)
-    subjects = [
-        s
+    }[tool](key, part, names, counts)
+    made = [
+        output_subject(p, w, r["ended"], names, n)
         for n, (p, w) in enumerate(writes.items(), 1)
-        for s in [output_subject(p, w, r["ended"], names, n)]
-        if s
     ]
+    subjects = [s for s, _ in made if s]
+    r["_outputs"] = [b for _, b in made if b]  # the files themselves, for --bundle only
     pred = {
         "receipt_no": r["receipt_no"],
         "receipt_version": VERSION,
@@ -1818,6 +2112,10 @@ def make_record(r, tool, key, last, names, counts, hide, renames):
         if e.get("name") in renames:
             e["name"] = renames[e["name"]]
     pred.update(rec)
+    # each prompt's last reply: what the model said it did, to check a pasted answer against
+    pred["replies"] = [
+        {"turn": t["n"], "sha256": sha(t["reply"])} for t in turns if t.get("reply")
+    ]
     pred["limits"] = limits + [
         "neither the tool nor the model takes a seed, so the same inputs can give a different output: "
         "this record lets a run be checked, not repeated",
@@ -1843,6 +2141,226 @@ def make_record(r, tool, key, last, names, counts, hide, renames):
         "outputs": len(subjects),
     }
     return data
+
+
+def browser():
+    """-> a Chrome, Edge or Chromium to take a screenshot with ($RECEIPT_BROWSER first), or None"""
+    if os.environ.get("RECEIPT_BROWSER"):
+        return os.environ["RECEIPT_BROWSER"]
+    for n in (
+        "google-chrome",
+        "google-chrome-stable",
+        "chromium",
+        "chromium-browser",
+        "microsoft-edge",
+        "msedge",
+        "chrome",
+    ):
+        if shutil.which(n):
+            return shutil.which(n)
+    for p in (
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    ):
+        if os.path.exists(p):
+            return p
+    return None
+
+
+class QuietFiles(http.server.SimpleHTTPRequestHandler):
+    def log_message(
+        self, *args
+    ):  # the browser's requests for the page's files aren't news
+        pass
+
+
+def shot(outputs, tmp):
+    """-> a PNG of the first page the run made, taken with a headless browser, from the files that go in the
+    bundle, laid out in their folders. They are served from 127.0.0.1, and only while the picture is taken:
+    browsers won't run a page's module scripts from a file:// address, so a page opened that way can come out
+    blank. Only a copy of the run's own files is served, so the page can't read anything else on this computer"""
+    pages = [
+        o
+        for o in outputs
+        if os.path.splitext(o["name"])[1].lower() in (".html", ".htm", ".svg")
+    ]
+    if not pages:
+        sys.exit(
+            "receipt: --shot found no page (.html or .svg) among the files the run wrote"
+        )
+    page = pages[0]
+    top = os.path.commonpath(
+        [os.path.dirname(os.path.abspath(o["path"])) for o in outputs]
+    )
+    rel = os.path.relpath(os.path.abspath(page["path"]), top)
+    folder = os.path.join(tmp, "page")
+    for o in outputs:
+        dest = os.path.join(folder, os.path.relpath(os.path.abspath(o["path"]), top))
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        with open(dest, "wb") as fh:
+            fh.write(o["body"])
+    if not all(o["same_on_disk"] for o in outputs):
+        print(
+            "receipt: some files changed after the run, so the screenshot is of the files as the run wrote "
+            "them; files it didn't write aren't in it",
+            file=sys.stderr,
+        )
+    b = browser()
+    if not b:
+        sys.exit(
+            "receipt: --shot needs Chrome, Edge or Chromium, and none was found; "
+            "set RECEIPT_BROWSER to the browser's path"
+        )
+    png = os.path.join(tmp, "preview.png")
+    # no --user-data-dir: given a profile of its own, Chromium starts as a whole browser and doesn't exit
+    srv = http.server.ThreadingHTTPServer(
+        ("127.0.0.1", 0), functools.partial(QuietFiles, directory=folder)
+    )
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{srv.server_address[1]}/" + urllib.parse.quote(
+        rel.replace(os.sep, "/")
+    )
+    cmd = [b, "--headless", "--disable-gpu", "--hide-scrollbars", f"--screenshot={png}",
+           "--window-size=1280,800", "--virtual-time-budget=5000", url]  # fmt: skip
+    try:
+        try:
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                 start_new_session=os.name != "nt")  # fmt: skip
+        except OSError as e:
+            sys.exit(f"receipt: --shot couldn't start {b}: {e}")
+        try:
+            said = "".join(p.communicate(timeout=60))
+        except subprocess.TimeoutExpired:
+            kill_tree(p)
+            sys.exit(f"receipt: --shot: {b} took over 60 s and was stopped")
+    finally:
+        srv.shutdown()
+        srv.server_close()
+    if not os.path.exists(png):
+        sys.exit(f"receipt: --shot: {b} made no picture ({said.strip()[-300:]})")
+    with open(png, "rb") as fh:
+        return fh.read()
+
+
+def kill_tree(p):
+    """a browser starts helper processes; stop them all, not just the first"""
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True
+        )
+    else:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
+            p.kill()
+    p.wait()
+
+
+def bundle(path, r, s, payload, record, outputs, a):
+    """one zip, an RO-Crate (w3id.org/ro/crate/1.2): the receipt, the record and the files the run wrote,
+    with ro-crate-preview.html so it opens in a browser"""
+    tmp = tempfile.mkdtemp(prefix="receipt-")
+    try:
+        files = {
+            "receipt.txt": (s + "\n").encode("utf-8"),
+            "receipt.json": (payload + "\n").encode("utf-8"),
+        }
+        rec = os.path.join(tmp, "record.json")
+        with open(rec, "wb") as fh:
+            fh.write(record)
+        files["record.json"] = record
+        if a.sign:
+            sign(a.sign, rec)
+            with open(rec + ".sig", "rb") as fh:
+                files["record.json.sig"] = fh.read()
+        outs = {}
+        for o in outputs:
+            outs["outputs/" + o["name"]] = o["body"]
+        files.update(outs)
+        if a.shot:
+            files["preview.png"] = shot(outputs, tmp)
+    finally:
+        shutil.rmtree(
+            tmp, ignore_errors=True
+        )  # a browser can leave files behind for a moment
+    files["ro-crate-metadata.json"] = canon(crate(r, files, outs))
+    files["ro-crate-preview.html"] = preview(r, s, files).encode("utf-8")
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        for name in sorted(files):
+            z.writestr(name, files[name])
+    print(
+        f"receipt: bundle saved to {path} ({many(len(outs), 'file')} the run wrote)",
+        file=sys.stderr,
+    )
+
+
+TOOL_URLS = {  # RO-Crate asks for a url on each piece of software
+    "Claude Code": "https://github.com/anthropics/claude-code",
+    "Codex CLI": "https://github.com/openai/codex",
+    "OpenCode": "https://opencode.ai",
+}
+
+
+CRATE_PARTS = {
+    "receipt.txt": "the receipt, as receipt.py printed it",
+    "receipt.json": "the receipt as JSON",
+    "record.json": "an in-toto Statement: SHA-256 fingerprints of what went into the run and the files it wrote",
+    "record.json.sig": "an SSH signature of record.json",
+    "preview.png": "a screenshot of the page the run made, from the files in this bundle",
+}
+
+
+def crate(r, files, outs):
+    today = datetime.date.today().isoformat()
+    run = {"@id": "#run", "@type": "CreateAction", "name": f"{r['tool']} run ({r['part']})",
+           "instrument": {"@id": "#tool"}, "result": [{"@id": f} for f in outs]}  # fmt: skip
+    if r.get("started"):
+        run["startTime"], run["endTime"] = r["started"], r["ended"]
+    graph = [
+        {"@id": "ro-crate-metadata.json", "@type": "CreativeWork",
+         "conformsTo": {"@id": "https://w3id.org/ro/crate/1.2"}, "about": {"@id": "./"}},
+        {"@id": "./", "@type": "Dataset", "name": f"Prompt receipt no. {r['receipt_no']}",
+         "description": f"A {r['tool']} run: its receipt, a record of fingerprints of what went in and came out, "
+                        f"and the files it wrote. Made with receipt.py {VERSION} ({SITE}).",
+         "datePublished": today, "license": {"@id": "#license"},
+         "hasPart": [{"@id": f} for f in sorted(files) if f != "ro-crate-metadata.json"], "mentions": {"@id": "#run"}},
+        {"@id": "#license", "@type": "CreativeWork", "name": "No license given",
+         "description": "Ask whoever shared this bundle before reusing the files in it."},
+        {"@id": "#tool", "@type": "SoftwareApplication", "name": r["tool"], "url": TOOL_URLS[r["tool"]],
+         "version": r.get("version") or "not recorded"},
+        run,
+    ]  # fmt: skip
+    for f in sorted(files):
+        if f != "ro-crate-metadata.json":
+            graph.append({"@id": f, "@type": "File", "name": f.split("/")[-1],
+                          "description": CRATE_PARTS.get(f, "a file the run wrote"),
+                          "contentSize": str(len(files[f])),
+                          "encodingFormat": mimetypes.guess_type(f)[0] or "application/octet-stream"})  # fmt: skip
+    return {"@context": "https://w3id.org/ro/crate/1.2/context", "@graph": graph}
+
+
+def preview(r, s, files):
+    links = "".join(
+        f'<li><a href="{html.escape(f)}">{html.escape(f)}</a></li>'
+        for f in sorted(files)
+        if f != "ro-crate-preview.html"
+    )
+    img = (
+        '<p><img src="preview.png" alt="what the run made" style="max-width:100%"></p>'
+        if "preview.png" in files
+        else ""
+    )
+    return (
+        '<!doctype html><meta charset="utf-8"><title>Prompt receipt no. '
+        f'{html.escape(r["receipt_no"])}</title><body style="font-family:system-ui;max-width:52rem;margin:2rem auto">'
+        f'<pre style="background:#f8f5ee;padding:1.2rem;white-space:pre-wrap">{html.escape(s)}</pre>{img}'
+        f"<h2>In this bundle</h2><ul>{links}</ul><p>Check the files against the record with "
+        f'<code>python3 receipt.py --verify record.json outputs/*</code> (<a href="{SITE}">receipt.py</a>).</p>'
+    )
 
 
 def sign(key, path):
@@ -1990,6 +2508,10 @@ def verify(files, signers):
         known.setdefault(e["sha256"], "went in: the system prompt")
     for i, e in enumerate(pred.get("prompts") or [], 1):
         known.setdefault(e["sha256"], f"went in: prompt {i}")
+    for e in pred.get("replies") or []:
+        known.setdefault(
+            e["sha256"], f"came out: the model's reply to prompt {e['turn']}"
+        )
     for e in pred.get("tool_results") or []:
         if e.get("file_sha256"):
             known.setdefault(
@@ -2050,7 +2572,7 @@ SECRETS = [
 ]
 
 
-def scrub(text, redact):
+def scrub(text, redact, where_="your prompt", flag="--prompt"):
     """home folders -> ~; an email address or key stops the receipt unless --redact"""
     text = HOME_PATH.sub("~", text.replace(slug(home()), "~"))
     text = HOME_SLUG.sub("~", text)
@@ -2067,7 +2589,7 @@ def scrub(text, redact):
             if n
         )
         sys.exit(
-            f"receipt: your prompt holds {what}, so it was not printed. Leave out --prompt, "
+            f"receipt: {where_} holds {what}, so it was not printed. Leave out {flag}, "
             "or add --redact to print it with [email] and [key] in their place"
         )
     return text
@@ -2115,6 +2637,10 @@ def rename(r, pairs):
                     if base == old:
                         v[i] = new + x[len(base) :]
                         hit = True
+        for it in r.get("items") or []:  # the priced lines name each model too
+            if it["model"] == old:
+                it["model"] = new
+                hit = True
         if not hit:
             names = sorted(
                 {
@@ -2672,6 +3198,8 @@ def text(r, hide, with_prompt, width=80):
         out.append(f"memory   {m}")
     if "settings" not in hide:
         out.append(f"settings {r['permissions']}")
+    if r.get("turns"):
+        out += turn_lines(r, hide, width)
     if r.get("prompt_id"):
         out.append(f"id       {r['prompt_id']} (prompt fingerprint)")
     if r.get("record"):
@@ -2680,24 +3208,88 @@ def text(r, hide, with_prompt, width=80):
             f"record   sha256 {rec['sha256'][:16]}… · fingerprints of {many(rec['prompts'], 'prompt')}, "
             f"{many(rec['inputs'], 'input')}, {many(rec['outputs'], 'file')} out"
         )
-    if with_prompt and r.get("first_prompt"):
-        # wrap long lines so the receipt pastes without scrolling sideways; keep the prompt's own line breaks
-        wrapped = [
-            w
-            for p in r["first_prompt"].strip().split("\n")
-            for w in textwrap.wrap(p, width) or [""]
-        ]
+    if r.get("outcome"):
         out.append(
-            "\n".join(
-                (("prompt   " if i == 0 else "         ") + w).rstrip()
-                for i, w in enumerate(wrapped)
+            labelled("outcome  ", r["outcome"] + " (the sender's own words)", width)
+        )
+    if with_prompt and r.get("prompt_texts") and not r.get("turns"):
+        w = len(str(len(r["prompt_texts"])))
+        for i, p in enumerate(r["prompt_texts"], 1):
+            out.append(
+                labelled(("prompts  " if i == 1 else " " * 9) + f"{i:>{w}}  ", p, width)
             )
+    elif with_prompt and r.get("first_prompt") and not r.get("prompt_texts"):
+        out.append(labelled("prompt   ", r["first_prompt"], width))
+    if r.get("reply"):
+        out.append(labelled("reply    ", r["reply"], width))
+    if r.get("recipe"):
+        out.append("rerun    " + "\n         ".join(r["recipe"]))
+        out.append(
+            "         (the same prompts and settings; no seed or temperature can be set, so not the same output)"
         )
     for w in r.get("warnings") or []:
         out.append(
             f"warning  {w}; receipt.py may not read this {r['tool'] or 'tool'} version right"
         )
     return "\n".join(out)
+
+
+def labelled(label, body, width):
+    """wrap long lines so the receipt pastes without scrolling sideways; keep the text's own line breaks.
+    width is the room after the 9-column label, as text() takes it; a longer label takes its extra from it"""
+    room = max(width - (len(label) - 9), 20)
+    wrapped = [  # paths, links and commands stay whole, so they still work when copied
+        w
+        for p in body.strip().split("\n")
+        for w in textwrap.wrap(p, room, break_on_hyphens=False, break_long_words=False)
+        or [""]
+    ]
+    pad = " " * len(label)
+    return "\n".join(
+        ((label if i == 0 else pad) + w).rstrip() for i, w in enumerate(wrapped)
+    )
+
+
+def turn_lines(r, hide, width):
+    rows = r["turns"]
+    w = len(str(rows[-1]["n"]))
+    out = []
+    for i, t in enumerate(rows):
+        bits = []
+        if t.get("started"):
+            bits.append(
+                clock(when(t["started"])).rsplit(" ", 1)[0]
+            )  # the zone is on the first line
+        if "time_ms" in t:
+            bits.append(mins(t["time_ms"]))
+        if "cost_usd" in t:
+            bits.append(money(t["cost_usd"]))
+        if "tool_calls" in t:
+            bits.append(
+                many(t["tool_calls"], "tool call")
+                + (
+                    f", {many(t['shell_commands'], 'shell command')}"
+                    if t["shell_commands"]
+                    else ""
+                )
+            )
+        if t.get("files"):
+            bits.append(many(t["files"], "file"))
+        label = ("turns    " if i == 0 else " " * 9) + f"{t['n']:>{w}}  "
+        out.append((label + " · ".join(bits)).rstrip())
+        if t.get("prompt"):
+            out.append(labelled(" " * len(label), t["prompt"], width).rstrip("\n"))
+    costs = [t["cost_usd"] for t in rows if "cost_usd" in t]
+    if costs and len(costs) == len(rows) and "cost_usd" in r and len(rows) > 1:
+        total, chk = sum(costs), r.get("cost_check") or {}
+        if abs(total - r["cost_usd"]) < 0.005:
+            note = "the turns add up to the cost above"
+        elif chk and abs(total - chk["lines_usd"]) < 0.005:
+            note = f"the turns add up to {money(total)}, as the priced lines do"
+        else:
+            note = f"the turns add up to {money(total)}, priced from the logged calls"
+        out.append(" " * 9 + note)
+    return out
 
 
 # ---------- a picture of the receipt ----------
@@ -2874,6 +3466,7 @@ def main():
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--pick", type=int)
     ap.add_argument("--last", type=int)
+    ap.add_argument("--turns", nargs="?", const="all", metavar="A-B")
     ap.add_argument("--hide", default="")
     ap.add_argument("--counts", action="store_true")
     ap.add_argument("--rename", action="append", default=[])
@@ -2894,6 +3487,12 @@ def main():
     ap.add_argument("--sign", metavar="KEY")
     ap.add_argument("--verify", nargs="+", metavar="FILE")
     ap.add_argument("--signers", metavar="FILE")
+    ap.add_argument("--reply", action="store_true")
+    ap.add_argument("--outcome", metavar="TEXT")
+    ap.add_argument("--recipe", action="store_true")
+    ap.add_argument("--link", action="store_true")
+    ap.add_argument("--bundle", metavar="FILE.zip")
+    ap.add_argument("--shot", action="store_true")
     a = ap.parse_args()
     # Windows writes files and pipes in its old code page, which has no "→" and would crash; use UTF-8
     for stream in (sys.stdout, sys.stderr):
@@ -2929,14 +3528,21 @@ def main():
         sys.exit(
             f"receipt: --hide doesn't know {', '.join(sorted(hide - set(PARTS)))}; parts are: {', '.join(PARTS)}"
         )
-    if "cost" in hide:
-        hide.add("items")  # the lines would give the total away
+    if "cost" in hide or "model" in hide:
+        hide.add(
+            "items"
+        )  # the lines would give the total away, and name each model and its price
     if a.last is not None and a.last < 1:
         sys.exit("receipt: --last needs a number of prompts, 1 or more")
+    part = ("last", a.last) if a.last else turn_range(a.turns)
+    if a.last and part and a.turns not in (None, "all"):
+        sys.exit("receipt: pick one of --last N and --turns A-B")
     if a.codex and a.opencode:
         sys.exit("receipt: pick one of --codex and --opencode")
-    if a.redact and not a.prompt:
-        sys.exit("receipt: --redact only changes the prompt, so it needs --prompt")
+    if a.redact and not (a.prompt or a.reply or a.outcome or a.recipe):
+        sys.exit(
+            "receipt: --redact changes text the receipt shows, so it needs --prompt, --reply, --recipe or --outcome"
+        )
     if a.out and a.out.lower().endswith(".png"):
         a.png = True
     if a.out and a.out.lower().endswith(".json"):
@@ -2954,8 +3560,23 @@ def main():
     many_in = a.combine or a.compare
     if a.combine and a.compare:
         sys.exit("receipt: pick one of --combine and --compare")
-    if many_in and (a.session or a.list or a.pick or a.last or a.hook):
+    if many_in and (
+        a.session
+        or a.list
+        or a.pick
+        or a.last
+        or a.turns
+        or a.hook
+        or a.reply
+        or a.recipe
+    ):
         sys.exit("receipt: --combine and --compare read JSON receipts, not sessions")
+    if a.shot and not a.bundle:
+        sys.exit("receipt: --shot goes into a --bundle, so add --bundle FILE.zip")
+    if a.bundle and (many_in or a.list):
+        sys.exit(
+            "receipt: --bundle covers one session, so it can't go with --combine, --compare or --list"
+        )
     if a.record and (many_in or a.list):
         sys.exit(
             "receipt: --record covers one session, so it can't go with --combine, --compare or --list"
@@ -3040,11 +3661,11 @@ def main():
                     f"receipt: --pick {n}, but {scope} has {found} sessions (see --list)"
                 )
         r = (
-            opencode(path, a.last)
+            opencode(path, part)
             if tool == "opencode"
-            else codex(path, a.last)
+            else codex(path, part)
             if tool == "codex"
-            else claude(path, a.last)
+            else claude(path, part)
         )
         r["receipt_version"] = VERSION
         r["duration_ms"] = round(
@@ -3053,8 +3674,31 @@ def main():
         r.setdefault("extras", {})
         r["receipt_no"] = receipt_no(r["tool"], r.pop("session_key"), r["part"])
         check(r)
+        rows = []
+        if (
+            a.turns is not None
+            or a.prompt
+            or a.reply
+            or a.recipe
+            or a.record
+            or a.bundle
+        ):
+            rows = {
+                "claude": claude_turns,
+                "codex": codex_turns,
+                "opencode": opencode_turns,
+            }[tool](path)
+            sel, _ = pick(len(rows), part)
+            rows = rows[sel[0] : sel[1]] if sel else rows
+        add_turns(r, rows, a, hide)
     if a.rename:
         rename(r, a.rename)
+    renames = dict(p.split("=", 1) for p in a.rename)
+    if a.recipe:
+        prompts = [
+            scrub(t["prompt"], a.redact, "your prompt", "--recipe") for t in rows
+        ]
+        r["recipe"] = recipe(r, rows, prompts, hide, renames)
     if a.counts:
         counts_only(r)
     if not a.file_names:
@@ -3067,23 +3711,39 @@ def main():
         r["first_prompt"] = scrub(r["first_prompt"], a.redact)
     else:
         r.pop("first_prompt", None)
+    if a.outcome:
+        r["outcome"] = scrub(
+            a.outcome.strip(), a.redact, "your --outcome note", "--outcome"
+        )
     record = None
-    if a.record:
-        renames = dict(p.split("=", 1) for p in a.rename)
+    if a.record or a.bundle:
         record = make_record(
-            r, tool, path, a.last, a.file_names, a.counts, hide, renames
+            r, tool, path, part, a.file_names, a.counts, hide, renames, rows
         )
     s = text(r, hide, a.prompt)
     if a.png:  # the picture is narrower, so its prompt wraps to fit
         s = text(r, hide, a.prompt, width=PNG_COLS - 9)
+    outputs = r.pop("_outputs", [])
     payload = None
-    if a.json:
+    if a.json or a.bundle:
         for part in hide:
             for key in DROP[part]:
                 r.pop(key, None)
         payload = json.dumps(r, indent=1)
+    if a.bundle:
+        bundle(
+            os.path.expanduser(a.bundle),
+            r,
+            text(r, hide, a.prompt),
+            payload,
+            record,
+            outputs,
+            a,
+        )
+        if not a.json:
+            payload = None
     saved = [emit(a, r, s, payload)]
-    if record is not None:
+    if a.record:
         rp = os.path.expanduser(a.record)
         with open(rp, "wb") as fh:
             fh.write(record)
@@ -3092,6 +3752,129 @@ def main():
     for p in saved:
         if a.sign and p:
             sign(a.sign, p)
+    if a.link:
+        print(link(text(r, hide, a.prompt)))
+
+
+def link(s):
+    """-> a link to the site that shows this receipt; the receipt rides in the part after #, which browsers
+    never send to the server, so nothing is uploaded"""
+    z = zlib.compressobj(
+        9, zlib.DEFLATED, -15
+    )  # raw deflate, which browsers unpack with DecompressionStream
+    packed = base64.urlsafe_b64encode(z.compress(s.encode("utf-8")) + z.flush()).rstrip(
+        b"="
+    )
+    url = f"{SITE}r/#r1.{packed.decode()}"
+    if len(url) > LINK_BUDGET:
+        print(
+            f"receipt: the link is {len(url):,} characters; Discord cuts messages at {LINK_BUDGET:,}, so it may "
+            "not paste whole there. --hide parts or leave out --prompt to shorten it",
+            file=sys.stderr,
+        )
+    return f"\nlink (the receipt is inside the link; nothing is uploaded):\n{url}"
+
+
+def add_turns(r, rows, a, hide):
+    """put what --turns, --prompt, --reply and --recipe asked for on the receipt; the text stays off unless asked"""
+    texts = [t["prompt"] for t in rows]
+    if a.turns is not None:
+        keep = {
+            "n",
+            "started",
+            "time_ms",
+            "cost_usd",
+            "tool_calls",
+            "shell_commands",
+            "files",
+        }
+        if "time" in hide or "date" in hide:
+            keep -= {"started"}
+        if "time" in hide:
+            keep -= {"time_ms"}
+        if "cost" in hide:
+            keep -= {"cost_usd"}
+        if "work" in hide:
+            keep -= {"tool_calls", "shell_commands"}
+        if "files" in hide:
+            keep -= {"files"}
+        r["turns"] = [{k: v for k, v in t.items() if k in keep} for t in rows]
+    if a.prompt and len(texts) > 1:
+        r["prompt_texts"] = [scrub(t, a.redact) for t in texts]
+        if a.turns is not None:
+            for t, x in zip(r["turns"], r["prompt_texts"]):
+                t["prompt"] = x
+    if a.reply:
+        last = rows[-1]["reply"] if rows else None
+        r["reply"] = (
+            scrub(last, a.redact, "the model's reply", "--reply") if last else None
+        )
+
+
+EFFORTS = {"minimal", "low", "medium", "high", "xhigh", "max"}
+
+
+def recipe(r, rows, prompts, hide, renames):
+    """-> the commands that rerun these prompts, each on the model and effort it ran with; what --hide or
+    --rename keeps off the receipt stays out of the commands too"""
+    q = shlex.quote
+    settings = "settings" not in hide and r.get("permissions") or ""
+    cmds = []
+    for i, (t, p) in enumerate(zip(rows, prompts)):
+        model = effort = None
+        if "model" not in hide:
+            model = t["model"]
+            if model:  # named as --rename names it on the receipt
+                base = re.sub(r" \(.*\)$", "", model)
+                model = renames.get(base, base) + model[len(base) :]
+            else:
+                model = (r.get("models") or [None])[0]
+            effort = t["effort"] or (r.get("effort") or "").split(" → ")[0]
+            effort = effort if effort in EFFORTS else None
+        if r["tool"] == "Claude Code":
+            mode = settings.split(" → ")[-1]
+            tail = (f" --model {q(model)}" if model else "") + (
+                f" --effort {effort}" if effort else ""
+            )
+            tail += (
+                f" --permission-mode {q(mode)}"
+                if mode and mode not in ("default", "not recorded")
+                else ""
+            )
+            cmds.append(f"claude -p{' -c' if i else ''} {q(p)}{tail}")
+        elif r["tool"] == "Codex CLI":
+            tail = (f" -m {q(model)}" if model else "") + (
+                f" -c model_reasoning_effort={effort}" if effort else ""
+            )
+            cmds.append(f"codex exec{' resume --last' if i else ''}{tail} {q(p)}")
+        elif r["tool"] == "OpenCode":
+            m = re.match(r"(\S+) \(([^,)]+)", model or "")
+            tail = f" -m {q(m.group(2) + '/' + m.group(1))}" if m else ""
+            tail += f" --variant {effort}" if effort else ""
+            agent = re.match(r"agent (\S+)", settings)
+            tail += (
+                f" --agent {q(agent.group(1))}"
+                if agent and agent.group(1) != "?"
+                else ""
+            )
+            cmds.append(f"opencode run{' -c' if i else ''}{tail} {q(p)}")
+    return cmds
+
+
+def turn_range(spec):
+    """--turns: all of them, A, A-B, A- (to the end) or -B (from the first) -> a part for pick()"""
+    if spec in (None, "all"):
+        return None
+    m = re.fullmatch(r"(\d*)-?(\d*)", spec.strip())
+    if not m or not (m.group(1) or m.group(2)) or ("-" not in spec and not m.group(1)):
+        sys.exit(
+            f"receipt: --turns takes a prompt number or a range like 3-5, 3- or -5, not {spec!r}"
+        )
+    a = int(m.group(1) or 1)
+    b = int(m.group(2)) if m.group(2) else (None if "-" in spec else a)
+    if a < 1 or (b is not None and b < 1):
+        sys.exit("receipt: prompts are numbered from 1")
+    return ("turns", a, b)
 
 
 def nothing_found(tool, everywhere):

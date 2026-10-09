@@ -22,7 +22,7 @@ On Windows, in PowerShell:
 curl.exe -sO https://musharna.github.io/prompt-receipts/tools/receipt.py; py receipt.py
 ```
 
-Add `--codex` for a Codex session or `--opencode` for OpenCode. Run it somewhere else and it tells you where your sessions are; `--list --all` lists them from every folder. It reads the logs these tools already keep, so it works on runs you've already finished. It needs only Python 3 and never prints paths, your email, account ids or file contents.
+Add `--codex` for a Codex session or `--opencode` for OpenCode. Run it somewhere else and it tells you where your sessions are; `--list --all` lists them from every folder. It reads the logs these tools already keep, so it works on runs you've already finished. It needs only Python 3 and never prints paths, your email, account ids or file contents; only `--bundle` packs the files a run wrote, and only when you ask.
 
 Here is one prompt from the site, run once on plain Opus 5.5, and its receipt:
 
@@ -30,7 +30,7 @@ Here is one prompt from the site, run once on plain Opus 5.5, and its receipt:
 
 ```
 $ python3 receipt.py --prompt
-Receipt v4.0 · Claude Code 2.1.292 · 6 Oct 2026, 8:16 PM EDT · no. 5631-4887
+Receipt v5.0 · Claude Code 2.1.292 · 6 Oct 2026, 8:16 PM EDT · no. 5631-4887
 model    claude-opus-5-5 · effort medium
 time     4 min (model working 4 min) · 1 prompt from me
 cost     $0.83 (Claude Code's own total at API prices; the lines below add up to it)
@@ -65,6 +65,7 @@ prompt   A mascot for my habit-tracker app: a round blob that breathes, blinks a
 | `--list`, then `--pick N` | List this folder's recent sessions, then make a receipt for one of them |
 | `--all` | With `--list` or `--pick`: sessions from every folder |
 | `--last N` | Cover only your last N prompts, when one session held several tasks |
+| `--turns A-B` | Cover only prompts A to B (`3`, `3-5`, `3-` or `-5`). Its cost is worked out from those prompts' calls |
 | `SESSION.jsonl` or `ses_…` | Make a receipt for a log file, or an OpenCode session id, directly |
 
 ### Leaving things out
@@ -73,12 +74,21 @@ Read the receipt before you share it. Prompts, tool names and times can say more
 
 | Option | What it does |
 |---|---|
-| `--hide cost,date` | Drop parts: version, date, model, time, cost, items (the priced lines), billing, tokens, work, files, addons, hooks, memory, settings |
+| `--hide cost,date` | Drop parts: version, date, model, time, cost, items (the priced lines), billing, tokens, work, files, addons, hooks, memory, settings. Hiding the model or the cost hides the priced lines too, since they name both |
 | `--counts` | Show numbers instead of the names of skills, MCP servers, plugins, subagent types and memory files |
 | `--rename old=new` | Show one name as another. Stops with an error if the name isn't on the receipt, so a typo can't leave the real one in |
-| `--prompt` | Add your first prompt. Home folders become `~`, and it stops if the prompt holds an email address or a key |
-| `--redact` | With `--prompt`: print it with `[email]` and `[key]` in their place instead of stopping |
+| `--prompt` | Add your prompts, each one numbered. Home folders become `~`, and it stops if a prompt holds an email address or a key |
+| `--redact` | With `--prompt`, `--reply`, `--recipe` or `--outcome`: print the text with `[email]` and `[key]` in their place instead of stopping |
 | `--file-names` | Name the files the run wrote. Off by default: the receipt shows only how many and their types |
+
+### Prompt by prompt
+
+| Option | What it does |
+|---|---|
+| `--turns` | Add a line per prompt: when you sent it, how long it ran, its cost (subagents included), tool calls and files. The receipt says whether the lines add up to the cost above |
+| `--reply` | Add the model's last reply, checked for email addresses and keys like a prompt |
+| `--outcome TEXT` | Add your own word on how it went, marked as yours |
+| `--recipe` | Add the commands that send the same prompts again, each with the model and effort it ran on (`claude -p`, `codex exec`, `opencode run`). Models give a different answer each time, so it reruns the run, not its output |
 
 ### Saving and sharing
 
@@ -88,6 +98,9 @@ Read the receipt before you share it. Prompts, tool names and times can say more
 | `--out FILE` | Save it to a `.txt`, `.md`, `.json` or `.png` file, or into a folder |
 | `--out receipt.png` | Draw it as a picture, for posting where text gets mangled |
 | `--report` | Also print a link to [the report form](https://musharna.github.io/prompt-receipts/) with this receipt filled in |
+| `--link` | Also print a link that shows this receipt on the site. The receipt rides in the part after `#`, which your browser never sends, so nothing is uploaded. Long receipts make links too long for some chats; it warns over 2,000 characters |
+| `--bundle FILE.zip` | Save one zip with the receipt, its JSON, a record, and the files the run wrote, plus [RO-Crate](https://www.researchobject.org/ro-crate/) metadata and a page that shows the receipt |
+| `--shot` | With `--bundle`: add a screenshot of the web page the run made, taken with Chrome, Edge or Chromium if one is installed. It shows the files in the bundle, served to the browser from your own computer only while the picture is taken; pictures the run didn't make aren't in it |
 | `--prompt-id` | Add a short fingerprint of the prompt (not the prompt itself), so `--compare` can tell runs of one prompt |
 | `--combine A.json B.json` | Add up receipts for one task spread over several sessions |
 | `--compare A.json B.json` | Set receipts side by side, for one prompt run on several models or efforts |
@@ -129,7 +142,7 @@ Keep `receipt.py` in your home folder for this, or change the path. Sessions wit
 - For a whole Claude Code session, the cost and tokens are Claude Code's own totals and include subagents, added up over every time the session was opened. The lines under the cost price each call at API list prices, and the receipt says whether they add up to Claude Code's total or by how much they miss; long sessions that were compacted many times can miss. With `--last`, the cost is worked out from that part's calls.
 - Codex doesn't log a price, so a Codex cost is worked out from its token counts at API prices. OpenCode's own figure is used when it has one. The built-in prices are LiteLLM's, dated on the receipt; `python3 tools/update_prices.py` refreshes them.
 - The billing line reads your account as it is today, so it shows your plan now, not necessarily when the run happened. A run on a local model (Ollama, LM Studio) says so on the model line.
-- Files count what the edit tools wrote. Files made by shell commands aren't counted.
+- Files count what the edit tools wrote, subagents' included. Files made by shell commands aren't counted, and what subagents read isn't in a record.
 - Codex logs don't record hooks, and OpenCode's record neither hooks nor memory files. Claude Code logs a hook run only when the hook prints something, so hook counts are a floor.
 - If a log has your prompts but no replies or token counts, the receipt says so: the tool may have changed how it writes logs. Please [open an issue](https://github.com/musharna/prompt-receipts/issues).
 - Checked on Linux, macOS and Windows (Python 3.9 and 3.13) on every change, and by hand on WSL and Windows 11.

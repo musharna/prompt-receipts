@@ -1,0 +1,61 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A prompt receipt</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="A receipt for one Claude Code, Codex or OpenCode run, made with receipt.py.">
+<meta property="og:title" content="A prompt receipt"><meta property="og:description" content="What one AI coding run cost, how long it took and what it did, made with receipt.py.">
+<meta property="og:image" content="https://musharna.github.io/prompt-receipts/og.png">
+<style>
+body{font:16px/1.5 system-ui,sans-serif;margin:0;background:#f4f2ee;color:#222}
+main{max-width:860px;margin:auto;padding:16px}
+.paper{background:#fffdf8;border:1px solid #ddd;border-radius:4px;padding:18px 20px;margin:18px 0;overflow-x:auto;
+  box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.paper pre{margin:0;font:14px/1.45 ui-monospace,monospace;white-space:pre}
+.dim{color:#555;font-size:.9em}
+.err{background:#f6d5d5;padding:10px 14px;border-radius:6px}
+.btn{font:inherit;font-size:.92em;padding:.35em .9em;border:1px solid #333;border-radius:6px;background:#fff;color:#222;cursor:pointer}
+footer{color:#555;font-size:.88em;margin:24px 0}
+</style></head><body>
+<main>
+<h1>A prompt receipt</h1>
+<div class="paper"><pre id="receipt">Opening the receipt…</pre></div>
+<p><button class="btn" id="copy" hidden>Copy the receipt</button></p>
+<p class="dim">This receipt came inside the link: the part after # never leaves your browser, so it was not sent
+to this site and nothing is stored. It shows what receipt.py printed on the sender's computer. A link can be
+edited, so it's a report, not proof; a signed record checked with <code>receipt.py --verify</code> is the
+checkable version.</p>
+<footer><a href="../">Prompt Receipts</a> · make one for your own run with
+<a href="https://github.com/musharna/prompt-receipts#make-a-receipt-for-your-own-run">receipt.py</a></footer>
+</main>
+<script>
+// the link is SITE/r/#r1.<base64url of the receipt's text, compressed with raw deflate>
+const out = document.getElementById('receipt');
+function fail(why) {
+  out.parentElement.classList.add('err');
+  out.textContent = 'This link has no receipt in it that can be read (' + why + '). It may have been cut off when it was pasted.';
+}
+async function show() {
+  const h = location.hash.slice(1);
+  if (!h) return fail('the part after # is empty');
+  if (!h.startsWith('r1.')) return fail('it was made by a receipt.py this page does not know');
+  if (typeof DecompressionStream === 'undefined') return fail('this browser is too old to unpack it');
+  try {
+    const b64 = h.slice(3).replace(/-/g, '+').replace(/_/g, '/');
+    const bytes = Uint8Array.from(atob(b64 + '='.repeat((4 - b64.length % 4) % 4)), c => c.charCodeAt(0));
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    const text = await new Response(stream).text();
+    out.textContent = text;  // text, never HTML: nothing in a link can run on this page
+    const first = text.split('\n')[0];
+    if (first) document.title = first.replace(/^Receipt v[\d.]+ · /, '') + ' · a prompt receipt';
+    const copy = document.getElementById('copy');
+    copy.hidden = false;
+    copy.onclick = () => navigator.clipboard.writeText(text).then(() => copy.textContent = 'Copied');
+  } catch (e) {
+    fail(e.name === 'InvalidCharacterError' ? 'it is not in the expected form' : 'it does not unpack');
+  }
+}
+show();
+window.addEventListener('hashchange', show);
+</script>
+</body></html>

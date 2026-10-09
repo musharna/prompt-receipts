@@ -3,17 +3,21 @@
 Each test gets its own home folder with Claude Code, Codex and OpenCode logs in it, so nothing on
 the machine running the tests is read. python -m unittest discover -s tests"""
 
+import base64
 import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import sqlite3
 import struct
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
+import zipfile
 import zlib
 
 RECEIPT = os.path.join(
@@ -91,6 +95,9 @@ class Base(unittest.TestCase):
         rich=False,
         model="claude-opus-5-5",
         usage=None,
+        second="now make it blue",
+        said="done",
+        subagent=False,
     ):
         entries = [
             {"type": "user", "timestamp": ts(0), "cwd": self.proj, "version": "2.1.300", "sessionId": name,
@@ -131,12 +138,12 @@ class Base(unittest.TestCase):
                     {"type": "tool_result", "tool_use_id": "t3", "is_error": True, "content": "no match"}]}},
                 {"type": "user", "timestamp": ts(3), "message": {"role": "user", "content": [
                     {"type": "text", "text": "[Request interrupted by user]"}]}},
-                {"type": "user", "timestamp": ts(4), "message": {"role": "user", "content": "now make it blue"}},
+                {"type": "user", "timestamp": ts(4), "message": {"role": "user", "content": second}},
                 {"type": "assistant", "timestamp": ts(5), "message": {
                     "id": "m2", "model": "claude-opus-5-5",
                     "usage": {"input_tokens": 300, "output_tokens": 100,
                               "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
-                    "content": [{"type": "text", "text": "done"}]}},
+                    "content": [{"type": "text", "text": said}]}},
                 {"type": "cost-state", "startTime": 1, "totalCostUSD": total, "totalAPIDuration": 90000,
                  "modelUsage": {"claude-opus-5-5": {"inputTokens": 1300, "outputTokens": 300,
                                                     "cacheReadInputTokens": 500, "cacheCreationInputTokens": 0,
@@ -153,6 +160,24 @@ class Base(unittest.TestCase):
         path = os.path.join(folder, f"{name}.jsonl")
         with open(path, "w", encoding="utf-8") as f:
             f.write("".join(json.dumps(e) + "\n" for e in entries))
+        if (
+            subagent
+        ):  # a subagent's own log: it wrote style.css, and its write of gone.css failed
+            sub = os.path.join(folder, name, "subagents")
+            os.makedirs(sub, exist_ok=True)
+            with open(os.path.join(sub, "agent-a.jsonl"), "w", encoding="utf-8") as f:
+                f.write("".join(json.dumps(e) + "\n" for e in [
+                    {"type": "assistant", "timestamp": ts(2), "isSidechain": True, "message": {
+                        "id": "sa1", "model": "claude-opus-5-5",
+                        "usage": {"input_tokens": 1000, "output_tokens": 0},
+                        "content": [
+                            {"type": "tool_use", "id": "s1", "name": "Write",
+                             "input": {"file_path": os.path.join(self.proj, "style.css"), "content": "b{}"}},
+                            {"type": "tool_use", "id": "s2", "name": "Write",
+                             "input": {"file_path": os.path.join(self.proj, "gone.css"), "content": "?"}}]}},
+                    {"type": "user", "timestamp": ts(2), "isSidechain": True, "message": {"role": "user", "content": [
+                        {"type": "tool_result", "tool_use_id": "s2", "is_error": True, "content": "denied"}]}},
+                ]))  # fmt: skip
         with open(
             os.path.join(self.claude_dir, ".claude.json"), "w", encoding="utf-8"
         ) as f:
@@ -254,7 +279,7 @@ class Receipts(Base):
     def test_claude_code_receipt(self):
         self.claude_log()
         out = self.ok().stdout
-        self.assertIn("Receipt v4.0 · Claude Code 2.1.300", out)
+        self.assertIn("Receipt v5.0 · Claude Code 2.1.300", out)
         self.assertIn(
             "2 prompts from me", out
         )  # the "[Request interrupted" line isn't a prompt
@@ -309,7 +334,7 @@ class Receipts(Base):
     def test_opencode(self):
         self.opencode_db()
         out = self.ok("--opencode").stdout
-        self.assertIn("Receipt v4.0 · OpenCode 1.18.31", out)
+        self.assertIn("Receipt v5.0 · OpenCode 1.18.31", out)
         self.assertIn("qwen3:8b (ollama, on this computer)", out)
         self.assertIn("2 prompts from me", out)
         self.assertIn("1 failed call", out)
@@ -364,6 +389,12 @@ class Receipts(Base):
         self.assertIn(
             "Draw a cat, commit 3f2a9c1d", self.ok("--prompt").stdout
         )  # a git hash isn't a key
+        self.claude_log(
+            prompt="word " * 40
+        )  # wrapped to 80 columns after the label, as in the README
+        self.assertIn(
+            "prompts  1  " + "word " * 14 + "word\n", self.ok("--prompt").stdout
+        )
 
     def test_json_leaves_out_hidden_and_private(self):
         self.claude_log()
@@ -377,7 +408,7 @@ class Receipts(Base):
             "prompt_id",
         ):
             self.assertNotIn(k, r)
-        self.assertEqual(r["receipt_version"], "4.0")
+        self.assertEqual(r["receipt_version"], "5.0")
         self.assertEqual(r["tool_errors"], 1)
         names = json.loads(self.ok("--json", "--file-names").stdout)["file_names"]
         self.assertEqual(names, ["index.html"])
@@ -391,7 +422,7 @@ class Receipts(Base):
         self.assertIn("warning  found your prompts but no model reply", p.stdout)
 
     def test_version(self):
-        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 4.0")
+        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 5.0")
 
     # ---------- output ----------
 
@@ -424,7 +455,7 @@ class Receipts(Base):
         url = out.strip().split("\n")[-1]
         self.assertTrue(url.startswith("https://docs.google.com/forms/"), url)
         self.assertIn("entry.349092046=tool", url)
-        self.assertIn("entry.1393206370=Receipt%20v4.0", url)
+        self.assertIn("entry.1393206370=Receipt%20v5.0", url)
 
     def test_hook_saves_a_receipt(self):
         log = self.claude_log()
@@ -441,7 +472,7 @@ class Receipts(Base):
         saved = os.listdir(folder)
         self.assertEqual(len(saved), 1)
         with open(os.path.join(folder, saved[0]), encoding="utf-8") as f:
-            self.assertIn("Receipt v4.0 · Claude Code", f.read())
+            self.assertIn("Receipt v5.0 · Claude Code", f.read())
 
     def test_combine_and_compare(self):
         self.claude_log()
@@ -484,8 +515,12 @@ class LineItems(Base):
         self.claude_log(usage={"speed": "fast", "inference_geo": "us"})
         out = self.ok().stdout
         self.assertRegex(out, r"output +200 × \$44\.00/M")
-        self.assertRegex(out, r"output +100 × \$20\.00/M")  # control: the next call was neither
-        self.assertIn("extras   fast mode on 1 call · US-only processing on 1 call", out)
+        self.assertRegex(
+            out, r"output +100 × \$20\.00/M"
+        )  # control: the next call was neither
+        self.assertIn(
+            "extras   fast mode on 1 call · US-only processing on 1 call", out
+        )
         # a call over 200k input tokens is billed at sonnet 4.5's long-context rates
         self.claude_log(model="claude-sonnet-4-5", usage={"input_tokens": 250000})
         self.assertRegex(self.ok().stdout, r"input +250k × \$6\.00/M")
@@ -710,6 +745,387 @@ class Records(Base):
             [{"sha256": hashlib.sha256(b"You are Codex.").hexdigest()}],
         )
         self.assertEqual(len(pred["prompts"]), 1)
+
+
+class Turns(Base):
+    """--turns, every prompt, --reply, --outcome, --recipe"""
+
+    def test_one_line_per_prompt(self):
+        self.claude_log(total=0.0113)
+        out = self.ok("--turns").stdout
+        # turn 1: 1,000 in + 500 cached + 200 out = $0.0081; turn 2: 300 in + 100 out = $0.0032
+        self.assertRegex(
+            out,
+            r"\nturns    1  \d+:\d\d [AP]M · 3 min · \$0\.01 · 3 tool calls, 1 shell command · 1 file\n",
+        )
+        self.assertRegex(
+            out, r"\n         2  \d+:\d\d [AP]M · 60 s · <\$0\.01 · 0 tool calls\n"
+        )
+        self.assertIn("         the turns add up to the cost above", out)
+        self.claude_log(
+            total=1.234
+        )  # Claude Code's total disagrees with its calls: the turns say what they match
+        self.assertIn(
+            "the turns add up to $0.01, as the priced lines do",
+            self.ok("--turns").stdout,
+        )
+        self.assertNotIn("turns    ", self.ok().stdout)  # control: only when asked
+        hidden = self.ok("--turns", "--hide", "cost,time").stdout.split("turns    ")[1]
+        self.assertNotIn("$", hidden)
+        self.assertNotRegex(hidden, r"[AP]M|min")
+
+    def test_a_range_of_prompts(self):
+        self.claude_log(total=0.0113)
+        out = self.ok("--turns", "2").stdout
+        self.assertIn("· prompt 2 ·", out.split("\n")[0])
+        self.assertIn("1 prompt from me", out)
+        self.assertRegex(out, r"\nturns    2  ")
+        self.assertNotRegex(out, r"\n +1  ")
+        self.assertNotIn(
+            "· prompt", self.ok("--turns", "1-2").stdout.split("\n")[0]
+        )  # all of them: the whole session
+        for bad in ("3", "x", "0-1"):
+            p = self.run_receipt("--turns", bad)
+            self.assertEqual(p.returncode, 1, bad)
+        p = self.run_receipt("--last", "1", "--turns", "1")
+        self.assertIn("pick one of --last N and --turns A-B", p.stderr)
+        rec = os.path.join(self.home, "rec.json")
+        self.ok("--turns", "2", "--record", rec)
+        with open(rec, encoding="utf-8") as f:
+            pred = json.load(f)["predicate"]
+        self.assertEqual(
+            pred["prompts"],
+            [{"sha256": hashlib.sha256(b"now make it blue").hexdigest()}],
+        )
+
+    def test_every_prompt_is_shown_and_checked(self):
+        self.claude_log()
+        out = self.ok("--prompt").stdout
+        self.assertIn(
+            "prompts  1  Make a page for my habit tracker\n         2  now make it blue",
+            out,
+        )
+        self.assertIn(
+            "prompt   now make it blue", self.ok("--prompt", "--last", "1").stdout
+        )
+        out = self.ok("--prompt", "--turns").stdout
+        self.assertRegex(out, r"\n         2  [^\n]*\n            now make it blue")
+        self.claude_log(
+            second="send it to me@example.com"
+        )  # a later prompt is checked like the first
+        p = self.run_receipt("--prompt")
+        self.assertEqual(p.returncode, 1)
+        self.assertNotIn("me@example.com", p.stdout + p.stderr)
+        self.assertIn("send it to [email]", self.ok("--prompt", "--redact").stdout)
+
+    def test_reply_and_outcome(self):
+        self.claude_log(said="Made index.html; it's blue now.")
+        out = self.ok("--reply", "--outcome", "worked first try").stdout
+        self.assertIn("reply    Made index.html; it's blue now.", out)
+        self.assertIn("outcome  worked first try (the sender's own words)", out)
+        path = "~/dev-mods/462b7ab3-b198-4b84/sleepy-owl/index.html"  # where a line would break it at a hyphen
+        self.claude_log(said="word " * 12 + path)
+        self.assertIn(
+            "\n         " + path + "\n", self.ok("--reply").stdout
+        )  # a path stays whole when wrapped
+        self.assertNotIn(
+            "blue now", self.ok().stdout
+        )  # control: the reply stays off unless asked
+        self.claude_log(said="mailed me@example.com")
+        p = self.run_receipt("--reply")
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("the model's reply holds 1 email address", p.stderr)
+        p = self.run_receipt("--outcome", "ask me@example.com")
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("mailed [email]", self.ok("--reply", "--redact").stdout)
+
+    def test_recipe_reruns_each_prompt(self):
+        self.claude_log(second="don't use red")
+        out = self.ok("--recipe").stdout
+        lines = [l for l in out.split("\n") if "claude -p" in l]
+        self.assertEqual(len(lines), 2)
+        first, second = (
+            shlex.split(l.strip().removeprefix("rerun").strip()) for l in lines
+        )
+        self.assertEqual(
+            first,
+            [
+                "claude",
+                "-p",
+                "Make a page for my habit tracker",
+                "--model",
+                "claude-opus-5-5",
+                "--effort",
+                "high",
+            ],
+        )
+        self.assertEqual(
+            second[:4], ["claude", "-p", "-c", "don't use red"]
+        )  # quoted so the shell gives it back whole
+        self.assertIn("no seed or temperature", out)
+        path = self.claude_log(
+            model="claude-sonnet-5-5"
+        )  # models switched between prompts: each reruns on its own
+        with open(path, encoding="utf-8") as f:
+            log = f.read().replace(
+                '"permissionMode": "default"', '"permissionMode": "acceptEdits"'
+            )
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(log)
+        out = self.ok("--recipe").stdout
+        cmds = [
+            shlex.split(l.strip().removeprefix("rerun").strip())
+            for l in out.split("\n")
+            if "claude -p" in l
+        ]
+        self.assertEqual(
+            [c[c.index("--model") + 1] for c in cmds],
+            ["claude-sonnet-5-5", "claude-opus-5-5"],
+        )
+        self.assertIn("--permission-mode acceptEdits", out)
+        for hidden in (
+            self.ok("--recipe", "--hide", "model,settings").stdout,
+            json.dumps(
+                json.loads(
+                    self.ok("--recipe", "--hide", "model,settings", "--json").stdout
+                )["recipe"]
+            ),
+        ):
+            self.assertIn("claude -p", hidden)
+            self.assertNotRegex(hidden, r"--model|--effort|--permission-mode|claude-opus")  # fmt: skip
+        out = self.ok("--recipe", "--rename", "claude-opus-5-5=big").stdout
+        self.assertIn("-c 'now make it blue' --model big", out)
+        self.assertNotIn("claude-opus", out)
+        self.codex_log()
+        out = self.ok("--codex", "--recipe").stdout
+        self.assertIn(
+            "rerun    codex exec -m gpt-oss:20b -c model_reasoning_effort=medium 'Add a test'",
+            out,
+        )
+        self.opencode_db()
+        out = self.ok("--opencode", "--recipe").stdout
+        self.assertIn(
+            "rerun    opencode run -m ollama/qwen3:8b --agent build 'Write a haiku file'",
+            out,
+        )
+        self.assertIn(
+            "         opencode run -c -m ollama/qwen3:8b --agent build again", out
+        )
+
+    def test_codex_and_opencode_turns(self):
+        self.codex_log(provider="openai", model="gpt-5.6-sol")
+        out = self.ok("--codex", "--turns").stdout
+        self.assertRegex(
+            out,
+            r"turns    1  \d+:\d\d [AP]M · 60 s · <\$0\.01 · 2 tool calls, 1 shell command · 1 file",
+        )
+        self.opencode_db()
+        out = self.ok("--opencode", "--turns").stdout
+        self.assertRegex(
+            out,
+            r"turns    1  [^\n]*· 2 tool calls, 1 shell command · 1 file\n         2  [^\n]*0 tool calls",
+        )
+        self.assertNotIn(
+            "$", out.split("turns    ")[1]
+        )  # a model on this computer has no price
+
+    def test_files_written_by_subagents(self):
+        self.claude_log(subagent=True, rich=True)
+        out = self.ok("--file-names").stdout
+        self.assertIn(
+            "files    2 files written or edited (index.html, style.css)", out
+        )  # not gone.css: it failed
+        shutil.rmtree(
+            os.path.join(self.claude_dir, "projects", slug(self.proj), "s1")
+        )  # control: no subagent
+        self.assertIn(
+            "files    1 file written or edited (index.html)",
+            self.ok("--file-names").stdout,
+        )
+        self.claude_log(subagent=True, rich=True)
+        rec = os.path.join(self.home, "rec.json")
+        self.ok("--record", rec)
+        with open(rec, encoding="utf-8") as f:
+            stmt = json.load(f)
+        self.assertIn(
+            hashlib.sha256(b"b{}").hexdigest(),
+            [s["digest"]["sha256"] for s in stmt["subject"]],
+        )
+        self.assertEqual(len(stmt["subject"]), 2)
+
+    def test_a_turn_starts_at_its_prompt(self):
+        self.claude_log(subagent=True)
+        sub = os.path.join(
+            self.claude_dir,
+            "projects",
+            slug(self.proj),
+            "s1",
+            "subagents",
+            "agent-a.jsonl",
+        )
+        with open(
+            sub, "a", encoding="utf-8"
+        ) as f:  # a subagent call stamped the moment prompt 2 was sent
+            f.write(json.dumps({"type": "assistant", "timestamp": ts(4), "isSidechain": True, "message": {
+                "id": "sa2", "model": "claude-opus-5-5", "usage": {"input_tokens": 0, "output_tokens": 10000},
+                "content": [{"type": "text", "text": "ok"}]}}) + "\n")  # fmt: skip
+        rows = json.loads(self.ok("--turns", "--json").stdout)["turns"]
+        first = json.loads(self.ok("--turns", "1", "--json").stdout)
+        second = json.loads(self.ok("--turns", "2", "--json").stdout)
+        self.assertGreater(
+            rows[1]["cost_usd"], 0.1
+        )  # 10,000 output tokens: prompt 2's, subagent or not
+        self.assertLess(rows[0]["cost_usd"], 0.05)
+        self.assertEqual(
+            first["cost_usd"], rows[0]["cost_usd"]
+        )  # a part stops where the next prompt starts
+        self.assertEqual(second["cost_usd"], rows[1]["cost_usd"])
+
+    def test_record_holds_each_reply(self):
+        self.claude_log(rich=True)
+        rec = os.path.join(self.home, "rec.json")
+        self.ok("--record", rec)
+        with open(rec, encoding="utf-8") as f:
+            pred = json.load(f)["predicate"]
+        self.assertEqual(
+            pred["replies"],
+            [{"turn": 2, "sha256": hashlib.sha256(b"done").hexdigest()}],
+        )
+        said = os.path.join(self.home, "said.txt")
+        with open(said, "w", encoding="utf-8") as f:
+            f.write("done\n")
+        self.assertIn(
+            "came out: the model's reply to prompt 2",
+            self.ok("--verify", rec, said).stdout,
+        )
+
+
+class Sharing(Base):
+    """--link and --bundle"""
+
+    def test_link_carries_the_receipt(self):
+        self.claude_log()
+        p = self.ok("--link")
+        receipt, _, url = p.stdout.rstrip("\n").rpartition("\n")
+        self.assertTrue(
+            url.startswith("https://musharna.github.io/prompt-receipts/r/#r1."), url
+        )
+        packed = url.split("#r1.")[1]
+        self.assertRegex(
+            packed, r"^[A-Za-z0-9_-]+$"
+        )  # url-safe: + and / would break the link in chat apps
+        text = zlib.decompress(
+            base64.urlsafe_b64decode(packed + "=" * (-len(packed) % 4)), -15
+        ).decode()
+        self.assertEqual(
+            text, receipt.split("\nlink (")[0].rstrip("\n")
+        )  # the link holds what was printed
+        self.assertNotIn("Discord", p.stderr)
+        long = " ".join(
+            hashlib.sha256(str(i).encode()).hexdigest()[:8] for i in range(400)
+        )  # doesn't compress
+        self.claude_log(prompt=long)  # a long receipt is still made, with a warning
+        p = self.ok("--link", "--prompt")
+        self.assertIn("Discord cuts messages at 2,000", p.stderr)
+
+    def test_bundle(self):
+        self.claude_log(rich=True)
+        zp = os.path.join(self.home, "b.zip")
+        self.ok("--bundle", zp, "--file-names")
+        with zipfile.ZipFile(zp) as z:
+            names = set(z.namelist())
+            self.assertEqual(
+                names,
+                {"ro-crate-metadata.json", "ro-crate-preview.html", "receipt.txt", "receipt.json",
+                 "record.json", "outputs/index.html"},
+            )  # fmt: skip
+            self.assertEqual(z.read("outputs/index.html"), b"x")
+            meta = json.loads(z.read("ro-crate-metadata.json"))
+            receipt_json = z.read("receipt.json")
+            z.extractall(os.path.join(self.home, "unzipped"))
+        graph = {e["@id"]: e for e in meta["@graph"]}
+        self.assertEqual(meta["@context"], "https://w3id.org/ro/crate/1.2/context")
+        self.assertEqual(graph["ro-crate-metadata.json"]["about"], {"@id": "./"})
+        root = graph["./"]
+        for k in ("name", "description", "datePublished", "license"):
+            self.assertIn(k, root)
+        self.assertEqual(graph["#run"]["result"], [{"@id": "outputs/index.html"}])
+        files = {
+            i for i, e in graph.items() if e["@type"] == "File"
+        }  # rocrate-validator's required rules:
+        self.assertEqual(
+            {p["@id"] for p in root["hasPart"]}, files
+        )  # every file entity is in hasPart, and back
+        self.assertEqual(graph["outputs/index.html"]["contentSize"], "1")
+        self.assertEqual(
+            graph["#tool"]["url"], "https://github.com/anthropics/claude-code"
+        )  # software needs a url
+        self.assertNotIn(b"me@example.com", receipt_json)
+        u = os.path.join(self.home, "unzipped")
+        out = self.ok(
+            "--verify",
+            os.path.join(u, "record.json"),
+            os.path.join(u, "outputs", "index.html"),
+        ).stdout
+        self.assertIn(
+            "came out of the run", out
+        )  # the bundle checks against its own record
+        self.ok("--bundle", zp)
+        with zipfile.ZipFile(zp) as z:
+            self.assertIn(
+                "outputs/file1.html", z.namelist()
+            )  # no names unless --file-names
+        p = self.run_receipt("--shot")
+        self.assertIn("--shot goes into a --bundle", p.stderr)
+
+    def test_shot_uses_a_browser(self):
+        if os.name == "nt":
+            self.skipTest("the stand-in browser is a shell script")
+        self.claude_log(rich=True)
+        with open(os.path.join(self.proj, "secret.txt"), "w", encoding="utf-8") as f:
+            f.write("not the run's")  # next to the page, but the run didn't write it
+        fake = os.path.join(self.home, "fake-browser")
+        args = os.path.join(self.home, "args.txt")
+        with open(
+            fake, "w", encoding="utf-8"
+        ) as f:  # asks for the page and for secret.txt, then makes a PNG
+            f.write(f"#!{sys.executable}\n" + textwrap.dedent(f"""\
+                import sys, urllib.request, urllib.error
+                get = urllib.request.build_opener(urllib.request.ProxyHandler({{}})).open
+                said = []
+                for u in (sys.argv[-1], sys.argv[-1].rsplit("/", 1)[0] + "/secret.txt"):
+                    try:
+                        said.append("200 " + get(u, timeout=10).read().decode())
+                    except urllib.error.HTTPError as e:
+                        said.append(str(e.code))
+                open({args!r}, "w").write("\\n".join(sys.argv[1:] + said))
+                for a in sys.argv:
+                    if a.startswith("--screenshot="):
+                        open(a.split("=", 1)[1], "wb").write(b"\\x89PNG")
+                """))  # fmt: skip
+        os.chmod(fake, 0o755)
+        zp = os.path.join(self.home, "b.zip")
+        self.ok("--bundle", zp, "--shot", env=dict(self.env, RECEIPT_BROWSER=fake))
+        with zipfile.ZipFile(zp) as z:
+            self.assertEqual(z.read("preview.png"), b"\x89PNG")
+            self.assertIn(b'src="preview.png"', z.read("ro-crate-preview.html"))
+        with open(args, encoding="utf-8") as f:
+            used = f.read().split("\n")
+        self.assertIn("--headless", used)
+        self.assertRegex(
+            used[-3], r"^http://127\.0\.0\.1:\d+/index\.html$"
+        )  # served, so module scripts run
+        self.assertEqual(used[-2], "200 x")  # the page as the run wrote it
+        self.assertEqual(used[-1], "404")  # and nothing it didn't write
+        with open(fake, "w", encoding="utf-8") as f:
+            f.write(
+                "#!/bin/sh\nexit 0\n"
+            )  # a browser that makes no picture fails loudly
+        p = self.run_receipt(
+            "--bundle", zp, "--shot", env=dict(self.env, RECEIPT_BROWSER=fake)
+        )
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("made no picture", p.stderr)
 
 
 class PictureLines(unittest.TestCase):

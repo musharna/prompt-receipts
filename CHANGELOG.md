@@ -1,6 +1,18 @@
 # Changelog
 
-## receipt.py 4.0 (unreleased)
+## receipt.py 5.0 (unreleased)
+
+- `--turns`: a line per prompt with when it was sent, how long it ran, its cost at API prices (subagents included), tool calls and files, and whether the lines add up to the cost above. `--turns A-B` covers only those prompts, receipt and record both.
+- `--prompt` shows every prompt, numbered, each checked for email addresses and keys. `--reply` adds the model's last reply, checked the same way; `--outcome TEXT` adds your own word on how it went.
+- `--recipe`: the commands that send the same prompts again (`claude -p`, `codex exec`, `opencode run`), each with the model and effort it ran on, quoted for the shell.
+- `--link`: a link that shows the receipt on the site, carried in the part after `#`, so nothing is uploaded.
+- `--bundle FILE.zip`: the receipt, its JSON, a record and the files the run wrote in one RO-Crate zip; `--shot` adds a screenshot of the web page the run made.
+- Records hold a fingerprint of each prompt's last reply, so `--verify` can say a pasted answer came out of the run.
+- Files written by subagents are counted and recorded.
+- Fixed: `--hide model` left the model names in the priced lines, and `--rename` didn't rename them there.
+- Fixed: a long prompt could be wrapped in the middle of a path or link, at a hyphen, so it no longer worked when copied.
+
+## receipt.py 4.0 (2026-10-09)
 
 - The cost is itemized: tokens of each kind (input, cache read, cache write at 5 minutes and 1 hour, output, web searches) per model, at API list prices per million, with the price source and date. Fast mode, US-only processing and long-context rates are priced and shown when used; thinking time and time waiting on retries too.
 - An add-up check: the receipt says whether its lines add up to Claude Code's own total, or by how much they miss.
