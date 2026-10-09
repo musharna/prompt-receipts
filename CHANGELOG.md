@@ -1,5 +1,16 @@
 # Changelog
 
+## receipt.py 4.0 (unreleased)
+
+- The cost is itemized: tokens of each kind (input, cache read, cache write at 5 minutes and 1 hour, output, web searches) per model, at API list prices per million, with the price source and date. Fast mode, US-only processing and long-context rates are priced and shown when used; thinking time and time waiting on retries too.
+- An add-up check: the receipt says whether its lines add up to Claude Code's own total, or by how much they miss.
+- Codex runs get a cost, worked out from their token counts (Codex logs no price). `--last` is priced from that part's own calls. `--prices FILE` uses a newer LiteLLM price file; `tools/update_prices.py` refreshes the built-in one.
+- A receipt number (the same for the same session and part, and it gives nothing away) and the time of day with its time zone.
+- `--record FILE`: an in-toto Statement holding SHA-256 fingerprints of the prompts, system prompt, instruction files as loaded, tool results the model saw and files it wrote, plus model and settings. No text, no paths. `--verify RECORD FILES…` says which files came out of the run or went into it.
+- `--sign KEY` signs receipts and records with an SSH key; `--verify` checks the signature, and `--signers` checks whose key it was.
+- Fixed: a Claude Code session opened more than once showed only the cost since it was last opened (one session showed $5.33 of $70.34). Costs are now added up over every time it was opened.
+- Fixed: costs under a cent showed as $0.00, and waits under half a second as "0 s".
+
 ## receipt.py 3.0 (2026-10-09)
 
 - Reads OpenCode sessions (`--opencode`, or an `ses_…` id).

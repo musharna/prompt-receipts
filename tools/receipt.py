@@ -25,6 +25,14 @@ usage: python3 receipt.py [SESSION] [options]
   --hook           read a Claude Code hook's input from stdin (for a SessionEnd hook; needs --out)
   --combine A B    add several --json receipts into one (one task spread over sessions)
   --compare A B    put several --json receipts side by side (one prompt on several models or efforts)
+  --prices FILE    price the lines with another copy of LiteLLM's model_prices_and_context_window.json
+
+  a record of what went in and came out:
+  --record FILE    also save fingerprints (sha256) of every prompt, the system prompt, instruction files as
+                   loaded, everything the tools showed the model, and the files it wrote: no text, only hashes
+  --sign KEY       sign each saved file with your SSH key (ssh-keygen -Y sign), next to it as FILE.sig
+  --verify FILE    check a signature, or with a record: say which of the other files given came in or out of it
+  --signers FILE   with --verify: an allowed_signers file, to check whose key it was
 
 Paths, your email, account ids and file contents never print. Standard library only.
 Prompts and page text: https://musharna.github.io/prompt-receipts/ (CC BY 4.0)."""
@@ -41,13 +49,14 @@ import os
 import re
 import sqlite3
 import struct
+import subprocess
 import sys
 import textwrap
 import unicodedata
 import urllib.parse
 import zlib
 
-VERSION = "3.0"
+VERSION = "4.0"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 FORM = (
     "https://docs.google.com/forms/d/e/1FAIpQLSfo7LHk0Ljj2NES_qAX3-OMIbxbql9fhCsSNSzVLF_bEXoXNA/viewform"
@@ -68,6 +77,7 @@ PARTS = [
     "model",
     "time",
     "cost",
+    "items",
     "billing",
     "tokens",
     "work",
@@ -77,6 +87,307 @@ PARTS = [
     "memory",
     "settings",
 ]
+
+# ---------- prices ----------
+
+# API list prices in dollars per million tokens: input, cache read, cache write (5 min), cache write (1 h), output.
+# An optional last item holds multipliers ("fast": fast mode, "us": US-only processing) and "above": [tokens,
+# the five prices] for a call whose prompt is bigger than that. Made from LiteLLM's model_prices_and_context_window.json
+# (MIT; the source ccusage, tokscale and codeburn use) by tools/update_prices.py: don't edit by hand.
+# --- prices start ---
+PRICES_FROM = "LiteLLM 05166e2, 9 Oct 2026"
+PRICES = {
+    "claude-fable-5": [10, 1, 12.5, 20, 50, {"us": 1.1}],
+    "claude-fable-5-1": [10, 0.25, 12.5, 20, 50, {"us": 1.1}],
+    "claude-haiku-4-5": [1, 0.1, 1.25, 2, 5],
+    "claude-haiku-4-5-20251001": [1, 0.1, 1.25, 2, 5],
+    "claude-haiku-5-5": [
+        0.1,
+        0.01,
+        0.125,
+        0.2,
+        0.5,
+        {"above": [100000, 0.5, 0.05, 0.625, 1, 2.5], "us": 1.1},
+    ],
+    "claude-mythos-5": [10, 1, 12.5, 20, 50, {"us": 1.1}],
+    "claude-mythos-5-1": [10, 0.25, 12.5, 20, 50, {"us": 1.1}],
+    "claude-mythos-preview": [10, 1, 12.5, 20, 50, {"us": 1.1}],
+    "claude-opus-4-5": [5, 0.5, 6.25, 10, 25],
+    "claude-opus-4-5-20251101": [5, 0.5, 6.25, 10, 25],
+    "claude-opus-4-6": [5, 0.5, 6.25, 10, 25, {"us": 1.1}],
+    "claude-opus-4-6-20260205": [5, 0.5, 6.25, 10, 25, {"us": 1.1}],
+    "claude-opus-4-7": [5, 0.5, 6.25, 10, 25, {"us": 1.1}],
+    "claude-opus-4-7-20260416": [5, 0.5, 6.25, 10, 25, {"us": 1.1}],
+    "claude-opus-4-8": [5, 0.5, 6.25, 10, 25, {"fast": 2.0, "us": 1.1}],
+    "claude-opus-5": [5, 0.5, 6.25, 10, 25, {"fast": 2.0, "us": 1.1}],
+    "claude-opus-5-5": [4, 0.2, 5, 8, 20, {"fast": 2, "us": 1.1}],
+    "claude-sonnet-4-5": [
+        3,
+        0.3,
+        3.75,
+        6,
+        15,
+        {"above": [200000, 6, 0.6, 7.5, 12, 22.5]},
+    ],
+    "claude-sonnet-4-5-20250929": [
+        3,
+        0.3,
+        3.75,
+        6,
+        15,
+        {"above": [200000, 6, 0.6, 7.5, 12, 22.5]},
+    ],
+    "claude-sonnet-4-6": [3, 0.3, 3.75, 6, 15, {"us": 1.1}],
+    "claude-sonnet-5": [2, 0.2, 2.5, 4, 10, {"us": 1.1}],
+    "claude-sonnet-5-5": [2, 0.1, 2.5, 4, 10, {"us": 1.1}],
+    "gpt-5": [1.25, 0.125, 1.25, 1.25, 10],
+    "gpt-5-2025-08-07": [1.25, 0.125, 1.25, 1.25, 10],
+    "gpt-5-chat": [1.25, 0.125, 1.25, 1.25, 10],
+    "gpt-5-chat-latest": [1.25, 0.125, 1.25, 1.25, 10],
+    "gpt-5-codex": [1.25, 0.125, 1.25, 1.25, 10],
+    "gpt-5-mini": [0.25, 0.025, 0.25, 0.25, 2],
+    "gpt-5-mini-2025-08-07": [0.25, 0.025, 0.25, 0.25, 2],
+    "gpt-5-nano": [0.05, 0.005, 0.05, 0.05, 0.4],
+    "gpt-5-nano-2025-08-07": [0.05, 0.005, 0.05, 0.05, 0.4],
+    "gpt-5-pro": [15, 15, 15, 15, 120],
+    "gpt-5-pro-2025-10-06": [15, 15, 15, 15, 120],
+    "gpt-5-search-api": [1.25, 0.125, 1.25, 1.25, 10],
+    "gpt-5-search-api-2025-10-14": [1.25, 0.125, 1.25, 1.25, 10],
+    "gpt-5.1": [1.25, 0.125, 1.25, 1.25, 10],
+    "gpt-5.1-2025-11-13": [1.25, 0.125, 1.25, 1.25, 10],
+    "gpt-5.1-chat-latest": [1.25, 0.125, 1.25, 1.25, 10],
+    "gpt-5.1-codex": [1.25, 0.125, 1.25, 1.25, 10],
+    "gpt-5.1-codex-max": [1.25, 0.125, 1.25, 1.25, 10],
+    "gpt-5.1-codex-mini": [0.25, 0.025, 0.25, 0.25, 2],
+    "gpt-5.2": [1.75, 0.175, 1.75, 1.75, 14],
+    "gpt-5.2-2025-12-11": [1.75, 0.175, 1.75, 1.75, 14],
+    "gpt-5.2-chat-latest": [1.75, 0.175, 1.75, 1.75, 14],
+    "gpt-5.2-codex": [1.75, 0.175, 1.75, 1.75, 14],
+    "gpt-5.2-pro": [21, 21, 21, 21, 168],
+    "gpt-5.2-pro-2025-12-11": [21, 21, 21, 21, 168],
+    "gpt-5.3-chat-latest": [1.75, 0.175, 1.75, 1.75, 14],
+    "gpt-5.3-codex": [1.75, 0.175, 1.75, 1.75, 14],
+    "gpt-5.4": [2.5, 0.25, 2.5, 2.5, 15, {"above": [272000, 5, 0.5, 5, 5, 22.5]}],
+    "gpt-5.4-2026-03-05": [
+        2.5,
+        0.25,
+        2.5,
+        2.5,
+        15,
+        {"above": [272000, 5, 0.5, 5, 5, 22.5]},
+    ],
+    "gpt-5.4-mini": [0.75, 0.075, 0.75, 0.75, 4.5],
+    "gpt-5.4-mini-2026-03-17": [0.75, 0.075, 0.75, 0.75, 4.5],
+    "gpt-5.4-nano": [0.2, 0.02, 0.2, 0.2, 1.25],
+    "gpt-5.4-nano-2026-03-17": [0.2, 0.02, 0.2, 0.2, 1.25],
+    "gpt-5.4-pro": [30, 30, 30, 30, 180, {"above": [272000, 60, 60, 60, 60, 270]}],
+    "gpt-5.4-pro-2026-03-05": [
+        30,
+        30,
+        30,
+        30,
+        180,
+        {"above": [272000, 60, 60, 60, 60, 270]},
+    ],
+    "gpt-5.5": [5, 0.5, 5, 5, 30, {"above": [272000, 10, 1, 10, 10, 45]}],
+    "gpt-5.5-2026-04-23": [5, 0.5, 5, 5, 30, {"above": [272000, 10, 1, 10, 10, 45]}],
+    "gpt-5.5-cyber": [12.5, 1.25, 12.5, 12.5, 75],
+    "gpt-5.5-pro": [30, 30, 30, 30, 180, {"above": [272000, 60, 60, 60, 60, 270]}],
+    "gpt-5.5-pro-2026-04-23": [
+        30,
+        30,
+        30,
+        30,
+        180,
+        {"above": [272000, 60, 60, 60, 60, 270]},
+    ],
+    "gpt-5.6": [4, 0.4, 5, 5, 20, {"above": [272000, 8, 0.8, 10, 10, 30]}],
+    "gpt-5.6-cyber": [
+        12.5,
+        1.25,
+        15.625,
+        15.625,
+        75,
+        {"above": [272000, 25, 2.5, 31.25, 31.25, 112.5]},
+    ],
+    "gpt-5.6-luna": [
+        0.2,
+        0.02,
+        0.25,
+        0.25,
+        1.2,
+        {"above": [272000, 0.4, 0.04, 0.5, 0.5, 1.8]},
+    ],
+    "gpt-5.6-sol": [4, 0.4, 5, 5, 20, {"above": [272000, 8, 0.8, 10, 10, 30]}],
+    "gpt-5.6-terra": [2, 0.2, 2.5, 2.5, 12, {"above": [272000, 4, 0.4, 5, 5, 18]}],
+    "gpt-6-astra": [10, 1, 12.5, 12.5, 50, {"above": [272000, 20, 2, 25, 25, 75]}],
+    "gpt-6-luna": [
+        0.1,
+        0.01,
+        0.125,
+        0.125,
+        0.5,
+        {"above": [272000, 0.2, 0.02, 0.25, 0.25, 0.75]},
+    ],
+    "gpt-6-sol": [2, 0.2, 2.5, 2.5, 10, {"above": [272000, 4, 0.4, 5, 5, 15]}],
+    "gpt-6.1-sol": [2, 0.1, 2.5, 2.5, 10, {"above": [272000, 4, 0.2, 5, 5, 15]}],
+    "o3": [2, 0.5, 2, 2, 8],
+    "o3-2025-04-16": [2, 0.5, 2, 2, 8],
+    "o3-deep-research": [10, 2.5, 10, 10, 40],
+    "o3-mini": [1.1, 0.55, 1.1, 1.1, 4.4],
+    "o3-mini-2025-01-31": [1.1, 0.55, 1.1, 1.1, 4.4],
+    "o3-pro": [20, 20, 20, 20, 80],
+    "o3-pro-2025-06-10": [20, 20, 20, 20, 80],
+    "o4-mini": [1.1, 0.275, 1.1, 1.1, 4.4],
+    "o4-mini-2025-04-16": [1.1, 0.275, 1.1, 1.1, 4.4],
+    "o4-mini-deep-research": [2, 0.5, 2, 2, 8],
+}
+# --- prices end ---
+CLASSES = ["input", "cache read", "cache write", "cache write (1 h)", "output"]
+SEARCH = 0.01  # dollars per web search, Anthropic's and OpenAI's list price
+
+
+def price_table(litellm):
+    """LiteLLM's price file -> PRICES (also how --prices reads a newer copy)"""
+
+    def per_m(x):
+        x = round(x * 1e6, 6)
+        return int(x) if x == int(x) else x
+
+    def five(v, sfx):
+        i = v.get("input_cost_per_token" + sfx)
+        if i is None:
+            return None
+        read = v.get("cache_read_input_token_cost" + sfx)
+        write = v.get("cache_creation_input_token_cost" + sfx)
+        # cache_creation_input_token_cost_above_1hr, or ..._above_1hr_above_100k_tokens for the big tier
+        hour = v.get("cache_creation_input_token_cost_above_1hr" + sfx)
+        out = v.get("output_cost_per_token" + sfx)
+        if out is None:
+            return None
+        read = (
+            i if read is None else read
+        )  # no cache discount listed: cached tokens cost as input
+        write = (
+            i if write is None else write
+        )  # OpenAI charges no extra for writing the cache
+        hour = write if hour is None else hour
+        return [per_m(x) for x in (i, read, write, hour, out)]
+
+    table = {}
+    for name, v in litellm.items():
+        if (
+            not isinstance(v, dict)
+            or "/" in name
+            or v.get("litellm_provider") not in ("anthropic", "openai")
+            or not re.match(r"(claude-|gpt-[56]|o[34]|codex-)", name)
+        ):
+            continue
+        row = five(v, "")
+        if not row:
+            continue
+        extra = {
+            k: x
+            for k, x in (v.get("provider_specific_entry") or {}).items()
+            if k in ("fast", "us") and isinstance(x, (int, float))
+        }
+        for key in v:
+            m = re.fullmatch(r"input_cost_per_token(_above_(\d+)k_tokens)", key)
+            if m and five(v, m.group(1)):
+                extra["above"] = [int(m.group(2)) * 1000] + five(v, m.group(1))
+        table[name] = row + ([extra] if extra else [])
+    return table
+
+
+def rates_for(model):
+    """-> a PRICES row for a model as a log names it (claude-opus-5-5[1m], anthropic/claude-…, …-20251001), else None"""
+    name = re.sub(r"\[.*\]$", "", model or "").split("/")[-1].lower()
+    for n in (
+        name,
+        re.sub(r"-\d{8}$", "", name),
+        re.sub(r"-\d{4}-\d{2}-\d{2}$", "", name),
+    ):
+        if n in PRICES:
+            return PRICES[n]
+    return None
+
+
+class Bill:
+    """line items: tokens of each kind at each price, per model"""
+
+    def __init__(self):
+        self.lines = {}  # (model, kind, $ per million) -> tokens, or searches for "web search"
+        self.unpriced = (
+            collections.Counter()
+        )  # model -> tokens, for models with no price
+        self.given = {}  # model -> $, calls the log shows only as the tool's own figure
+        self.fast = self.us = 0  # calls in fast mode / processed in the US only
+
+    def add(self, model, n, fast=False, us=False, searches=0):
+        """n: tokens of each kind, in CLASSES' order"""
+        model = re.sub(r"\[.*\]$", "", model or "?")
+        row = rates_for(model)
+        if row is None:
+            if sum(n):
+                self.unpriced[model] += sum(n)
+            return
+        extra = row[5] if len(row) > 5 else {}
+        rates, mult = row[:5], 1
+        if extra.get("above") and sum(n[:4]) > extra["above"][0]:
+            rates = extra["above"][1:]
+        if fast:
+            self.fast += 1
+            mult *= extra.get("fast", 1)
+        if us:
+            self.us += 1
+            mult *= extra.get("us", 1)
+        for kind, k, rate in zip(CLASSES, n, rates):
+            if k:
+                key = (model, kind, round(rate * mult, 6))
+                self.lines[key] = self.lines.get(key, 0) + k
+        if searches:
+            key = (model, "web search", SEARCH * 1e6)
+            self.lines[key] = self.lines.get(key, 0) + searches
+
+    def items(self):
+        order = {m: i for i, m in enumerate(dict.fromkeys(m for m, _, _ in self.lines))}
+        kinds = CLASSES + ["web search"]
+        out = [
+            {"model": m, "kind": k, "count": n, "rate": r, "usd": round(n * r / 1e6, 6)}
+            for (m, k, r), n in sorted(
+                self.lines.items(),
+                key=lambda x: (order[x[0][0]], kinds.index(x[0][1]), x[0][2]),
+            )
+        ]
+        out += [
+            {"model": m, "kind": "own figure", "usd": round(u, 6)}
+            for m, u in self.given.items()
+        ]
+        out += [
+            {"model": m, "kind": "no price", "count": n}
+            for m, n in self.unpriced.items()
+        ]
+        return out
+
+    def total(self):
+        return sum(i.get("usd", 0) for i in self.items())
+
+
+def priced(r, bill, own=None):
+    """put a bill's lines on a receipt, and say whether they add up to the tool's own total"""
+    r["items"] = bill.items()
+    r["prices"] = PRICES_FROM
+    extras = {}
+    if bill.fast:
+        extras["fast_calls"] = bill.fast
+    if bill.us:
+        extras["us_only_calls"] = bill.us
+    r["extras"] = {**r.get("extras", {}), **extras}
+    if own is not None and any("usd" in i for i in r["items"]):
+        r["cost_check"] = {
+            "lines_usd": round(bill.total(), 6),
+            "own_usd": round(own, 6),
+        }
 
 
 def lines(path):
@@ -100,7 +411,9 @@ def iso(ms):
 def mins(ms):
     s = ms / 1000
     return (
-        f"{s:.0f} s"
+        "<1 s"
+        if 0 < s < 0.5
+        else f"{s:.0f} s"
         if s < 90
         else f"{s / 60:.0f} min"
         if s < 5400
@@ -426,12 +739,16 @@ def claude(path, last=None):
     skill_count, prompts, first_prompt, cost = None, 0, None, None
     usage_by_msg, server_web, context_hooks = {}, 0, 0
     edits, failed, errors, interrupted = {}, set(), 0, 0
-    for d in lines(path):
+    # every model call, main conversation and subagents, priced one by one; Claude Code writes a running total
+    # per process, and a resumed session starts a new one, so the totals are kept per process and added up
+    procs, calls, thinking, key = {}, {}, {}, None
+    for i, d in enumerate(lines(path)):
         t, ts = d.get("type"), d.get("timestamp") or ""
         inside = cut is None or (ts and ts >= cut)
+        key = key or d.get("sessionId")
         # what was loaded: whole session, whatever part the receipt covers
         if t == "cost-state":
-            cost = d
+            procs[d.get("startTime")] = d
         elif t == "attachment":
             a = d.get("attachment") or {}
             at = a.get("type")
@@ -477,6 +794,12 @@ def claude(path, last=None):
             efforts.append(str(d["effort"]))
         if d.get("permissionMode"):
             perms.append(d["permissionMode"])
+        if t == "assistant":
+            m = d.get("message") or {}
+            if m.get("usage") and m.get("model") and not m["model"].startswith("<"):
+                calls[m.get("id") or i] = (m["model"], m["usage"])
+            if d.get("thinkingDurationMs"):
+                thinking[m.get("id") or i] = d["thinkingDurationMs"]
         text = claude_prompt(d)
         if text is not None:
             prompts += 1
@@ -498,7 +821,7 @@ def claude(path, last=None):
             if m.get("model") and not m["model"].startswith("<"):
                 models.append(m["model"])
             if m.get("usage"):
-                usage_by_msg[m.get("id") or id(d)] = m[
+                usage_by_msg[m.get("id") or i] = m[
                     "usage"
                 ]  # one reply is logged as several entries
             for b in m.get("content") or []:
@@ -546,38 +869,98 @@ def claude(path, last=None):
     r["permissions"] = span(perms)
     r["started"], r["ended"] = min(stamps), max(stamps)
     r["prompts"] = prompts
-    if cost:
-        r["cost_usd"] = round(cost.get("totalCostUSD", 0), 2)
-        r["cost_note"] = "Claude Code's estimate at API prices" + (
-            "; some model costs unknown" if cost.get("hasUnknownModelCost") else ""
+    r["session_key"] = key or os.path.splitext(os.path.basename(path))[0]
+    # subagents' calls are in their own logs (older Claude Code put them in this one, marked sidechain)
+    for f in glob.glob(os.path.join(os.path.splitext(path)[0], "subagents", "*.jsonl")):
+        for j, d in enumerate(lines(f)):
+            m, ts = d.get("message") or {}, d.get("timestamp") or ""
+            if (
+                d.get("type") == "assistant"
+                and m.get("usage")
+                and m.get("model")
+                and not m["model"].startswith("<")
+                and (cut is None or (ts and ts >= cut))
+            ):
+                calls[m.get("id") or f"{f}:{j}"] = (m["model"], m["usage"])
+    bill = Bill()
+    for model, u in calls.values():
+        hour = (u.get("cache_creation") or {}).get("ephemeral_1h_input_tokens") or 0
+        bill.add(
+            model,
+            [
+                u.get("input_tokens") or 0,
+                u.get("cache_read_input_tokens") or 0,
+                max((u.get("cache_creation_input_tokens") or 0) - hour, 0),
+                hour,
+                u.get("output_tokens") or 0,
+            ],
+            fast=u.get("speed") == "fast",
+            us=u.get("inference_geo") == "us",
+            searches=(u.get("server_tool_use") or {}).get("web_search_requests") or 0,
         )
-        if models and not any("claude" in m.lower() for m in models):
-            r["cost_note"] += (
-                "; the model isn't Anthropic's, so the estimate doesn't apply"
+    mu = {}  # Claude Code's own figures per model, added up over its processes
+    for p in procs.values():
+        for m, v in (p.get("modelUsage") or {}).items():
+            mu.setdefault(re.sub(r"\[.*\]$", "", m), collections.Counter()).update(
+                {k: x for k, x in v.items() if isinstance(x, (int, float))}
             )
-        if cut:
-            r["cost_note"] = "whole session; " + r["cost_note"]
-        mu = cost.get("modelUsage") or {}
-        main = {re.sub(r"\[.*\]$", "", m) for m in models}
-        r["background_models"] = sorted({re.sub(r"\[.*\]$", "", m) for m in mu} - main)
-        if cut is None:
-            r["model_time_ms"] = cost.get("totalAPIDuration")
-            r["lines_changed"] = [
-                cost.get("totalLinesAdded", 0),
-                cost.get("totalLinesRemoved", 0),
-            ]
-            r["tokens_in"] = sum(
-                v.get("inputTokens", 0)
-                + v.get("cacheReadInputTokens", 0)
-                + v.get("cacheCreationInputTokens", 0)
-                for v in mu.values()
+    own = sum(p.get("totalCostUSD") or 0 for p in procs.values()) if procs else None
+    main = {re.sub(r"\[.*\]$", "", m) for m in models}
+    r["background_models"] = sorted(set(mu) - main)
+    r["extras"] = {}
+    if thinking:
+        r["extras"]["thinking_ms"] = sum(thinking.values())
+    if cut is None and procs:
+        called = {re.sub(r"\[.*\]$", "", m) for m, _ in calls.values()}
+        for (
+            m,
+            v,
+        ) in (
+            mu.items()
+        ):  # background calls (titles, summaries) log only Claude Code's figure
+            if m not in called and v.get("costUSD"):
+                bill.given[m] = v["costUSD"]
+        retry = sum(
+            (p.get("totalAPIDuration") or 0)
+            - (
+                p.get("totalAPIDurationWithoutRetries")
+                or p.get("totalAPIDuration")
+                or 0
             )
-            r["tokens_cached"] = sum(
-                v.get("cacheReadInputTokens", 0) for v in mu.values()
-            )
-            r["tokens_out"] = sum(v.get("outputTokens", 0) for v in mu.values())
+            for p in procs.values()
+        )
+        if retry > 0:
+            r["extras"]["retry_ms"] = retry
+        r["cost_usd"] = round(own, 6)
+        r["cost_note"] = "Claude Code's own total at API prices"
+        if len(procs) > 1:
+            r["cost_note"] += f", added up over the {len(procs)} times it was opened"
+        priced(r, bill, own)
+        r["model_time_ms"] = sum(p.get("totalAPIDuration") or 0 for p in procs.values())
+        r["lines_changed"] = [
+            sum(p.get("totalLinesAdded") or 0 for p in procs.values()),
+            sum(p.get("totalLinesRemoved") or 0 for p in procs.values()),
+        ]
+        r["tokens_in"] = sum(
+            v["inputTokens"] + v["cacheReadInputTokens"] + v["cacheCreationInputTokens"]
+            for v in mu.values()
+        )
+        r["tokens_cached"] = sum(v["cacheReadInputTokens"] for v in mu.values())
+        r["tokens_out"] = sum(v["outputTokens"] for v in mu.values())
+    elif calls:
+        r["cost_usd"] = round(bill.total(), 6)
+        r["cost_note"] = "worked out from the logged calls at API prices" + (
+            f"; Claude Code's own total covers the whole session only: ${own:.2f}"
+            if own is not None
+            else "; this Claude Code version logs no total"
+        )
+        priced(r, bill)
     else:
         r["cost_note"] = "not in this log (older Claude Code versions don't write it)"
+    if any(p.get("hasUnknownModelCost") for p in procs.values()):
+        r["cost_note"] += "; some model costs unknown"
+    if "cost_usd" in r and models and not any("claude" in m.lower() for m in models):
+        r["cost_note"] += "; the model isn't Anthropic's, so the estimate doesn't apply"
     r["billing"] = claude_billing()
     if cut is not None or "tokens_in" not in r:
         us = usage_by_msg.values()
@@ -718,16 +1101,40 @@ def codex(path, last=None):
     # Codex's running total restarts with each process (every `codex exec resume`), so add up each
     # model call's own usage instead; the same event is often logged twice, so skip unchanged totals
     usage, last_total = collections.Counter(), None
+    bill, model_now, key = (
+        Bill(),
+        None,
+        None,
+    )  # each call priced at the model its turn used
     for i, d in enumerate(lines(path)):
         t, p, ts = d.get("type"), d.get("payload") or {}, d.get("timestamp") or ""
         inside = cut is None or i >= cut
         if t == "session_meta":
             versions.append(p.get("cli_version"))
             providers.append(p.get("model_provider"))
+            key = key or p.get("id")
+        elif t == "turn_context":
+            model_now = p.get("model") or model_now
         elif t == "event_msg" and p.get("type") == "token_count" and p.get("info"):
             total = p["info"].get("total_token_usage")
             if inside and total != last_total:
-                usage.update(p["info"].get("last_token_usage") or {})
+                u = p["info"].get("last_token_usage") or {}
+                usage.update(u)
+                # input_tokens counts the cached and cache-written tokens too; output_tokens counts reasoning
+                cached, wrote = (
+                    u.get("cached_input_tokens") or 0,
+                    u.get("cache_write_input_tokens") or 0,
+                )
+                bill.add(
+                    model_now,
+                    [
+                        max((u.get("input_tokens") or 0) - cached - wrote, 0),
+                        cached,
+                        wrote,
+                        0,
+                        u.get("output_tokens") or 0,
+                    ],
+                )
             last_total = total
         if (
             t == "response_item"
@@ -828,7 +1235,21 @@ def codex(path, last=None):
     r["started"], r["ended"] = min(stamps), max(stamps)
     r["prompts"] = prompts
     r["model_time_ms"] = busy or None
-    r["cost_note"] = "Codex logs no price"
+    r["session_key"] = key or os.path.basename(path)
+    if providers and all(p in LOCAL for p in providers):
+        r["cost_note"] = "none: the model ran on this computer"
+    elif bill.lines:
+        r["cost_usd"] = round(bill.total(), 6)
+        r["cost_note"] = (
+            "worked out from the logged calls at API prices; Codex logs no price"
+        )
+        priced(r, bill)
+    else:
+        r["cost_note"] = "Codex logs no price" + (
+            f", and the price table has none for {', '.join(bill.unpriced)}"
+            if bill.unpriced
+            else ""
+        )
     r["billing"] = codex_billing(providers)
     if last_total is not None:
         r["tokens_in"] = usage["input_tokens"]
@@ -905,6 +1326,7 @@ def opencode(sid, last=None):
     models, providers, efforts, stamps = [], [], [], []
     tools, skills, mcp, agents = (collections.Counter() for _ in range(4))
     cost, tin, tcached, tout, busy = 0.0, 0, 0, 0, 0
+    bill = Bill()
     errors, model_errors, interrupted, written = 0, 0, 0, set()
     # subagents run in child sessions: their cost and tokens count, as in Claude Code's totals
     children = []
@@ -932,6 +1354,17 @@ def opencode(sid, last=None):
             cost += m.get("cost") or 0
             tk = m.get("tokens") or {}
             cache = tk.get("cache") or {}
+            if (m.get("providerID") or "?") not in LOCAL:
+                bill.add(
+                    m.get("modelID"),
+                    [
+                        tk.get("input") or 0,
+                        cache.get("read") or 0,
+                        cache.get("write") or 0,
+                        0,
+                        (tk.get("output") or 0) + (tk.get("reasoning") or 0),
+                    ],
+                )
             tin += (
                 (tk.get("input") or 0)
                 + (cache.get("read") or 0)
@@ -990,10 +1423,21 @@ def opencode(sid, last=None):
     r["started"], r["ended"] = iso(min(stamps)), iso(max(stamps))
     r["prompts"] = len(prompts_in)
     r["model_time_ms"] = busy or None
-    r["cost_usd"] = round(cost, 2)
-    r["cost_note"] = "as OpenCode recorded it" + (
-        "; includes subagents" if children else ""
-    )
+    r["session_key"] = sid
+    sub = "; includes subagents" if children else ""
+    if (
+        not cost and bill.lines
+    ):  # OpenCode can record a cost of 0 for providers it has no price for
+        r["cost_usd"] = round(bill.total(), 6)
+        r["cost_note"] = (
+            "worked out from the logged calls at API prices; OpenCode recorded $0" + sub
+        )
+        priced(r, bill)
+    else:
+        r["cost_usd"] = round(cost, 6)
+        r["cost_note"] = "as OpenCode recorded it" + sub
+        if bill.lines:
+            priced(r, bill, cost)
     r["billing"] = (
         "none: the model ran on this computer"
         if providers and all(p in LOCAL for p in providers)
@@ -1014,6 +1458,550 @@ def opencode(sid, last=None):
     r["memory"] = None
     r["first_prompt"] = next((t for c, t in prompts_t if cut is None or c >= cut), None)
     return r
+
+
+# ---------- a record of what went in and came out ----------
+
+# an in-toto Statement (in-toto.io/Statement/v1): the files the run wrote are its subjects, and the predicate
+# holds fingerprints of everything that went in. No text is kept, only sha256 hashes, and it is saved in one
+# byte form (sorted keys, no spaces, no floats), so its own sha256 is the same wherever it is worked out.
+RECORD_TYPE = "https://musharna.github.io/prompt-receipts/record/v1"
+SIGN_NS = "prompt-receipts"  # ssh-keygen -Y sign's namespace, so a signature made for this can't pass as another
+
+
+def sha(x):
+    if isinstance(x, str):
+        x = x.encode("utf-8", "surrogatepass")
+    return hashlib.sha256(x).hexdigest()
+
+
+def canon(obj):
+    return json.dumps(
+        obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8", "surrogatepass")
+
+
+def no_floats(obj, where="record"):
+    """a float prints differently in different languages, which would change the record's hash"""
+    if isinstance(obj, float):
+        raise ValueError(
+            f"receipt: a float in the {where} ({obj!r}); this is a bug, please report it at {ISSUES}"
+        )
+    for v in (
+        obj.values() if isinstance(obj, dict) else obj if isinstance(obj, list) else []
+    ):
+        no_floats(v, where)
+
+
+def content_text(c):
+    """a tool result as the model saw it, as one string (a picture stands in as its data's hash)"""
+    if isinstance(c, str):
+        return c
+    out = []
+    for b in c if isinstance(c, list) else []:
+        if isinstance(b, dict) and b.get("type") in (
+            "text",
+            "input_text",
+            "output_text",
+        ):
+            out.append(b.get("text") or "")
+        elif isinstance(b, dict) and b.get("type") in ("image", "input_image"):
+            out.append("[image " + sha(json.dumps(b, sort_keys=True)) + "]")
+        else:
+            out.append(json.dumps(b, sort_keys=True))
+    return "\n".join(out)
+
+
+def file_label(path, names):
+    base = base_name(path or "")
+    return base if names else (os.path.splitext(base)[1].lower() or "no type")
+
+
+def output_subject(path, written, ended, names, n):
+    """-> an in-toto subject for a file the run wrote: the content the log holds, else the file as it is now"""
+    ext = os.path.splitext(base_name(path))[1].lower()
+    name = base_name(path) if names else f"file{n}{ext}"
+    disk, later = None, False
+    try:
+        with open(path, "rb") as fh:
+            disk = sha(fh.read())
+        later = os.path.getmtime(path) > when(ended).timestamp() + 2
+    except OSError:
+        pass
+    if written is not None:
+        digest, how = sha(written), "as written"
+        if disk is None:
+            how += "; not on disk now"
+        elif disk != digest:
+            how += "; changed on disk since"
+    elif disk is not None:
+        digest, how = disk, "on disk now" + ("; changed after the run" if later else "")
+    else:
+        return None
+    return {"name": name, "digest": {"sha256": digest}, "annotations": {"source": how}}
+
+
+def record_claude(path, last, names, counts):
+    cut = None
+    if last:
+        cut = cut_at(
+            [
+                d.get("timestamp") or ""
+                for d in lines(path)
+                if claude_prompt(d) is not None
+            ],
+            last,
+        )
+    prompts, system, instructions, defs, seen, env = [], {}, {}, {}, [], {}
+    uses, edits, failed = {}, {}, set()
+    for d in lines(path):
+        t, ts = d.get("type"), d.get("timestamp") or ""
+        inside = cut is None or (ts and ts >= cut)
+        if (
+            t == "attachment"
+        ):  # what was loaded counts for whatever part the record covers
+            a = d.get("attachment") or {}
+            at = a.get("type")
+            if at == "prompt_snapshot" and a.get("systemPrompt"):
+                sp = a["systemPrompt"]
+                system.setdefault(
+                    sha("\n\n".join(map(str, sp)) if isinstance(sp, list) else str(sp)),
+                    1,
+                )
+            elif at == "instructions":
+                for f in a.get("files") or []:
+                    instructions.setdefault(
+                        (base_name(f.get("path") or ""), sha(f.get("content") or "")),
+                        f.get("type") or "?",
+                    )
+            elif at == "nested_memory":
+                c = a.get("content") or {}
+                if isinstance(c, dict) and isinstance(c.get("content"), str):
+                    instructions.setdefault(
+                        (base_name(a.get("path") or ""), sha(c["content"])),
+                        c.get("type") or "?",
+                    )
+            elif at == "deferred_tools_record":
+                for e in a.get("entries") or []:
+                    defs[e.get("name") or "?"] = sha(canon(e))
+            elif at == "environment":
+                env = a.get("snapshot") or {}
+        if not inside:
+            continue
+        text = claude_prompt(d)
+        if text is not None:
+            prompts.append(sha(text))
+        elif t == "assistant":
+            for b in (d.get("message") or {}).get("content") or []:
+                if isinstance(b, dict) and b.get("type") == "tool_use":
+                    name, inp = b.get("name") or "?", b.get("input") or {}
+                    uses[b.get("id")] = (name, inp)
+                    if name in EDIT_TOOLS and inp.get(EDIT_TOOLS[name]):
+                        # counted as the receipt's files line counts them: every call that didn't fail
+                        edits[b.get("id")] = (
+                            inp[EDIT_TOOLS[name]],
+                            inp.get("content") if name == "Write" else None,
+                        )
+        elif t == "user":
+            c = (d.get("message") or {}).get("content")
+            tur = d.get("toolUseResult")
+            for b in c if isinstance(c, list) else []:
+                if not (isinstance(b, dict) and b.get("type") == "tool_result"):
+                    continue
+                name, inp = uses.get(b.get("tool_use_id"), ("?", {}))
+                e = {"tool": name, "sha256": sha(content_text(b.get("content")))}
+                if b.get("is_error"):
+                    e["failed"] = True
+                    failed.add(b.get("tool_use_id"))
+                f = tur.get("file") if isinstance(tur, dict) else None
+                if (
+                    name == "Read"
+                    and isinstance(f, dict)
+                    and isinstance(f.get("content"), str)
+                ):
+                    e["file"] = file_label(
+                        f.get("filePath") or inp.get("file_path"), names
+                    )
+                    e["file_sha256"] = sha(
+                        f["content"]
+                    )  # the file's own text, without the line numbers
+                    if f.get("totalLines") is not None:
+                        first = f.get("startLine") or 1
+                        e["lines"] = (
+                            f"{first}-{first + (f.get('numLines') or 0) - 1} of {f['totalLines']}"
+                        )
+                seen.append(e)
+    writes = {}
+    for i, (p, content) in edits.items():
+        if i not in failed:
+            writes[p] = (
+                content  # a later Write's text replaces an earlier one; an Edit leaves none
+            )
+    rec = {
+        "prompts": [{"sha256": h} for h in prompts],
+        "system_prompt": [{"sha256": h} for h in system],
+        "instructions": [
+            {"name": n, "sha256": h} if not counts else {"kind": k, "sha256": h}
+            for (n, h), k in instructions.items()
+        ],
+        "tool_definitions": [{"name": n, "sha256": h} for n, h in defs.items()],
+        "tool_results": seen,
+        "environment": {
+            k: env[k] for k in ("platform", "shell", "osVersion") if env.get(k)
+        },
+    }
+    limits = [
+        "Claude Code logs the definitions of deferred tools only, not of its built-in ones",
+        "files written by subagents aren't included",
+    ]
+    return rec, writes, limits
+
+
+def record_codex(path, last, names, counts):
+    cut = None
+    if last:
+        prompt_at, starts = [], []
+        for i, d in enumerate(lines(path)):
+            if codex_prompt(d) is not None:
+                prompt_at.append(i)
+            elif (
+                d.get("type") == "event_msg"
+                and (d.get("payload") or {}).get("type") == "task_started"
+            ):
+                starts.append(i)
+        cut = cut_at(prompt_at, last)
+        cut = max([s for s in starts if s <= cut], default=cut)
+    prompts, system, instructions, seen, uses, writes, git = [], {}, {}, [], {}, {}, {}
+    for i, d in enumerate(lines(path)):
+        t, p = d.get("type"), d.get("payload") or {}
+        if t == "session_meta":
+            base = p.get("base_instructions")
+            base = base.get("text") if isinstance(base, dict) else base
+            if isinstance(base, str):
+                system.setdefault(sha(base), 1)
+            git = {
+                k: v
+                for k, v in (p.get("git") or {}).items()
+                if k == "commit_hash" and v
+            }
+        elif t == "turn_context" and isinstance(p.get("developer_instructions"), str):
+            system.setdefault(sha(p["developer_instructions"]), 1)
+        if (
+            t == "response_item"
+            and p.get("type") == "message"
+            and p.get("role") == "user"
+        ):
+            for b in p.get("content") or []:
+                text = (b or {}).get("text") or ""
+                if text.startswith("# AGENTS.md instructions"):
+                    instructions.setdefault(("AGENTS.md", sha(text)), "AGENTS.md")
+        if cut is not None and i < cut:
+            continue
+        text = codex_prompt(d)
+        if text is not None:
+            prompts.append(sha(text))
+        elif t == "response_item" and p.get("type") in (
+            "function_call",
+            "custom_tool_call",
+        ):
+            uses[p.get("call_id")] = p.get("name") or "?"
+        elif t == "response_item" and p.get("type") in (
+            "function_call_output",
+            "custom_tool_call_output",
+        ):
+            seen.append(
+                {
+                    "tool": uses.get(p.get("call_id"), "?"),
+                    "sha256": sha(content_text(p.get("output"))),
+                }
+            )
+        elif (
+            t == "event_msg" and p.get("type") == "patch_apply_end" and p.get("success")
+        ):
+            for f, ch in (p.get("changes") or {}).items():
+                if isinstance(ch, dict) and ch.get("type") != "delete":
+                    writes[f] = (
+                        ch.get("content")
+                        if ch.get("type") == "add"
+                        and isinstance(ch.get("content"), str)
+                        else None
+                    )
+    rec = {
+        "prompts": [{"sha256": h} for h in prompts],
+        "system_prompt": [{"sha256": h} for h in system],
+        "instructions": [
+            {"name": n, "sha256": h} if not counts else {"kind": k, "sha256": h}
+            for (n, h), k in instructions.items()
+        ],
+        "tool_results": seen,
+    }
+    if git:
+        rec["git_commit"] = git["commit_hash"]
+    limits = ["Codex logs no tool definitions"]
+    return rec, writes, limits
+
+
+def record_opencode(sid, last, names, counts):
+    prompts_t = oc_prompts(sid, with_time=True)
+    cut = cut_at([t for t, _ in prompts_t], last) if last else None
+    seen, writes = [], {}
+    for mcreated, pdata in oc().execute(
+        "select m.time_created, p.data from part p join message m on m.id = p.message_id "
+        "where p.session_id = ? order by p.time_created",
+        (sid,),
+    ):
+        if cut is not None and mcreated < cut:
+            continue
+        p = json.loads(pdata)
+        if p.get("type") != "tool":
+            continue
+        st, n = p.get("state") or {}, p.get("tool") or "?"
+        if "output" in st:
+            e = {"tool": n, "sha256": sha(content_text(st.get("output")))}
+            if st.get("status") == "error":
+                e["failed"] = True
+            seen.append(e)
+        inp = st.get("input") or {}
+        if (
+            st.get("status") != "error"
+            and n in ("write", "edit", "multiedit")
+            and inp.get("filePath")
+        ):
+            writes[inp["filePath"]] = (
+                inp.get("content")
+                if n == "write" and isinstance(inp.get("content"), str)
+                else None
+            )
+    rec = {
+        "prompts": [
+            {"sha256": sha(t)} for c, t in prompts_t if cut is None or c >= cut
+        ],
+        "tool_results": seen,
+    }
+    limits = [
+        "OpenCode keeps neither the system prompt nor tool definitions in its database"
+    ]
+    return rec, writes, limits
+
+
+def make_record(r, tool, key, last, names, counts, hide, renames):
+    rec, writes, limits = {
+        "claude": record_claude,
+        "codex": record_codex,
+        "opencode": record_opencode,
+    }[tool](key, last, names, counts)
+    subjects = [
+        s
+        for n, (p, w) in enumerate(writes.items(), 1)
+        for s in [output_subject(p, w, r["ended"], names, n)]
+        if s
+    ]
+    pred = {
+        "receipt_no": r["receipt_no"],
+        "receipt_version": VERSION,
+        "tool": r["tool"],
+        "part": r["part"],
+    }
+    if "version" not in hide:
+        pred["tool_version"] = r.get("version")
+    if "date" not in hide and "time" not in hide:
+        pred["started"], pred["ended"] = r["started"], r["ended"]
+    if "model" not in hide:
+        pred["models"], pred["effort"] = r.get("models"), r.get("effort")
+    if "settings" not in hide:
+        pred["permissions"] = r.get("permissions")
+    if "cost" not in hide and "cost_usd" in r:
+        pred["cost_micro_usd"] = int(round(r["cost_usd"] * 1e6))
+    for e in (
+        rec.get("instructions") or []
+    ):  # --rename applies here too, so the record can't undo it
+        if e.get("name") in renames:
+            e["name"] = renames[e["name"]]
+    pred.update(rec)
+    pred["limits"] = limits + [
+        "neither the tool nor the model takes a seed, so the same inputs can give a different output: "
+        "this record lets a run be checked, not repeated",
+        "made after the run from its log, so it shows what the log said when it was made",
+    ]
+    stmt = {
+        "_type": "https://in-toto.io/Statement/v1",
+        "subject": subjects,
+        "predicateType": RECORD_TYPE,
+        "predicate": pred,
+    }
+    no_floats(stmt)
+    data = canon(stmt)
+    inputs = (
+        len(pred.get("system_prompt", []))
+        + len(pred.get("instructions", []))
+        + len(pred.get("tool_results", []))
+    )
+    r["record"] = {
+        "sha256": sha(data),
+        "prompts": len(pred["prompts"]),
+        "inputs": inputs,
+        "outputs": len(subjects),
+    }
+    return data
+
+
+def sign(key, path):
+    sig = path + ".sig"
+    if os.path.exists(sig):
+        os.remove(sig)  # ssh-keygen won't write over an old signature
+    try:
+        p = subprocess.run(
+            [
+                "ssh-keygen",
+                "-Y",
+                "sign",
+                "-f",
+                os.path.expanduser(key),
+                "-n",
+                SIGN_NS,
+                path,
+            ],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        sys.exit(
+            "receipt: --sign needs ssh-keygen (OpenSSH 8.0 or newer), and it isn't installed"
+        )
+    if p.returncode or not os.path.exists(sig):
+        sys.exit(
+            f"receipt: ssh-keygen couldn't sign {path}: {p.stderr.strip() or p.stdout.strip()}"
+        )
+    print(f"receipt: signed, signature in {sig}", file=sys.stderr)
+
+
+def file_hashes(path):
+    """a file's sha256, plus its text's with Windows line ends and a final newline taken off, since a log
+    keeps a file's text the way the tool read it"""
+    with open(path, "rb") as fh:
+        b = fh.read()
+    hs = {sha(b)}
+    try:
+        t = b.decode("utf-8")
+    except UnicodeDecodeError:
+        return hs
+    for v in (
+        t,
+        t.rstrip("\n"),
+        t.replace("\r\n", "\n"),
+        t.replace("\r\n", "\n").rstrip("\n"),
+    ):
+        hs.add(sha(v))
+    return hs
+
+
+def verify(files, signers):
+    bad = False
+    for f in files:
+        if not os.path.exists(f):
+            sys.exit(f"receipt: no file {f}")
+        sig = f + ".sig"
+        if not os.path.exists(sig):
+            continue
+        who = None
+        try:
+            if signers:
+                fp = subprocess.run(
+                    ["ssh-keygen", "-Y", "find-principals", "-f", signers, "-s", sig],
+                    capture_output=True,
+                    text=True,
+                )
+                who = fp.stdout.strip().split("\n")[0] if fp.returncode == 0 else None
+                if not who:
+                    print(f"{f}: signed, but not by a key in {signers}")
+                    bad = True
+                    continue
+                cmd = [
+                    "ssh-keygen",
+                    "-Y",
+                    "verify",
+                    "-f",
+                    signers,
+                    "-I",
+                    who,
+                    "-n",
+                    SIGN_NS,
+                    "-s",
+                    sig,
+                ]
+            else:
+                cmd = ["ssh-keygen", "-Y", "check-novalidate", "-n", SIGN_NS, "-s", sig]
+            with open(f, "rb") as fh:
+                v = subprocess.run(cmd, stdin=fh, capture_output=True, text=True)
+        except FileNotFoundError:
+            sys.exit(
+                "receipt: checking a signature needs ssh-keygen (OpenSSH 8.0 or newer)"
+            )
+        if v.returncode == 0:
+            key = re.search(r"(\w+ key SHA256:\S+)", v.stdout + v.stderr)
+            print(
+                f"{f}: good signature"
+                + (f" by {who}" if who else "")
+                + (f" ({key.group(1)})" if key else "")
+                + ("" if who else "; add --signers FILE to check whose key it is")
+            )
+        else:
+            print(
+                f"{f}: BAD signature: the file changed after it was signed, or the signature isn't for it"
+            )
+            bad = True
+    try:
+        with open(files[0], "rb") as fh:
+            data = fh.read()
+        stmt = json.loads(data)
+    except (OSError, ValueError):
+        stmt = None
+    if not (isinstance(stmt, dict) and stmt.get("predicateType") == RECORD_TYPE):
+        if len(files) > 1:
+            sys.exit(
+                f"receipt: {files[0]} isn't a record made with --record, so the other files can't be matched"
+            )
+        if not os.path.exists(files[0] + ".sig"):
+            sys.exit(
+                f"receipt: {files[0]} has no signature next to it ({files[0]}.sig) and isn't a record"
+            )
+        sys.exit(1 if bad else 0)
+    pred = stmt["predicate"]
+    canonical = canon(stmt) == data
+    print(
+        f"{files[0]}: record of {pred['tool']} receipt no. {pred['receipt_no']}, sha256 {sha(data)}"
+        + (
+            ""
+            if canonical
+            else " (not in the byte form it was made in, so its hash differs from the receipt's)"
+        )
+    )
+    known = {}
+    for s in stmt.get("subject") or []:
+        known.setdefault(
+            s["digest"]["sha256"],
+            f"came out of the run: {s['name']} ({s['annotations']['source']})",
+        )
+    for e in pred.get("instructions") or []:
+        known.setdefault(
+            e["sha256"], f"went in: instruction file {e.get('name') or e.get('kind')}"
+        )
+    for e in pred.get("system_prompt") or []:
+        known.setdefault(e["sha256"], "went in: the system prompt")
+    for i, e in enumerate(pred.get("prompts") or [], 1):
+        known.setdefault(e["sha256"], f"went in: prompt {i}")
+    for e in pred.get("tool_results") or []:
+        if e.get("file_sha256"):
+            known.setdefault(
+                e["file_sha256"],
+                f"went in: the model read it ({e.get('file')}, lines {e.get('lines', '?')})",
+            )
+        known.setdefault(e["sha256"], f"went in: {e['tool']} showed it to the model")
+    for f in files[1:]:
+        hit = next((known[h] for h in file_hashes(f) if h in known), None)
+        print(f"{f}: {hit or 'NOT in this record'}")
+        bad |= hit is None
+    sys.exit(1 if bad else 0)
 
 
 # ---------- checks on what was read ----------
@@ -1089,6 +2077,12 @@ def prompt_id(text):
     return hashlib.sha256(" ".join(text.split()).encode()).hexdigest()[:12]
 
 
+def receipt_no(*parts):
+    """the same session and part always get the same number, and it gives nothing away about the session"""
+    h = sha("\n".join(map(str, parts)))
+    return f"{h[:4]}-{h[4:8]}"
+
+
 # ---------- leaving things out ----------
 
 NAMED = [
@@ -1153,6 +2147,7 @@ DROP = {
     "model": ["models", "background_models", "effort", "providers"],
     "time": ["started", "ended", "duration_ms", "model_time_ms", "prompts"],
     "cost": ["cost_usd", "cost_note"],
+    "items": ["items", "prices", "cost_check", "extras"],
     "billing": ["billing"],
     "tokens": ["tokens_in", "tokens_cached", "tokens_out", "tokens_note"],
     "work": [
@@ -1265,7 +2260,7 @@ def combine(rs):
             r[k] = sum(x.get(k) or 0 for x in rs)
     with_cost = [x for x in rs if "cost_usd" in x]
     if with_cost:
-        r["cost_usd"] = round(sum(x["cost_usd"] for x in with_cost), 2)
+        r["cost_usd"] = round(sum(x["cost_usd"] for x in with_cost), 6)
         r["cost_note"] = (
             "added up"
             if len(with_cost) == len(rs)
@@ -1273,6 +2268,35 @@ def combine(rs):
         )
     else:
         r["cost_note"] = span(x.get("cost_note") for x in rs)
+    merged = {}
+    for x in rs:
+        for it in x.get("items") or []:
+            k = (it["model"], it["kind"], it.get("rate"))
+            if k not in merged:
+                merged[k] = dict(it)
+                continue
+            for f in ("count", "usd"):
+                if f in it:
+                    merged[k][f] = merged[k].get(f, 0) + it[f]
+    r["items"] = list(merged.values())
+    for it in r["items"]:
+        if "usd" in it:
+            it["usd"] = round(it["usd"], 6)
+    r["prices"] = span(x.get("prices") for x in rs)
+    if with_cost and all(x.get("cost_check") for x in with_cost):
+        r["cost_check"] = {
+            k: round(sum(x["cost_check"][k] for x in with_cost), 6)
+            for k in ("lines_usd", "own_usd")
+        }
+    r["extras"] = dict(
+        sum(
+            (collections.Counter(x.get("extras") or {}) for x in rs),
+            collections.Counter(),
+        )
+    )
+    r["receipt_no"] = receipt_no(
+        "combined", *sorted(x.get("receipt_no") or "" for x in rs)
+    )
     with_tokens = [x for x in rs if "tokens_in" in x]
     if with_tokens:
         for k in ("tokens_in", "tokens_cached", "tokens_out"):
@@ -1425,6 +2449,77 @@ def names(d):
     )
 
 
+def money(x):
+    return f"${x:,.2f}" if x >= 0.005 else "$0.00" if not x else "<$0.01"
+
+
+def rate_text(per_m):
+    """$ per million tokens with at least two decimals: $20.00, $0.20, $0.0125"""
+    s = f"{per_m:.4f}".rstrip("0")
+    return "$" + (s + "0" * (2 - len(s.split(".")[1])))
+
+
+def clock(dt):
+    """3:05 PM EDT; Windows names zones in words, so there it's the offset: 3:05 PM UTC-4"""
+    zone = dt.tzname() or ""
+    if not zone or " " in zone or len(zone) > 5:
+        off = int(dt.utcoffset().total_seconds() // 60)
+        zone = f"UTC{'+' if off >= 0 else '-'}{abs(off) // 60}" + (
+            f":{abs(off) % 60:02d}" if off % 60 else ""
+        )
+    return (
+        f"{dt.hour % 12 or 12}:{dt.minute:02d} {'AM' if dt.hour < 12 else 'PM'} {zone}"
+    )
+
+
+def item_lines(r, width=80):
+    """a receipt's line items: each model, then what it used, how much, at what price, and what that came to"""
+    out, model = [], None
+    for it in r["items"]:
+        if it["model"] != model:
+            model = it["model"]
+            out.append(" " * 9 + model)
+        k = it["kind"]
+        if k == "own figure":
+            out.append(
+                f"{'':11}{'calls logged with no detail':<35}{money(it['usd']):>9}"
+            )
+        elif k == "no price":
+            out.append(f"{'':11}{toks(it['count'])} tokens, no price for this model")
+        else:
+            qty = (
+                f"{it['count']} × {money(it['rate'] / 1e6)}"
+                if k == "web search"
+                else f"{toks(it['count'])} × {rate_text(it['rate'])}/M"
+            )
+            out.append(f"{'':11}{k:<18}{qty:>17}{money(it['usd']):>9}")
+    ex = r.get("extras") or {}
+    extra = []
+    if ex.get("fast_calls"):
+        extra.append(f"fast mode on {many(ex['fast_calls'], 'call')}")
+    if ex.get("us_only_calls"):
+        extra.append(f"US-only processing on {many(ex['us_only_calls'], 'call')}")
+    if ex.get("thinking_ms"):
+        extra.append(f"thinking {mins(ex['thinking_ms'])}")
+    if ex.get("retry_ms"):
+        extra.append(f"waiting on retries {mins(ex['retry_ms'])}")
+    if extra:
+        out.append("extras   " + " · ".join(extra))
+    chk = r.get("cost_check")
+    if chk and abs(chk["lines_usd"] - chk["own_usd"]) >= 0.005:
+        msg = (
+            f"the lines add up to {money(chk['lines_usd'])}, not {money(chk['own_usd'])}: "
+            f"{r['tool'] or 'the tool'}'s own total and its logged calls disagree, as they can in long "
+            "sessions that were compacted or resumed"
+        )
+        out += [
+            ("check    " if i == 0 else " " * 9) + w
+            for i, w in enumerate(textwrap.wrap(msg, width - 9))
+        ]
+    out.append(f"prices   API list prices per million tokens ($/M), from {r['prices']}")
+    return out
+
+
 def text(r, hide, with_prompt, width=80):
     head = f"Receipt v{VERSION} · {r['tool']}"
     if "version" not in hide:
@@ -1439,8 +2534,12 @@ def text(r, hide, with_prompt, width=80):
         head += f" · {day.day} {day:%b %Y}"
         if r.get("combined") and end.date() != day.date():
             head += f" → {end.day} {end:%b %Y}"
+        elif "time" not in hide:
+            head += f", {clock(day)}"
     if r["part"] != "whole session":
         head += f" · {r['part']}"
+    if r.get("receipt_no"):
+        head += f" · no. {r['receipt_no']}"
     out = [head]
     if "model" not in hide:
         bg = r.get("background_models")
@@ -1468,10 +2567,18 @@ def text(r, hide, with_prompt, width=80):
         )
     if "cost" not in hide:
         if "cost_usd" in r:
-            money = f"${r['cost_usd']:.2f}" if r["cost_usd"] >= 0.01 else "<$0.01"
-            out.append(f"cost     {money} ({r['cost_note']})")
+            note, chk = r["cost_note"], r.get("cost_check")
+            if (
+                chk
+                and "items" not in hide
+                and abs(chk["lines_usd"] - chk["own_usd"]) < 0.005
+            ):
+                note += "; the lines below add up to it"
+            out.append(f"cost     {money(r['cost_usd'])} ({note})")
         else:
             out.append(f"cost     {r['cost_note']}")
+        if "items" not in hide and r.get("items"):
+            out += item_lines(r, width)
     if "billing" not in hide and r.get("billing"):
         out.append(f"billing  {r['billing']}")
     if "tokens" not in hide and "tokens_in" in r:
@@ -1567,6 +2674,12 @@ def text(r, hide, with_prompt, width=80):
         out.append(f"settings {r['permissions']}")
     if r.get("prompt_id"):
         out.append(f"id       {r['prompt_id']} (prompt fingerprint)")
+    if r.get("record"):
+        rec = r["record"]
+        out.append(
+            f"record   sha256 {rec['sha256'][:16]}… · fingerprints of {many(rec['prompts'], 'prompt')}, "
+            f"{many(rec['inputs'], 'input')}, {many(rec['outputs'], 'file')} out"
+        )
     if with_prompt and r.get("first_prompt"):
         # wrap long lines so the receipt pastes without scrolling sideways; keep the prompt's own line breaks
         wrapped = [
@@ -1748,6 +2861,7 @@ def out_path(a, r, ext):
 
 
 def main():
+    global PRICES, PRICES_FROM
     ap = argparse.ArgumentParser(
         description=__doc__.split("\n")[0],
         epilog="parts for --hide: " + ", ".join(PARTS),
@@ -1775,16 +2889,48 @@ def main():
     ap.add_argument("--hook", action="store_true")
     ap.add_argument("--combine", nargs="+", metavar="RECEIPT.json")
     ap.add_argument("--compare", nargs="+", metavar="RECEIPT.json")
+    ap.add_argument("--prices", metavar="FILE")
+    ap.add_argument("--record", metavar="FILE")
+    ap.add_argument("--sign", metavar="KEY")
+    ap.add_argument("--verify", nargs="+", metavar="FILE")
+    ap.add_argument("--signers", metavar="FILE")
     a = ap.parse_args()
     # Windows writes files and pipes in its old code page, which has no "→" and would crash; use UTF-8
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
+    if a.verify:
+        if any(
+            v not in (None, False, [], "")
+            for k, v in vars(a).items()
+            if k not in ("verify", "signers")
+        ):
+            sys.exit(
+                "receipt: --verify only checks files; give it the files, and --signers if you have one"
+            )
+        verify(a.verify, a.signers)
+        return
+    if a.signers:
+        sys.exit("receipt: --signers goes with --verify")
+    if a.prices:
+        try:
+            with open(os.path.expanduser(a.prices), encoding="utf-8") as fh:
+                PRICES = price_table(json.load(fh))
+        except (OSError, ValueError) as e:
+            sys.exit(f"receipt: can't read {a.prices} as a price file ({e})")
+        if not PRICES:
+            sys.exit(
+                f"receipt: no Anthropic or OpenAI prices in {a.prices}; it should be a copy of LiteLLM's "
+                "model_prices_and_context_window.json"
+            )
+        PRICES_FROM = f"{base_name(a.prices)}, given with --prices"
     hide = {h.strip() for h in a.hide.split(",") if h.strip()}
     if hide - set(PARTS):
         sys.exit(
             f"receipt: --hide doesn't know {', '.join(sorted(hide - set(PARTS)))}; parts are: {', '.join(PARTS)}"
         )
+    if "cost" in hide:
+        hide.add("items")  # the lines would give the total away
     if a.last is not None and a.last < 1:
         sys.exit("receipt: --last needs a number of prompts, 1 or more")
     if a.codex and a.opencode:
@@ -1810,6 +2956,14 @@ def main():
         sys.exit("receipt: pick one of --combine and --compare")
     if many_in and (a.session or a.list or a.pick or a.last or a.hook):
         sys.exit("receipt: --combine and --compare read JSON receipts, not sessions")
+    if a.record and (many_in or a.list):
+        sys.exit(
+            "receipt: --record covers one session, so it can't go with --combine, --compare or --list"
+        )
+    if a.sign and not (a.out or a.record):
+        sys.exit(
+            "receipt: --sign signs what is saved, so add --out FILE, --record FILE or both"
+        )
     tool = "codex" if a.codex else "opencode" if a.opencode else "claude"
 
     if a.compare:
@@ -1820,7 +2974,9 @@ def main():
             if a.json
             else None
         )
-        emit(a, rs[0], s, payload, table=True)
+        saved = emit(a, rs[0], s, payload, table=True)
+        if a.sign and saved:
+            sign(a.sign, saved)
         return
     if a.combine:
         r, left_out = combine([load(f) for f in a.combine])
@@ -1894,6 +3050,8 @@ def main():
         r["duration_ms"] = round(
             (when(r["ended"]) - when(r["started"])).total_seconds() * 1000
         )
+        r.setdefault("extras", {})
+        r["receipt_no"] = receipt_no(r["tool"], r.pop("session_key"), r["part"])
         check(r)
     if a.rename:
         rename(r, a.rename)
@@ -1909,6 +3067,12 @@ def main():
         r["first_prompt"] = scrub(r["first_prompt"], a.redact)
     else:
         r.pop("first_prompt", None)
+    record = None
+    if a.record:
+        renames = dict(p.split("=", 1) for p in a.rename)
+        record = make_record(
+            r, tool, path, a.last, a.file_names, a.counts, hide, renames
+        )
     s = text(r, hide, a.prompt)
     if a.png:  # the picture is narrower, so its prompt wraps to fit
         s = text(r, hide, a.prompt, width=PNG_COLS - 9)
@@ -1918,7 +3082,16 @@ def main():
             for key in DROP[part]:
                 r.pop(key, None)
         payload = json.dumps(r, indent=1)
-    emit(a, r, s, payload)
+    saved = [emit(a, r, s, payload)]
+    if record is not None:
+        rp = os.path.expanduser(a.record)
+        with open(rp, "wb") as fh:
+            fh.write(record)
+        print(f"receipt: record saved to {rp}", file=sys.stderr)
+        saved.append(rp)
+    for p in saved:
+        if a.sign and p:
+            sign(a.sign, p)
 
 
 def nothing_found(tool, everywhere):
@@ -1946,6 +3119,7 @@ def emit(a, r, s, payload, table=False):
                 fh.write(data + "\n")
         print(f"receipt: saved to {p}", file=sys.stderr)
     else:
+        p = None
         print(data)
     if a.report:
         url = FORM + urllib.parse.quote(s, safe="")
@@ -1962,6 +3136,7 @@ def emit(a, r, s, payload, table=False):
             "--rename name=label · --last N (just your last N prompts). More: --help",
             file=sys.stderr,
         )
+    return p
 
 
 if __name__ == "__main__":

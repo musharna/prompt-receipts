@@ -3,9 +3,11 @@
 Each test gets its own home folder with Claude Code, Codex and OpenCode logs in it, so nothing on
 the machine running the tests is read. python -m unittest discover -s tests"""
 
+import hashlib
 import json
 import os
 import re
+import shutil
 import sqlite3
 import struct
 import subprocess
@@ -28,7 +30,7 @@ def slug(path):
     return re.sub(r"[^A-Za-z0-9]", "-", path)
 
 
-class Receipts(unittest.TestCase):
+class Base(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = os.path.realpath(self.tmp.name)
@@ -80,18 +82,44 @@ class Receipts(unittest.TestCase):
     # ---------- made-up logs ----------
 
     def claude_log(
-        self, prompt="Make a page for my habit tracker", name="s1", replies=True
+        self,
+        prompt="Make a page for my habit tracker",
+        name="s1",
+        replies=True,
+        total=1.234,
+        resumed=False,
+        rich=False,
+        model="claude-opus-5-5",
+        usage=None,
     ):
         entries = [
-            {"type": "user", "timestamp": ts(0), "cwd": self.proj, "version": "2.1.300",
+            {"type": "user", "timestamp": ts(0), "cwd": self.proj, "version": "2.1.300", "sessionId": name,
              "permissionMode": "default", "effort": "high", "message": {"role": "user", "content": prompt}},
         ]  # fmt: skip
+        if rich:  # what a record fingerprints: loaded instructions, the system prompt, a file the model read
+            entries += [
+                {"type": "attachment", "timestamp": ts(0), "attachment": {"type": "instructions", "files": [
+                    {"path": os.path.join(self.proj, "CLAUDE.md"), "type": "Project", "content": "be kind"}]}},
+                {"type": "attachment", "timestamp": ts(0), "attachment": {
+                    "type": "prompt_snapshot", "systemPrompt": ["You are Claude Code.", "Be brief."]}},
+                {"type": "attachment", "timestamp": ts(0), "attachment": {"type": "environment", "snapshot": {
+                    "platform": "linux", "shell": "zsh", "osVersion": "Linux 6.18",
+                    "workingDirectory": self.proj}}},
+                {"type": "assistant", "timestamp": ts(1), "message": {"id": "m0", "model": "claude-opus-5-5",
+                    "content": [{"type": "tool_use", "id": "r1", "name": "Read",
+                                 "input": {"file_path": os.path.join(self.proj, "notes.txt")}}]}},
+                {"type": "user", "timestamp": ts(1), "message": {"role": "user", "content": [
+                    {"type": "tool_result", "tool_use_id": "r1", "content": "     1\thello"}]},
+                 "toolUseResult": {"type": "text", "file": {
+                     "filePath": os.path.join(self.proj, "notes.txt"), "content": "hello",
+                     "numLines": 1, "startLine": 1, "totalLines": 1}}},
+            ]  # fmt: skip
         if replies:
             entries += [
                 {"type": "assistant", "timestamp": ts(1), "message": {
-                    "id": "m1", "model": "claude-opus-5-5",
+                    "id": "m1", "model": model,
                     "usage": {"input_tokens": 1000, "output_tokens": 200,
-                              "cache_read_input_tokens": 500, "cache_creation_input_tokens": 0},
+                              "cache_read_input_tokens": 500, "cache_creation_input_tokens": 0, **(usage or {})},
                     "content": [
                         {"type": "tool_use", "id": "t1", "name": "Write",
                          "input": {"file_path": os.path.join(self.proj, "index.html"), "content": "x"}},
@@ -109,10 +137,17 @@ class Receipts(unittest.TestCase):
                     "usage": {"input_tokens": 300, "output_tokens": 100,
                               "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
                     "content": [{"type": "text", "text": "done"}]}},
-                {"type": "cost-state", "totalCostUSD": 1.234, "totalAPIDuration": 90000,
+                {"type": "cost-state", "startTime": 1, "totalCostUSD": total, "totalAPIDuration": 90000,
                  "modelUsage": {"claude-opus-5-5": {"inputTokens": 1300, "outputTokens": 300,
-                                                    "cacheReadInputTokens": 500, "cacheCreationInputTokens": 0}}},
+                                                    "cacheReadInputTokens": 500, "cacheCreationInputTokens": 0,
+                                                    "costUSD": total}}},
             ]  # fmt: skip
+            if resumed:  # opened again later: Claude Code starts a new running total
+                entries.append(
+                    {"type": "cost-state", "startTime": 2, "totalCostUSD": 0.5, "totalAPIDuration": 30000,
+                     "modelUsage": {"claude-opus-5-5": {"inputTokens": 10, "outputTokens": 10,
+                                                        "cacheReadInputTokens": 0, "cacheCreationInputTokens": 0,
+                                                        "costUSD": 0.5}}})  # fmt: skip
         folder = os.path.join(self.claude_dir, "projects", slug(self.proj))
         os.makedirs(folder, exist_ok=True)
         path = os.path.join(folder, f"{name}.jsonl")
@@ -132,12 +167,18 @@ class Receipts(unittest.TestCase):
             )
         return path
 
-    def codex_log(self):
+    def codex_log(self, provider="ollama", model="gpt-oss:20b", usage=None):
+        usage = usage or {
+            "input_tokens": 900,
+            "cached_input_tokens": 100,
+            "output_tokens": 80,
+        }
         entries = [
             {"type": "session_meta", "timestamp": T0, "payload": {
-                "cwd": self.proj, "cli_version": "0.130.0", "model_provider": "ollama"}},
+                "id": "cx1", "cwd": self.proj, "cli_version": "0.130.0", "model_provider": provider,
+                "base_instructions": {"text": "You are Codex."}, "git": {"commit_hash": "abc123"}}},
             {"type": "turn_context", "timestamp": ts(0), "payload": {
-                "model": "gpt-oss:20b", "effort": "medium", "approval_policy": "on-request",
+                "model": model, "effort": "medium", "approval_policy": "on-request",
                 "sandbox_policy": {"type": "workspace-write", "network_access": False}}},
             {"type": "event_msg", "timestamp": ts(0), "payload": {"type": "task_started"}},
             {"type": "response_item", "timestamp": ts(0), "payload": {
@@ -151,8 +192,7 @@ class Receipts(unittest.TestCase):
                 "type": "patch_apply_end", "success": True,
                 "changes": {os.path.join(self.proj, "test_a.py"): {"type": "add"}}}},
             {"type": "event_msg", "timestamp": ts(3), "payload": {"type": "token_count", "info": {
-                "total_token_usage": {"input_tokens": 900},
-                "last_token_usage": {"input_tokens": 900, "cached_input_tokens": 100, "output_tokens": 80}}}},
+                "total_token_usage": usage, "last_token_usage": usage}}},
             {"type": "event_msg", "timestamp": ts(4), "payload": {"type": "turn_aborted", "reason": "interrupted"}},
             {"type": "event_msg", "timestamp": ts(4), "payload": {"type": "task_complete", "duration_ms": 60000}},
         ]  # fmt: skip
@@ -209,12 +249,12 @@ class Receipts(unittest.TestCase):
         db.commit()
         db.close()
 
-    # ---------- the receipts ----------
 
+class Receipts(Base):
     def test_claude_code_receipt(self):
         self.claude_log()
         out = self.ok().stdout
-        self.assertIn("Receipt v3.0 · Claude Code 2.1.300", out)
+        self.assertIn("Receipt v4.0 · Claude Code 2.1.300", out)
         self.assertIn(
             "2 prompts from me", out
         )  # the "[Request interrupted" line isn't a prompt
@@ -269,7 +309,7 @@ class Receipts(unittest.TestCase):
     def test_opencode(self):
         self.opencode_db()
         out = self.ok("--opencode").stdout
-        self.assertIn("Receipt v3.0 · OpenCode 1.18.31", out)
+        self.assertIn("Receipt v4.0 · OpenCode 1.18.31", out)
         self.assertIn("qwen3:8b (ollama, on this computer)", out)
         self.assertIn("2 prompts from me", out)
         self.assertIn("1 failed call", out)
@@ -337,7 +377,7 @@ class Receipts(unittest.TestCase):
             "prompt_id",
         ):
             self.assertNotIn(k, r)
-        self.assertEqual(r["receipt_version"], "3.0")
+        self.assertEqual(r["receipt_version"], "4.0")
         self.assertEqual(r["tool_errors"], 1)
         names = json.loads(self.ok("--json", "--file-names").stdout)["file_names"]
         self.assertEqual(names, ["index.html"])
@@ -351,7 +391,7 @@ class Receipts(unittest.TestCase):
         self.assertIn("warning  found your prompts but no model reply", p.stdout)
 
     def test_version(self):
-        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 3.0")
+        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 4.0")
 
     # ---------- output ----------
 
@@ -384,7 +424,7 @@ class Receipts(unittest.TestCase):
         url = out.strip().split("\n")[-1]
         self.assertTrue(url.startswith("https://docs.google.com/forms/"), url)
         self.assertIn("entry.349092046=tool", url)
-        self.assertIn("entry.1393206370=Receipt%20v3.0", url)
+        self.assertIn("entry.1393206370=Receipt%20v4.0", url)
 
     def test_hook_saves_a_receipt(self):
         log = self.claude_log()
@@ -401,7 +441,7 @@ class Receipts(unittest.TestCase):
         saved = os.listdir(folder)
         self.assertEqual(len(saved), 1)
         with open(os.path.join(folder, saved[0]), encoding="utf-8") as f:
-            self.assertIn("Receipt v3.0 · Claude Code", f.read())
+            self.assertIn("Receipt v4.0 · Claude Code", f.read())
 
     def test_combine_and_compare(self):
         self.claude_log()
@@ -417,6 +457,259 @@ class Receipts(unittest.TestCase):
         cmp_ = self.ok("--compare", a, b).stdout
         self.assertIn("2 runs · different prompts", cmp_)
         self.assertIn("2 runs · the same prompt", self.ok("--compare", a, a).stdout)
+
+
+class LineItems(Base):
+    """the itemized cost, and the checks a real receipt has"""
+
+    def test_lines_add_up_or_say_by_how_much(self):
+        # opus 5.5: 1,300 in × $4/M + 500 cache read × $0.20/M + 300 out × $20/M = $0.0113
+        self.claude_log(total=0.0113)
+        out = self.ok().stdout
+        self.assertIn("the lines below add up to it", out)
+        self.assertRegex(out, r"output +300 × \$20\.00/M +\$0\.01")
+        self.assertIn(
+            "prices   API list prices per million tokens ($/M), from LiteLLM", out
+        )
+        self.assertNotIn("check    ", out)
+        self.claude_log(
+            total=1.234
+        )  # a total the calls can't explain is shown, not hidden
+        out = self.ok().stdout
+        self.assertIn("check    the lines add up to $0.01, not $1.23", out)
+        self.assertNotIn("add up to it", out)
+
+    def test_surcharges(self):
+        # fast mode ×2 and US-only ×1.1 on opus 5.5's $20/M output
+        self.claude_log(usage={"speed": "fast", "inference_geo": "us"})
+        out = self.ok().stdout
+        self.assertRegex(out, r"output +200 × \$44\.00/M")
+        self.assertRegex(out, r"output +100 × \$20\.00/M")  # control: the next call was neither
+        self.assertIn("extras   fast mode on 1 call · US-only processing on 1 call", out)
+        # a call over 200k input tokens is billed at sonnet 4.5's long-context rates
+        self.claude_log(model="claude-sonnet-4-5", usage={"input_tokens": 250000})
+        self.assertRegex(self.ok().stdout, r"input +250k × \$6\.00/M")
+        self.claude_log(model="claude-sonnet-4-5", usage={"input_tokens": 150000})
+        self.assertRegex(self.ok().stdout, r"input +150k × \$3\.00/M")
+
+    def test_resumed_session_adds_up_each_time_it_was_opened(self):
+        self.claude_log(total=1.0, resumed=True)
+        out = self.ok().stdout
+        self.assertIn(
+            "cost     $1.50 (Claude Code's own total at API prices, added up over the 2",
+            out,
+        )
+        self.claude_log(total=1.0)  # control: opened once
+        self.assertIn(
+            "cost     $1.00 (Claude Code's own total at API prices)", self.ok().stdout
+        )
+
+    def test_last_prompts_are_priced_from_their_own_calls(self):
+        self.claude_log(total=1.234)
+        out = self.ok("--last", "1").stdout
+        # the last prompt's call only: 300 in × $4/M + 100 out × $20/M = $0.0032
+        self.assertIn(
+            "cost     <$0.01 (worked out from the logged calls at API prices; Claude Code's own total",
+            out,
+        )
+        self.assertIn("$1.23", out)
+
+    def test_receipt_number_and_time(self):
+        self.claude_log(name="s1")
+        first = self.ok().stdout.split("\n")[0]
+        self.assertRegex(
+            first,
+            r"· 9 Oct 2026, \d{1,2}:\d{2} [AP]M \S+ · no\. [0-9a-f]{4}-[0-9a-f]{4}$",
+        )
+        self.assertEqual(
+            first, self.ok().stdout.split("\n")[0]
+        )  # the same session, the same number
+        os.remove(
+            os.path.join(self.claude_dir, "projects", slug(self.proj), "s1.jsonl")
+        )
+        self.claude_log(name="s2")
+        other = self.ok().stdout.split("\n")[0]
+        self.assertNotEqual(first.split("no. ")[1], other.split("no. ")[1])
+        self.assertNotRegex(self.ok("--hide", "time").stdout.split("\n")[0], r"[AP]M")
+
+    def test_codex_cost_is_worked_out(self):
+        self.codex_log(
+            provider="openai",
+            model="gpt-5.6-sol",
+            usage={
+                "input_tokens": 100000,
+                "cached_input_tokens": 40000,
+                "output_tokens": 5000,
+            },
+        )
+        out = self.ok("--codex").stdout
+        # 60k × $4/M + 40k cached × $0.40/M + 5k × $20/M = $0.356
+        self.assertIn(
+            "cost     $0.36 (worked out from the logged calls at API prices; Codex logs no price)",
+            out,
+        )
+        self.assertRegex(out, r"cache read +40k × \$0\.40/M +\$0\.02")
+        self.codex_log()  # control: a model on this computer has no price
+        self.assertIn(
+            "cost     none: the model ran on this computer", self.ok("--codex").stdout
+        )
+
+    def test_prices_file(self):
+        self.claude_log(total=0.0113)
+        prices = os.path.join(self.home, "prices.json")
+        with open(prices, "w", encoding="utf-8") as f:
+            json.dump({"claude-opus-5-5": {"litellm_provider": "anthropic", "input_cost_per_token": 4e-6,
+                                           "output_cost_per_token": 1e-4}}, f)  # fmt: skip
+        out = self.ok("--prices", prices).stdout
+        self.assertRegex(out, r"output +300 × \$100\.00/M +\$0\.03")
+        self.assertIn("from prices.json, given with --prices", out)
+        with open(prices, "w", encoding="utf-8") as f:
+            json.dump({"some-model": {}}, f)
+        p = self.run_receipt("--prices", prices)
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("no Anthropic or OpenAI prices", p.stderr)
+
+    def test_hiding_the_lines(self):
+        self.claude_log()
+        out = self.ok("--hide", "items").stdout
+        self.assertIn("cost     $1.23", out)
+        self.assertNotIn("prices   ", out)
+        self.assertNotIn(
+            "items", json.loads(self.ok("--json", "--hide", "items").stdout)
+        )
+        out = self.ok("--hide", "cost").stdout  # the lines would give the total away
+        self.assertNotIn("$/M", out)
+        self.assertIn("$/M", self.ok().stdout)
+
+    def test_combine_adds_up_lines(self):
+        self.claude_log(total=0.0113)
+        a = os.path.join(self.home, "a.json")
+        self.ok("--out", a)
+        r = json.loads(self.ok("--combine", a, a, "--json").stdout)
+        out_line = next(i for i in r["items"] if i["kind"] == "output")
+        self.assertEqual(out_line["count"], 600)
+        self.assertEqual(r["cost_check"], {"lines_usd": 0.0226, "own_usd": 0.0226})
+
+
+class Records(Base):
+    """--record: fingerprints of what went in and came out; --verify and --sign"""
+
+    def make(self, *extra):
+        self.claude_log(rich=True)
+        rec = os.path.join(self.home, "rec.json")
+        out = self.ok("--record", rec, *extra).stdout
+        with open(rec, "rb") as f:
+            data = f.read()
+        return rec, data, json.loads(data), out
+
+    def test_record_holds_hashes_not_text(self):
+        rec, data, stmt, out = self.make()
+        h = lambda s: hashlib.sha256(s.encode()).hexdigest()  # noqa: E731
+        self.assertEqual(stmt["_type"], "https://in-toto.io/Statement/v1")
+        pred = stmt["predicate"]
+        self.assertEqual(
+            [p["sha256"] for p in pred["prompts"]],
+            [h("Make a page for my habit tracker"), h("now make it blue")],
+        )
+        self.assertEqual(
+            pred["instructions"], [{"name": "CLAUDE.md", "sha256": h("be kind")}]
+        )
+        self.assertEqual(
+            pred["system_prompt"], [{"sha256": h("You are Claude Code.\n\nBe brief.")}]
+        )
+        read = next(e for e in pred["tool_results"] if e["tool"] == "Read")
+        self.assertEqual(
+            (read["file"], read["file_sha256"], read["lines"]),
+            (".txt", h("hello"), "1-1 of 1"),
+        )
+        self.assertEqual(
+            stmt["subject"][0]["digest"]["sha256"], h("x")
+        )  # index.html as the Write wrote it
+        self.assertEqual(
+            stmt["subject"][0]["name"], "file1.html"
+        )  # no names without --file-names
+        # one byte form: the record's own hash is the hash of the file, and it's printed on the receipt
+        self.assertEqual(
+            data,
+            json.dumps(
+                stmt, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            ).encode(),
+        )
+        self.assertIn(f"record   sha256 {hashlib.sha256(data).hexdigest()[:16]}…", out)
+        for private in (
+            b"habit tracker",
+            b"be kind",
+            b"hello",
+            b"me@example.com",
+            self.home.encode(),
+            b"workingDirectory",
+        ):
+            self.assertNotIn(private, data)
+        # --hide reaches the record too
+        _, _, hidden, _ = self.make("--hide", "model,cost")
+        self.assertNotIn("models", hidden["predicate"])
+        self.assertNotIn("cost_micro_usd", hidden["predicate"])
+        self.assertIn("models", pred)
+
+    def test_verify_says_what_came_in_and_out(self):
+        rec, _, _, _ = self.make()
+        made = os.path.join(self.home, "index.html")
+        read = os.path.join(self.home, "notes.txt")
+        other = os.path.join(self.home, "other.html")
+        for path, body in ((made, "x"), (read, "hello\n"), (other, "y")):
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(body)
+        p = self.run_receipt("--verify", rec, made, read)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("index.html: came out of the run", p.stdout)
+        self.assertIn("notes.txt: went in: the model read it", p.stdout)
+        p = self.run_receipt("--verify", rec, other)  # one byte different: not in it
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("other.html: NOT in this record", p.stdout)
+
+    def test_sign_and_verify(self):
+        if not shutil.which("ssh-keygen"):
+            self.skipTest("no ssh-keygen")
+        key = os.path.join(self.home, "key")
+        subprocess.run(
+            ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key, "-C", "tester"],
+            check=True,
+        )
+        out = os.path.join(self.home, "r.json")
+        self.claude_log(rich=True)
+        rec = os.path.join(self.home, "rec.json")
+        self.ok("--out", out, "--record", rec, "--sign", key)
+        for f in (out, rec):
+            self.assertTrue(os.path.exists(f + ".sig"))
+            p = self.ok("--verify", f)
+            self.assertIn("good signature", p.stdout)
+        with open(key + ".pub", encoding="utf-8") as f:
+            pub = f.read().split()
+        signers = os.path.join(self.home, "allowed_signers")
+        with open(signers, "w", encoding="utf-8") as f:
+            f.write(f'tester namespaces="prompt-receipts" {pub[0]} {pub[1]}\n')
+        self.assertIn(
+            "good signature by tester",
+            self.ok("--verify", rec, "--signers", signers).stdout,
+        )
+        with open(out, "a", encoding="utf-8") as f:
+            f.write(" ")  # one byte added after signing
+        p = self.run_receipt("--verify", out)
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("BAD signature", p.stdout)
+
+    def test_codex_record(self):
+        self.codex_log()
+        rec = os.path.join(self.home, "rec.json")
+        self.ok("--codex", "--record", rec)
+        with open(rec, encoding="utf-8") as f:
+            pred = json.load(f)["predicate"]
+        self.assertEqual(pred["git_commit"], "abc123")
+        self.assertEqual(
+            pred["system_prompt"],
+            [{"sha256": hashlib.sha256(b"You are Codex.").hexdigest()}],
+        )
+        self.assertEqual(len(pred["prompts"]), 1)
 
 
 class PictureLines(unittest.TestCase):
