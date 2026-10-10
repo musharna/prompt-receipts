@@ -279,7 +279,7 @@ class Receipts(Base):
     def test_claude_code_receipt(self):
         self.claude_log()
         out = self.ok().stdout
-        self.assertIn("Receipt v5.0 · Claude Code 2.1.300", out)
+        self.assertIn("Receipt v6.0 · Claude Code 2.1.300", out)
         self.assertIn(
             "2 prompts from me", out
         )  # the "[Request interrupted" line isn't a prompt
@@ -334,7 +334,7 @@ class Receipts(Base):
     def test_opencode(self):
         self.opencode_db()
         out = self.ok("--opencode").stdout
-        self.assertIn("Receipt v5.0 · OpenCode 1.18.31", out)
+        self.assertIn("Receipt v6.0 · OpenCode 1.18.31", out)
         self.assertIn("qwen3:8b (ollama, on this computer)", out)
         self.assertIn("2 prompts from me", out)
         self.assertIn("1 failed call", out)
@@ -408,7 +408,7 @@ class Receipts(Base):
             "prompt_id",
         ):
             self.assertNotIn(k, r)
-        self.assertEqual(r["receipt_version"], "5.0")
+        self.assertEqual(r["receipt_version"], "6.0")
         self.assertEqual(r["tool_errors"], 1)
         names = json.loads(self.ok("--json", "--file-names").stdout)["file_names"]
         self.assertEqual(names, ["index.html"])
@@ -422,7 +422,7 @@ class Receipts(Base):
         self.assertIn("warning  found your prompts but no model reply", p.stdout)
 
     def test_version(self):
-        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 5.0")
+        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 6.0")
 
     # ---------- output ----------
 
@@ -455,7 +455,7 @@ class Receipts(Base):
         url = out.strip().split("\n")[-1]
         self.assertTrue(url.startswith("https://docs.google.com/forms/"), url)
         self.assertIn("entry.349092046=tool", url)
-        self.assertIn("entry.1393206370=Receipt%20v5.0", url)
+        self.assertIn("entry.1393206370=Receipt%20v6.0", url)
 
     def test_hook_saves_a_receipt(self):
         log = self.claude_log()
@@ -472,7 +472,7 @@ class Receipts(Base):
         saved = os.listdir(folder)
         self.assertEqual(len(saved), 1)
         with open(os.path.join(folder, saved[0]), encoding="utf-8") as f:
-            self.assertIn("Receipt v5.0 · Claude Code", f.read())
+            self.assertIn("Receipt v6.0 · Claude Code", f.read())
 
     def test_combine_and_compare(self):
         self.claude_log()
@@ -1179,6 +1179,115 @@ class PictureLines(unittest.TestCase):
     def test_does_not_split_names_at_hyphens(self):
         out = self.receipt.fold("claude-opus-5-5 and claude-haiku-4-5-20251001", 30)
         self.assertEqual(out, ["claude-opus-5-5 and", "claude-haiku-4-5-20251001"])
+
+
+class Totals(Base):
+    """--totals adds up prompts across sessions; three days, two folders, two models"""
+
+    def call(self, at, mid, model, inp=0, out=0):
+        return {"type": "assistant", "timestamp": at, "message": {"id": mid, "model": model,
+                "usage": {"input_tokens": inp, "output_tokens": out, "cache_read_input_tokens": 0,
+                          "cache_creation_input_tokens": 0}, "content": [{"type": "text", "text": "ok"}]}}  # fmt: skip
+
+    def prompt(self, at, text, cwd):
+        return {"type": "user", "timestamp": at, "cwd": cwd, "version": "2.1.300",
+                "message": {"role": "user", "content": text}}  # fmt: skip
+
+    def write(self, name, cwd, entries):
+        folder = os.path.join(self.claude_dir, "projects", slug(cwd))
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, f"{name}.jsonl")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in entries))
+        return path
+
+    def setUp(self):
+        super().setUp()
+        opus, sonnet = "claude-opus-5-5", "claude-sonnet-5-5"
+        self.a = self.write("a", self.proj, [
+            self.prompt("2026-10-01T12:00:00.000Z", "make a page", self.proj),
+            self.call("2026-10-01T12:01:00.000Z", "a1", opus, inp=1_000_000),  # $4.00
+            self.prompt("2026-10-03T12:00:00.000Z", "make it blue", self.proj),
+            self.call("2026-10-03T12:03:00.000Z", "a2", opus, out=100_000),  # $2.00
+            # /compact: done in 2 minutes; then the session is reopened days later, which writes a
+            # "<synthetic>" reply and bookkeeping entries that aren't the prompt's work
+            self.prompt("2026-10-03T12:10:00.000Z", "/compact", self.proj),
+            {"type": "system", "subtype": "compact_boundary", "timestamp": "2026-10-03T12:12:00.000Z"},
+            {"type": "attachment", "timestamp": "2026-10-08T12:00:00.000Z", "attachment": {"type": "x"}},
+            {"type": "assistant", "timestamp": "2026-10-08T12:00:01.000Z", "message": {
+                "id": "syn", "model": "<synthetic>", "content": [{"type": "text", "text": "No response requested."}]}},
+        ])  # fmt: skip
+        self.write("b", self.other, [
+            self.prompt("2026-10-03T12:00:00.000Z", "a game", self.other),
+            self.call("2026-10-03T12:02:00.000Z", "b1", sonnet, inp=1_000_000),
+        ])
+
+    def test_by_day_in_this_folder(self):
+        out = self.ok("--totals").stdout
+        self.assertIn("Totals v6.0 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
+        self.assertRegex(out, r"\nThu 1 Oct 2026 +\$4\.00 +1 +1 ")
+        self.assertRegex(out, r"\nSat 3 Oct 2026 +\$2\.00 +1 +2 ")
+        self.assertRegex(out, r"\ntotal +\$6\.00 +1 +3 ")
+        self.assertNotIn("a game", out)  # the other folder's session, and prompts never print
+
+    def test_by_model_and_folder_everywhere(self):
+        out = self.ok("--totals", "model", "--all").stdout
+        rows = [l.split()[0] for l in out.splitlines()[2:4]]
+        self.assertEqual(sorted(rows), ["claude-opus-5-5", "claude-sonnet-5-5"])
+        self.assertIn("(no model call)", out)  # the /compact prompt
+        self.assertRegex(out, r"\nclaude-opus-5-5 +\$6\.00 +1 +2 ")
+        out = self.ok("--totals", "folder", "--all").stdout
+        self.assertRegex(out, r"\nproj +\$6\.00 ")
+        self.assertRegex(out, r"\nelsewhere +\$")
+        self.assertNotIn(self.home, out)  # folder names only, never paths
+
+    def test_since_until_and_json(self):
+        out = self.ok("--totals", "--since", "2026-10-02").stdout
+        self.assertNotIn("1 Oct", out)
+        self.assertRegex(out, r"\ntotal +\$2\.00 ")
+        r = json.loads(self.ok("--totals", "--json", "--until", "2026-10-02").stdout)
+        self.assertEqual([x["bucket"] for x in r["rows"]], ["2026-10-01"])
+        self.assertEqual(r["total"]["cost_usd"], 4.0)
+        self.assertEqual((r["from"], r["to"], r["kind"]), ("2026-10-01", "2026-10-02", "totals"))
+        r = json.loads(self.ok("--totals", "--json", "--hide", "cost,date").stdout)
+        self.assertNotIn("cost_usd", r["total"])
+        self.assertIsNone(r["from"])
+
+    def test_wrong_input_stops(self):
+        for args, said in (
+            (["--totals", "--since", "10/02/2026"], "needs a date like 2026-10-01"),
+            (["--since", "2026-10-02"], "go with --totals"),
+            (["--totals", "--prompt"], "can't go with --prompt"),
+            (["--totals", "--since", "2026-10-05", "--until", "2026-10-01"], "--since is after --until"),
+            (["--totals", "--since", "2026-11-01"], "no prompts in those dates"),
+        ):
+            p = self.run_receipt(*args)
+            self.assertNotEqual(p.returncode, 0, args)
+            self.assertIn(said, p.stderr, args)
+        self.ok("--totals", "--since", "2026-10-03")  # and a right one still works
+
+    def test_a_prompt_ends_with_its_last_work(self):
+        """late bookkeeping and a resumed session's "<synthetic>" reply don't stretch the /compact prompt"""
+        turns = json.loads(self.ok(self.a, "--turns", "--json").stdout)["turns"]
+        self.assertEqual([t["time_ms"] for t in turns], [60000, 180000, 120000])
+
+    def test_overlapping_durations_are_capped(self):
+        """Claude Code's turn_duration entries can overlap; a prompt can't run past its last work"""
+        path = self.write("c", self.proj, [
+            self.prompt("2026-10-05T12:00:00.000Z", "go", self.proj),
+            self.call("2026-10-05T12:05:00.000Z", "c1", "claude-opus-5-5", inp=10),
+            {"type": "system", "subtype": "turn_duration", "durationMs": 240000, "timestamp": "2026-10-05T12:04:00.000Z"},
+            {"type": "system", "subtype": "turn_duration", "durationMs": 280000, "timestamp": "2026-10-05T12:05:00.000Z"},
+        ])  # fmt: skip
+        turns = json.loads(self.ok(path, "--turns", "--json").stdout)["turns"]
+        self.assertEqual(turns[0]["time_ms"], 300000)  # not 520000
+        path = self.write("d", self.proj, [  # a positive control: durations inside the span are kept
+            self.prompt("2026-10-05T13:00:00.000Z", "go", self.proj),
+            self.call("2026-10-05T13:05:00.000Z", "d1", "claude-opus-5-5", inp=10),
+            {"type": "system", "subtype": "turn_duration", "durationMs": 200000, "timestamp": "2026-10-05T13:05:00.000Z"},
+        ])  # fmt: skip
+        turns = json.loads(self.ok(path, "--turns", "--json").stdout)["turns"]
+        self.assertEqual(turns[0]["time_ms"], 200000)
 
 
 if __name__ == "__main__":

@@ -10,6 +10,10 @@ usage: python3 receipt.py [SESSION] [options]
   --turns          one line per prompt: when, how long, what it cost, tool calls, files
   --turns 3-5      cover only prompts 3 to 5 (also 3, 3- or -5), and list them
 
+  totals over time (this folder's sessions; with --all, every folder's):
+  --totals         add up cost, sessions, prompts, time and tokens by day; or --totals week, month, folder, model
+  --since DATE     with --totals: only prompts sent on or after DATE (2026-10-01); --until DATE for on or before
+
   leaving things out (check the receipt before you share it):
   --hide a,b       drop parts: version, date, model, time, cost, items, billing, tokens, work, files, addons, hooks,
                    memory, settings
@@ -78,7 +82,7 @@ import urllib.parse
 import zipfile
 import zlib
 
-VERSION = "5.0"
+VERSION = "6.0"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 SITE = "https://musharna.github.io/prompt-receipts/"
 LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters
@@ -1545,17 +1549,39 @@ def done_turns(rows, failed=(), priced=True):
         if t["reply"] is None and t["reply_of"] is not None:
             t["reply"] = "\n\n".join(t["texts"].get(t["reply_of"], []))
         files = t["files"] | {p for i, p in t["edits"].items() if i not in failed}
-        ms = t["ms"] or max(
-            round((when(t["end"]) - when(t["at"])).total_seconds() * 1000), 0
-        )
+        span = max(round((when(t["end"]) - when(t["at"])).total_seconds() * 1000), 0)
+        # the tool's own durations overlap when background work wakes the model within one prompt, so their sum
+        # can pass the time from the prompt to its last work; that span is as long as a prompt can have run
+        ms = min(t["ms"], span) if t["ms"] and span else t["ms"] or span
         row = {"n": n, "started": t["at"], "time_ms": ms, "tool_calls": t["tools"],
                "shell_commands": t["shell"], "files": len(files),
                "prompt": t["prompt"], "reply": t["reply"] or None, "model": t["model"],
                "effort": t["effort"]}  # fmt: skip
         if priced:
             row["cost_usd"] = round(t["own"] or t["bill"].total(), 6)
+        row["_models"] = models_of(t)
         out.append(row)
     return out
+
+
+def models_of(t):
+    """-> {model: [$, tokens in, tokens out]} for one turn; a tool's own figure is shared out in proportion"""
+    per = {}
+    for it in t["bill"].items():
+        m = per.setdefault(it["model"], [0.0, 0, 0])
+        m[0] += it.get("usd", 0)
+        if it["kind"] == "output":
+            m[2] += it["count"]
+        elif it["kind"] in CLASSES or it["kind"] == "no price":
+            m[1] += it["count"]
+    if t["own"]:
+        paid = sum(m[0] for m in per.values())
+        if paid:
+            for m in per.values():
+                m[0] *= t["own"] / paid
+        else:
+            per.setdefault(t["model"] or "?", [0.0, 0, 0])[0] = t["own"]
+    return per
 
 
 def claude_turns(path):
@@ -1571,7 +1597,8 @@ def claude_turns(path):
         if not rows:
             continue
         cur = rows[-1]
-        cur["end"] = max(cur["end"], ts)
+        if worked(d):  # bookkeeping entries come days later when a session is reopened; they aren't the turn's
+            cur["end"] = max(cur["end"], ts)
         if t == "system" and d.get("subtype") == "turn_duration":
             cur["ms"] += d.get("durationMs") or 0
         elif t == "assistant":
@@ -1611,6 +1638,20 @@ def claude_turns(path):
             elif d.get("type") == "user":
                 claude_failed(d, failed)
     return done_turns(rows, failed)
+
+
+def worked(d):
+    """a model reply, a tool's result or a finished compaction: what marks how long a prompt kept Claude Code busy"""
+    t = d.get("type")
+    if t == "assistant":  # Claude Code writes "<synthetic>" replies itself, e.g. when a session is resumed
+        return not str((d.get("message") or {}).get("model") or "").startswith("<")
+    if t == "system" and d.get("subtype") == "compact_boundary":
+        return True
+    c = (d.get("message") or {}).get("content") if t == "user" else None
+    return isinstance(c, list) and any(  # an interruption ends the prompt's work too
+        isinstance(x, dict) and (x.get("type") == "tool_result" or str(x.get("text", "")).startswith("[Request interrupted"))
+        for x in c
+    )
 
 
 def claude_edit(b, edits):
@@ -2963,6 +3004,147 @@ def compare(rs, hide):
     return "\n".join(out), same
 
 
+# ---------- totals over time ----------
+
+BY = ["day", "week", "month", "folder", "model"]
+NO_CALL = "(no model call)"  # a prompt stopped before the model answered, or a slash command
+
+
+def totals(tool, keys, by, since, until):
+    """-> {bucket: sums} over every prompt in these sessions sent between since and until (local dates)"""
+    turns_of = {"claude": claude_turns, "codex": codex_turns, "opencode": opencode_turns}[tool]
+    out, priced = {}, True
+    for key in keys:
+        folder = base_name(folder_of(tool, key)) or "?"
+        for t in turns_of(key):
+            if not t["started"]:
+                continue
+            day = when(t["started"]).date()
+            if (since and day < since) or (until and day > until):
+                continue
+            priced = priced and "cost_usd" in t
+            main_model = re.sub(r"\[.*\]$", "", t["model"] or NO_CALL)
+            if by == "model":
+                split = t["_models"] or {main_model: [0.0, 0, 0]}
+            else:
+                cost, tin, tout = (sum(m[i] for m in t["_models"].values()) for i in range(3))
+                split = {bucket_of(by, day, folder): [t.get("cost_usd", cost), tin, tout]}
+            lead = main_model if by == "model" and main_model in split else next(iter(split))
+            for b, (usd, tin, tout) in split.items():
+                row = out.setdefault(b, {"cost_usd": 0.0, "sessions": set(), "prompts": 0, "time_ms": 0,
+                                         "tokens_in": 0, "tokens_out": 0, "first": day, "last": day})  # fmt: skip
+                row["cost_usd"] += usd
+                row["tokens_in"] += tin
+                row["tokens_out"] += tout
+                row["sessions"].add(key)
+                row["first"], row["last"] = min(row["first"], day), max(row["last"], day)
+                if b == lead:  # a prompt, and its time, count once: for the model that answered it
+                    row["prompts"] += 1
+                    row["time_ms"] += t["time_ms"]
+    return out, priced
+
+
+def bucket_of(by, day, folder):
+    if by == "day":
+        return day.isoformat()
+    if by == "week":
+        return (day - datetime.timedelta(days=day.weekday())).isoformat()
+    if by == "month":
+        return day.strftime("%Y-%m")
+    return folder
+
+
+def bucket_label(by, key):
+    if by in ("folder", "model"):
+        return key
+    if by == "month":
+        d = datetime.date.fromisoformat(key + "-01")
+        return f"{d:%b %Y}"
+    d = datetime.date.fromisoformat(key)
+    return ("week of " if by == "week" else f"{d:%a} ") + f"{d.day} {d:%b %Y}"
+
+
+def date_text(a, b):
+    if a == b:
+        return f"{a.day} {a:%b %Y}"
+    start = f"{a.day}" if (a.year, a.month) == (b.year, b.month) else f"{a.day} {a:%b}" if a.year == b.year else f"{a.day} {a:%b %Y}"
+    return f"{start} – {b.day} {b:%b %Y}"
+
+
+def totals_text(tool, scope, by, rows, priced, hide, billing, since, until):
+    """-> (the printed table, its JSON form)"""
+    order = (
+        sorted(rows, key=lambda k: -rows[k]["cost_usd"])
+        if by in ("folder", "model") and priced
+        else sorted(rows)
+    )
+    cols = [("cost", "cost", "cost_usd"), ("sessions", None, "sessions"), ("prompts", None, "prompts"),
+            ("time", "time", "time_ms"), ("tokens in / out", "tokens", "tokens_in")]  # fmt: skip
+    cols = [c for c in cols if c[1] not in hide and not (c[0] == "cost" and not priced)]
+
+    def cells(r):
+        out = []
+        for name, _, key in cols:
+            if key == "cost_usd":
+                out.append(money(r["cost_usd"]))
+            elif key == "sessions":
+                out.append(str(len(r["sessions"]) if isinstance(r["sessions"], set) else r["sessions"]))
+            elif key == "time_ms":
+                out.append(mins(r["time_ms"]) if r["time_ms"] else "-")
+            elif key == "tokens_in":
+                out.append(f"{toks(r['tokens_in'])} / {toks(r['tokens_out'])}")
+            else:
+                out.append(str(r[key]))
+        return out
+
+    every = [k for r in rows.values() for k in r["sessions"]]
+    total = {k: sum(r[k] for r in rows.values()) for k in ("cost_usd", "prompts", "time_ms", "tokens_in", "tokens_out")}
+    total["sessions"] = len(set(every))
+    grid = [[by] + [c[0] for c in cols]]
+    grid += [[bucket_label(by, k)] + cells(rows[k]) for k in order]
+    grid += [["total"] + cells(total)]
+    width = [max(len(line[i]) for line in grid) for i in range(len(grid[0]))]
+    first = since or min((r["first"] for r in rows.values()), default=None)
+    last = until or max((r["last"] for r in rows.values()), default=None)
+    head = ["Totals"] + ([f"v{VERSION}"] if "version" not in hide else [])
+    head = [" ".join(head), TOOLS[tool], scope]
+    if first and "date" not in hide:
+        head.append(date_text(first, last))
+    head.append(f"by {by}")
+    out = [" · ".join(head)]
+    for i, line in enumerate(grid):
+        out.append("  ".join(c.ljust(w) if j == 0 else c.rjust(w) for j, (c, w) in enumerate(zip(line, width))).rstrip())
+        if i == len(grid) - 2:
+            out.append("-" * len(out[-1]))
+    if priced and "cost" not in hide:
+        out.append(labelled("prices   ", f"API list prices for each prompt's calls (subagents included), from {PRICES_FROM}", 80))
+        if tool == "claude":
+            out.append(labelled("note     ", "background work Claude Code prices itself (titles, summaries) belongs to no prompt, so it isn't counted", 80))
+    if not priced and "cost" not in hide:
+        out.append(labelled("note     ", "no cost: some of these runs were on local models, or the tool gave no token counts", 80))
+    if billing and "billing" not in hide:
+        out.append(labelled("billing  ", billing, 80))
+    payload = {"receipt_version": VERSION, "kind": "totals", "tool": TOOLS[tool], "scope": scope, "by": by,
+               "from": first.isoformat() if first else None, "to": last.isoformat() if last else None,
+               "rows": [], "total": None}  # fmt: skip
+    keep = {c[2] for c in cols} | ({"tokens_out"} if "tokens_in" in {c[2] for c in cols} else set())
+    for k, r in [(k, rows[k]) for k in order] + [("total", total)]:
+        j = {"bucket": k}
+        for key in ("cost_usd", "sessions", "prompts", "time_ms", "tokens_in", "tokens_out"):
+            if key in keep:
+                v = r[key]
+                j[key] = len(v) if isinstance(v, set) else round(v, 6) if isinstance(v, float) else v
+        if k == "total":
+            payload["total"] = j
+        else:
+            payload["rows"].append(j)
+    if "date" in hide:
+        payload["from"] = payload["to"] = None
+    if "version" in hide:
+        payload.pop("receipt_version")
+    return "\n".join(out), payload
+
+
 # ---------- printing ----------
 
 
@@ -3504,6 +3686,9 @@ def main():
     ap.add_argument("--link", action="store_true")
     ap.add_argument("--bundle", metavar="FILE.zip")
     ap.add_argument("--shot", action="store_true")
+    ap.add_argument("--totals", nargs="?", const="day", choices=BY)
+    ap.add_argument("--since", metavar="DATE")
+    ap.add_argument("--until", metavar="DATE")
     a = ap.parse_args()
     # Windows writes files and pipes in its old code page, which has no "→" and would crash; use UTF-8
     for stream in (sys.stdout, sys.stderr):
@@ -3597,6 +3782,47 @@ def main():
             "receipt: --sign signs what is saved, so add --out FILE, --record FILE or both"
         )
     tool = "codex" if a.codex else "opencode" if a.opencode else "claude"
+
+    if (a.since or a.until) and not a.totals:
+        sys.exit("receipt: --since and --until go with --totals")
+    if a.totals:
+        clash = [f for f, v in (("a session", a.session), ("--list", a.list), ("--pick", a.pick), ("--last", a.last),
+                 ("--turns", a.turns), ("--prompt", a.prompt), ("--reply", a.reply), ("--recipe", a.recipe),
+                 ("--outcome", a.outcome), ("--record", a.record), ("--bundle", a.bundle), ("--hook", a.hook),
+                 ("--report", a.report), ("--combine", a.combine), ("--compare", a.compare), ("--rename", a.rename),
+                 ("--counts", a.counts), ("--prompt-id", a.prompt_id), ("--file-names", a.file_names))
+                 if v]  # fmt: skip
+        if clash:
+            sys.exit(f"receipt: --totals adds up many sessions, so it can't go with {', '.join(clash)}")
+        dates = []
+        for flag, v in (("--since", a.since), ("--until", a.until)):
+            try:
+                dates.append(datetime.date.fromisoformat(v) if v else None)
+            except ValueError:
+                sys.exit(f"receipt: {flag} needs a date like 2026-10-01, not {v!r}")
+        since, until = dates
+        if since and until and since > until:
+            sys.exit("receipt: --since is after --until")
+        keys = sessions(tool, a.all)
+        if not keys:
+            nothing_found(tool, a.all)
+        if since:  # a log last changed before the first day can't hold a prompt from it
+            keys = [k for k in keys if changed(tool, k).date() >= since]
+        if len(keys) > 100:
+            print(f"receipt: reading {len(keys):,} sessions…", file=sys.stderr)
+        rows, priced = totals(tool, keys, a.totals, since, until) if keys else ({}, True)
+        if not rows:
+            sys.exit("receipt: no prompts in those dates" if since or until else f"receipt: no prompts in {TOOLS[tool]}'s sessions")
+        billing = claude_billing() if tool == "claude" else None
+        scope = "every folder" if a.all else f"folder {base_name(os.getcwd())}"
+        s, payload = totals_text(tool, scope, a.totals, rows, priced, hide, billing, since, until)
+        r = {"tool": "totals-" + TOOLS[tool]}
+        saved = emit(a, r, s, json.dumps(payload, indent=1) if a.json else None, table=True)
+        if a.link:
+            print(link(s))
+        if a.sign and saved:
+            sign(a.sign, saved)
+        return
 
     if a.compare:
         rs = [load(f) for f in a.compare]
