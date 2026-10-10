@@ -1,5 +1,11 @@
 # Changelog
 
+## receipt.py 7.4 (2026-10-10)
+
+- `--picture` takes a `.wav` too, and puts its spectrogram on the receipt: time across, pitch up (on the mel scale, as ears hear it), louder brighter, with a line saying how long it is and the pitches it shows. It reads the WAVs most programs save (whole-number samples of 8 to 32 bits, or floats), any number of channels, and still needs no extra packages.
+- `--picture` reads 16-bit PNGs, which some programs save, instead of stopping.
+- A tall picture is made smaller to fit, as a wide one is; a tall sprite sheet made a receipt 3,620 pixels tall.
+
 ## receipt.py 7.3 (2026-10-10)
 
 - A `.png` receipt reads like one from a shop: what was asked for (with `--prompt`), what the run made, what it took, and the total at the bottom.

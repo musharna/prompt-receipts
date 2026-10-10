@@ -135,7 +135,7 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 |---|---|
 | `--md`, `--json` | Wrap it for GitHub or Discord, or print it as JSON (hidden parts stay out) |
 | `--out FILE` | Save it to a `.txt`, `.md`, `.json` or `.png` file, or into a folder. A `.png` is a picture of a paper receipt, for posting where text gets mangled. It reads like one from a shop: what was asked for (with `--prompt`), what the run made, what it took, and the total |
-| `--picture FILE.png` | With a `.png`: put a picture of what the run made on the receipt, under what was asked for. Pictures wider than the receipt are made smaller |
+| `--picture FILE` | With a `.png`: put a picture of what the run made on the receipt, under what was asked for. A `.png` goes on as it is, made smaller if it's wider or taller than the receipt is wide. A `.wav` goes on as its spectrogram (time across, pitch up, louder brighter), with a line saying how long it is |
 | `--report` | Also print a link to [the report form](https://musharna.github.io/prompt-receipts/) with this receipt filled in |
 | `--link` | Also print a link that shows this receipt on the site. The receipt rides in the part after `#`, which your browser never sends, so nothing is uploaded. Long receipts make links too long for some chats; it warns over 2,000 characters |
 | `--bundle FILE.zip` | Save one zip with the receipt, its JSON, a record, and the files the run wrote, plus [RO-Crate](https://www.researchobject.org/ro-crate/) metadata and a page that shows the receipt |
@@ -158,6 +158,12 @@ To post the run as a picture, with the prompt, a screenshot of what it made and 
 
 ```sh
 python3 receipt.py --prompt --shot --out receipt.png
+```
+
+For a run that made a sound, put its spectrogram there instead:
+
+```sh
+python3 receipt.py --prompt --picture song.wav --out receipt.png
 ```
 
 No site of your own? A public GitHub gist works, and `--page` prints these steps:
