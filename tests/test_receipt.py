@@ -1675,5 +1675,83 @@ class OutputShape(Base):
         self.assertIn("(.txt) · 1 line, 2 bytes", self.ok("--qwen").stdout)
 
 
+class OutputPage(Base):
+    """--page: one HTML file with the receipt, every prompt and reply, the files, and the page it made running"""
+
+    def site_log(self, prompt="make a page <script>alert(1)</script>", reply="Made it. Open index.html."):
+        def use(i, name, **inp):
+            return {"type": "tool_use", "id": i, "name": name, "input": inp}
+
+        page = ('<!doctype html><link rel="stylesheet" href="style.css"><img src="./pic.svg">'
+                '<script src="app.js"></script><script src="missing.js"></script><script src="https://x.test/a.js"></script>')
+        es = [
+            {"type": "user", "timestamp": ts(0), "cwd": self.proj, "version": "2.1.300", "sessionId": "p1",
+             "message": {"role": "user", "content": prompt}},
+            {"type": "assistant", "timestamp": ts(1), "message": {"id": "m1", "model": "claude-opus-5-5",
+             "usage": {"input_tokens": 10, "output_tokens": 5}, "content": [
+                 use("a", "Write", file_path=os.path.join(self.proj, "index.html"), content=page),
+                 use("b", "Write", file_path=os.path.join(self.proj, "style.css"), content="b{color:red}"),
+                 use("c", "Write", file_path=os.path.join(self.proj, "app.js"), content="document.title='</script>hi'"),
+                 use("d", "Write", file_path=os.path.join(self.proj, "pic.svg"), content="<svg/>")]}},
+            {"type": "assistant", "timestamp": ts(2), "message": {"id": "m2", "model": "claude-opus-5-5",
+             "usage": {"input_tokens": 10, "output_tokens": 5}, "content": [{"type": "text", "text": reply}]}},
+        ]  # fmt: skip
+        folder = os.path.join(self.claude_dir, "projects", slug(self.proj))
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, "p1.jsonl"), "w", encoding="utf-8") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in es))
+        return os.path.join(self.home, "page.html")
+
+    def page(self, *args):
+        out = self.site_log()
+        self.ok("--page", out, *args)
+        with open(out, encoding="utf-8") as f:
+            return f.read()
+
+    def frame(self, page):
+        import html as h
+        m = re.search(r'<iframe sandbox="allow-scripts" srcdoc="([^"]*)"', page)
+        self.assertIsNotNone(m, "no sandboxed frame")
+        return h.unescape(m.group(1))
+
+    def test_the_page_runs_with_its_own_files_inside(self):
+        page = self.page()
+        inner = self.frame(page)
+        self.assertIn("<style>b{color:red}</style>", inner)
+        self.assertIn("<script>document.title='<\\/script>hi'</script>", inner)  # can't end its own script early
+        self.assertIn('src="data:image/svg+xml;base64,' + base64.b64encode(b"<svg/>").decode() + '"', inner)
+        self.assertNotIn('src="app.js"', inner)
+        self.assertIn('src="https://x.test/a.js"', inner)  # a page on the web loads as it would
+        self.assertIn("so they aren't here: missing.js", page)
+        self.assertIn("<summary>file1.js · as written · 28 bytes</summary>", page)  # names stay off by default
+        self.assertNotIn("app.js · as written", page)
+        self.assertIn("<summary>app.js · as written", self.page("--file-names"))
+
+    def test_prompts_and_replies_as_text(self):
+        page = self.page()
+        self.assertIn("Made it. Open index.html.", page)
+        self.assertIn("make a page &lt;script&gt;alert(1)&lt;/script&gt;", page)  # shown, never run
+        self.assertNotIn("<script>alert(1)", page)
+        self.assertIn("files    4 files written or edited", page)  # the receipt itself
+        r = json.loads(self.ok("--json").stdout)
+        self.assertFalse([k for k in r if k.startswith("_")])
+
+    def test_a_reply_with_an_email_stops_it(self):
+        out = self.site_log(reply="mail me@example.com")
+        p = self.run_receipt("--page", out)
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("the model's reply holds 1 email address", p.stderr)
+        self.assertFalse(os.path.exists(out))
+        self.ok("--page", out, "--redact")
+        with open(out, encoding="utf-8") as f:
+            self.assertIn("mail [email]", f.read())
+
+    def test_hide_files(self):
+        page = self.page("--hide", "files")
+        self.assertNotIn("<iframe", page)
+        self.assertNotIn("<h2>Files</h2>", page)
+        self.assertIn("Made it.", page)
+
+
 if __name__ == "__main__":
     unittest.main()

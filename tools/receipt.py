@@ -628,6 +628,7 @@ def files_part(r, paths, deleted=0, texts=None):
     )
     r["file_names"] = sorted(set(names_))
     r.update(output_shape(paths, texts or {}))
+    r["_written"] = (list(paths), texts or {})  # for --page and --bundle only
 
 
 PAGE_TYPES = (".html", ".htm")
@@ -2572,6 +2573,146 @@ TURNS = {"claude": claude_turns, "codex": codex_turns, "opencode": opencode_turn
          "gemini": gemini_turns, "copilot": copilot_turns}  # fmt: skip
 
 
+# ---------- the output page ----------
+
+# one HTML file that shows what the run made: the receipt, every prompt and its full reply, every file the run
+# wrote, and each web page it made running in a sandboxed frame. It loads nothing from this site and sends nothing.
+IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
+               ".webp": "image/webp", ".svg": "image/svg+xml"}  # fmt: skip
+PAGE_TEXT_MAX = 2**20  # a text file bigger than this is shown by its size alone
+LOCAL_REF = re.compile(r"^(?![a-z][a-z0-9+.-]*:|//|#)", re.I)  # not http:, data:, //host or #anchor
+SCRIPT_SRC = re.compile(r"<script\b([^>]{0,500}?)\bsrc\s*=\s*([\"'])([^\"'<>]{1,500})\2([^>]{0,500})>\s{0,100}</script>", re.I)
+STYLE_LINK = re.compile(r"<link\b[^>]{0,500}?>", re.I)
+HREF = re.compile(r"\bhref\s*=\s*([\"'])([^\"'<>]{1,500})\1", re.I)
+IMG_SRC = re.compile(r"(<img\b[^>]{0,500}?\bsrc\s*=\s*)([\"'])([^\"'<>]{1,500})\2", re.I)
+
+
+def page_files(paths, texts, names):
+    """-> [{name, body, path, source}] for the files the run wrote, named as a record or bundle names them"""
+    out = []
+    for n, p in enumerate(paths, 1):
+        ext = os.path.splitext(base_name(p))[1].lower()
+        text = texts.get(p)
+        body = file_body(p, text)
+        source = "as written" if text is not None else "as it is on disk now" if body is not None else "not on disk now"
+        out.append({"name": base_name(p) if names else f"file{n}{ext}", "body": body, "path": p, "source": source})
+    return out
+
+
+def inline_page(html_text, here, by_path):
+    """-> the page with the run's own .js, .css and pictures it names put inside it, and the names it couldn't"""
+    missing = []
+
+    def find(ref):
+        ref = ref.split("?")[0].split("#")[0]
+        if not ref or not LOCAL_REF.match(ref):
+            return None
+        return by_path.get(os.path.normpath(os.path.join(here, ref)))
+
+    def script(m):
+        if not LOCAL_REF.match(m.group(3)):
+            return m.group(0)
+        body = find(m.group(3))
+        if body is None:
+            missing.append(m.group(3))
+            return m.group(0)
+        code = body.decode("utf-8", "replace").replace("</script", "<\\/script")
+        attrs = (m.group(1) + m.group(4)).strip()
+        return f"<script{' ' + attrs if attrs else ''}>{code}</script>"
+
+    def style(m):
+        tag = m.group(0)
+        h = HREF.search(tag)
+        if not h or "stylesheet" not in tag.lower() or not LOCAL_REF.match(h.group(2)):
+            return tag
+        body = find(h.group(2))
+        if body is None:
+            missing.append(h.group(2))
+            return tag
+        return "<style>" + body.decode("utf-8", "replace").replace("</style", "<\\/style") + "</style>"
+
+    def img(m):
+        ref = m.group(3)
+        body = find(ref) if LOCAL_REF.match(ref) else None
+        kind = IMAGE_TYPES.get(os.path.splitext(ref.split("?")[0])[1].lower())
+        if body is None or not kind:
+            if LOCAL_REF.match(ref):
+                missing.append(ref)
+            return m.group(0)
+        return f"{m.group(1)}{m.group(2)}data:{kind};base64,{base64.b64encode(body).decode()}{m.group(2)}"
+
+    html_text = SCRIPT_SRC.sub(script, html_text)
+    html_text = STYLE_LINK.sub(style, html_text)
+    html_text = IMG_SRC.sub(img, html_text)
+    return html_text, list(dict.fromkeys(missing))
+
+
+def output_page(r, s, rows, files, a, hide, extra=""):
+    """-> the output page's HTML; text in it goes through scrub(), as --prompt and --reply do"""
+    e = html.escape
+    by_path = {os.path.normpath(f["path"]): f["body"] for f in files if f["body"] is not None}
+    parts = []
+    shown = [] if "files" in hide else files
+    for f in shown:
+        if f["body"] is None or not f["name"].lower().endswith(PAGE_TYPES) or not is_text(f["body"]):
+            continue
+        page, missing = inline_page(f["body"].decode("utf-8", "replace"), os.path.dirname(f["path"]), by_path)
+        page = scrub(page, a.redact, f"the page {f['name']}", "--page")
+        note = (f" It names files the run didn't write, so they aren't here: {e(', '.join(missing))}."
+                if missing else "")  # fmt: skip
+        parts.append(
+            f'<h3>{e(f["name"])}</h3><iframe sandbox="allow-scripts" srcdoc="{e(page)}" title="{e(f["name"])}">'
+            f'</iframe><p class="dim">Running in a sandboxed frame: it can\'t reach this page or your browser\'s '
+            f"storage, so a page that saves things may show an error.{note}</p>"
+        )
+    out = [f'<div class="paper"><pre>{e(s)}</pre></div>']
+    if parts:
+        out.append(f"<h2>{'The page it made' if len(parts) == 1 else 'The pages it made'}</h2>" + "".join(parts))
+    if rows:
+        out.append("<h2>Prompts and replies</h2>")
+        for n, t in enumerate(rows, 1):
+            out.append(f'<h3>Prompt {n}</h3><pre class="said">{e(scrub(t["prompt"], a.redact))}</pre>')
+            if t.get("reply"):
+                reply = scrub(t["reply"], a.redact, "the model's reply", "--page")
+                out.append(f'<h3>Reply</h3><pre class="said">{e(reply)}</pre>')
+    if shown:
+        out.append("<h2>Files</h2>")
+        for f in shown:
+            b, ext = f["body"], os.path.splitext(f["name"])[1].lower()
+            head = f"{e(f['name'])} · {e(f['source'])}" + (f" · {size_text(len(b))}" if b is not None else "")
+            if b is None:
+                body = ""
+            elif ext in IMAGE_TYPES:
+                body = f'<img alt="{e(f["name"])}" src="data:{IMAGE_TYPES[ext]};base64,{base64.b64encode(b).decode()}">'
+            elif not is_text(b) or len(b) > PAGE_TEXT_MAX:
+                body = '<p class="dim">Not shown: too big, or not text.</p>'
+            else:
+                code = scrub(b.decode("utf-8", "replace"), a.redact, "the file " + f["name"], "--page")
+                body = f"<pre><code>{e(code)}</code></pre>"
+            out.append(f"<details open><summary>{head}</summary>{body}</details>")
+    return (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f'<title>What the run made · receipt no. {e(r.get("receipt_no", ""))}</title><style>'
+        "body{font:16px/1.5 system-ui,sans-serif;margin:0;background:#f4f2ee;color:#222}"
+        "main{max-width:960px;margin:auto;padding:16px}"
+        ".paper{background:#fffdf8;border:1px solid #ddd;border-radius:4px;padding:18px 20px;overflow-x:auto}"
+        "pre{font:13px/1.45 ui-monospace,monospace;margin:0;overflow-x:auto}"
+        ".said{white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:4px;padding:10px 12px}"
+        "details{background:#fff;border:1px solid #ddd;border-radius:4px;margin:10px 0}"
+        "summary{cursor:pointer;padding:8px 12px;font-family:ui-monospace,monospace}"
+        "details pre{padding:10px 12px;border-top:1px solid #eee}details img{max-width:100%;display:block;margin:10px}"
+        "iframe{width:100%;height:70vh;border:1px solid #bbb;border-radius:4px;background:#fff}"
+        ".dim{color:#555;font-size:.9em}"
+        "</style></head><body><main><h1>What the run made</h1>"
+        + "".join(out)
+        + extra
+        + f'<p class="dim">Made with <a href="{SITE}">receipt.py</a> {VERSION}. Home folders are shown as ~. '
+        "Files written whole are shown as the run wrote them; files it edited, as they are on disk now.</p>"
+        "</main></body></html>"
+    )
+
+
 # ---------- a record of what went in and came out ----------
 
 # an in-toto Statement (in-toto.io/Statement/v1): the files the run wrote are its subjects, and the predicate
@@ -2662,7 +2803,7 @@ def output_subject(path, written, ended, names, n):
         "digest": {"sha256": digest},
         "annotations": {"source": how},
     }
-    return subject, {"name": name, "body": body, "path": path, "same_on_disk": same}
+    return subject, {"name": name, "body": body, "path": path, "same_on_disk": same, "source": how}
 
 
 def record_claude(path, part, names, counts):
@@ -3085,7 +3226,7 @@ def kill_tree(p):
     p.wait()
 
 
-def bundle(path, r, s, payload, record, outputs, a):
+def bundle(path, r, s, payload, record, outputs, a, rows=(), hide=()):
     """one zip, an RO-Crate (w3id.org/ro/crate/1.2): the receipt, the record and the files the run wrote,
     with ro-crate-preview.html so it opens in a browser"""
     tmp = tempfile.mkdtemp(prefix="receipt-")
@@ -3113,7 +3254,7 @@ def bundle(path, r, s, payload, record, outputs, a):
             tmp, ignore_errors=True
         )  # a browser can leave files behind for a moment
     files["ro-crate-metadata.json"] = canon(crate(r, files, outs))
-    files["ro-crate-preview.html"] = preview(r, s, files).encode("utf-8")
+    files["ro-crate-preview.html"] = output_page(r, s, rows, outputs, a, hide, preview(files)).encode("utf-8")
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         for name in sorted(files):
             z.writestr(name, files[name])
@@ -3168,22 +3309,20 @@ def crate(r, files, outs):
     return {"@context": "https://w3id.org/ro/crate/1.2/context", "@graph": graph}
 
 
-def preview(r, s, files):
+def preview(files):
+    """-> the end of the bundle's page: what's in the zip, and how to check it"""
     links = "".join(
         f'<li><a href="{html.escape(f)}">{html.escape(f)}</a></li>'
         for f in sorted(files)
         if f != "ro-crate-preview.html"
     )
     img = (
-        '<p><img src="preview.png" alt="what the run made" style="max-width:100%"></p>'
+        '<h2>A picture of the page</h2><p><img src="preview.png" alt="what the run made" style="max-width:100%"></p>'
         if "preview.png" in files
         else ""
     )
     return (
-        '<!doctype html><meta charset="utf-8"><title>Prompt receipt no. '
-        f'{html.escape(r["receipt_no"])}</title><body style="font-family:system-ui;max-width:52rem;margin:2rem auto">'
-        f'<pre style="background:#f8f5ee;padding:1.2rem;white-space:pre-wrap">{html.escape(s)}</pre>{img}'
-        f"<h2>In this bundle</h2><ul>{links}</ul><p>Check the files against the record with "
+        f"{img}<h2>In this bundle</h2><ul>{links}</ul><p>Check the files against the record with "
         f'<code>python3 receipt.py --verify record.json outputs/*</code> (<a href="{SITE}">receipt.py</a>).</p>'
     )
 
@@ -4559,6 +4698,7 @@ def main():
     ap.add_argument("--codex", action="store_true")
     ap.add_argument("--opencode", action="store_true")
     ap.add_argument("--qwen", action="store_true")
+    ap.add_argument("--page", metavar="FILE.html")
     ap.add_argument("--gemini", action="store_true")
     ap.add_argument("--copilot", action="store_true")
     ap.add_argument("--list", action="store_true")
@@ -4644,9 +4784,10 @@ def main():
     if len(picked) > 1:
         flags = [f"--{t}" for t in TOOLS if t != "claude"]
         sys.exit(f"receipt: pick one of {', '.join(flags[:-1])} and {flags[-1]}")
-    if a.redact and not (a.prompt or a.reply or a.outcome or a.recipe):
+    if a.redact and not (a.prompt or a.reply or a.outcome or a.recipe or a.page):
         sys.exit(
-            "receipt: --redact changes text the receipt shows, so it needs --prompt, --reply, --recipe or --outcome"
+            "receipt: --redact changes text the receipt shows, so it needs --prompt, --reply, --recipe, --outcome "
+            "or --page"
         )
     if a.out and a.out.lower().endswith(".png"):
         a.png = True
@@ -4840,6 +4981,7 @@ def main():
         rows = []
         if (
             "output" not in hide
+            or a.page
             or a.turns is not None
             or a.prompt
             or a.reply
@@ -4889,6 +5031,13 @@ def main():
     if a.png:  # the picture is narrower, so its prompt wraps to fit
         s = text(r, hide, a.prompt, width=PNG_COLS - 9)
     outputs = r.pop("_outputs", [])
+    paths, texts = r.pop("_written", ([], {}))
+    if a.page:
+        pp = os.path.expanduser(a.page)
+        page = output_page(r, text(r, hide, a.prompt), rows, page_files(paths, texts, a.file_names), a, hide)
+        with open(pp, "w", encoding="utf-8") as fh:  # written only once it's whole: a stop leaves no half page
+            fh.write(page)
+        print(f"receipt: page saved to {pp}; open it in a browser", file=sys.stderr)
     payload = None
     if a.json or a.bundle:
         for part in hide:
@@ -4904,6 +5053,8 @@ def main():
             record,
             outputs,
             a,
+            rows,
+            hide,
         )
         if not a.json:
             payload = None
