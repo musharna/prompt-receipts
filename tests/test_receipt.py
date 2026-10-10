@@ -1378,6 +1378,7 @@ class Qwen(Base):
                                       "candidatesTokenCount": out, "thoughtsTokenCount": thoughts})  # fmt: skip
 
         call = lambda cid, n, args: {"functionCall": {"id": cid, "name": n, "args": args}}  # noqa: E731
+        shown = lambda cid, n, **res: {"role": "user", "parts": [{"functionResponse": {"id": cid, "name": n, "response": res}}]}  # noqa: E731
         es = [
             rec("user", 0, executionContext={"modelId": "qwen3-coder-plus", "authType": auth, "approvalMode": "yolo"},
                 message={"role": "user", "parts": [{"text": "make hello.txt"}]}),
@@ -1387,9 +1388,10 @@ class Qwen(Base):
                                      call("c1", "write_file", {"file_path": os.path.join(self.proj, "hello.txt"), "content": "hi"}),
                                      call("c2", "run_shell_command", {"command": "ls"}),
                                      call("c3", "write_file", {"file_path": os.path.join(self.proj, "nope.txt"), "content": "x"})]),
-            rec("tool_result", 2, toolCallResult={"callId": "c1", "status": "success"}),
-            rec("tool_result", 2, toolCallResult={"callId": "c2", "status": "success"}),
-            rec("tool_result", 2, toolCallResult={"callId": "c3", "status": "error", "error": {"message": "denied"}}),
+            rec("tool_result", 2, toolCallResult={"callId": "c1", "status": "success"}, message=shown("c1", "write_file", output="wrote")),
+            rec("tool_result", 2, toolCallResult={"callId": "c2", "status": "success"}, message=shown("c2", "run_shell_command", output="x")),
+            rec("tool_result", 2, toolCallResult={"callId": "c3", "status": "error", "error": {"message": "denied"}},
+                message=shown("c3", "write_file", error="denied")),
             api(3, 21000, 20000, 20),
             reply(3, 21000, 20000, 20, [{"text": "made hello.txt"}]),
             api(4, 5000, 0, 200, sub="managed-auto-memory-extractor"),  # in the background: no reply logged
@@ -1442,8 +1444,16 @@ class Qwen(Base):
         self.assertIn("qwen --continue -m qwen3-coder-plus --approval-mode yolo stop", out)
         self.assertIn("make hello.txt", self.ok("--qwen", "--list").stdout)
         self.assertRegex(self.ok("--qwen", "--totals").stdout, r"\ntotal +\$0\.03 +1 +2 ")
-        p = self.run_receipt("--qwen", "--record", os.path.join(self.home, "r.json"))
-        self.assertIn("don't cover Qwen Code sessions yet", p.stderr)
+        rec, hello = os.path.join(self.home, "r.json"), os.path.join(self.home, "hello.txt")
+        self.ok("--qwen", "--record", rec)
+        with open(hello, "w", encoding="utf-8") as f:
+            f.write("hi")
+        out = self.ok("--verify", rec, hello).stdout
+        self.assertIn("came out of the run", out)  # the text write_file wrote
+        with open(rec, encoding="utf-8") as f:
+            pred = json.load(f)["predicate"]
+        self.assertEqual(len(pred["prompts"]), 2)
+        self.assertEqual(sum(1 for t in pred["tool_results"] if t.get("failed")), 1)
         p = self.run_receipt("--qwen", "--codex")
         self.assertIn("pick one of --codex, --opencode, --qwen, --gemini and --copilot", p.stderr)
 

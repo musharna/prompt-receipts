@@ -3044,11 +3044,113 @@ def record_opencode(sid, part, names, counts):
     return rec, writes, limits
 
 
+def record_qwen(path, part, names, counts):
+    win, _ = qwen_window(path, part)
+    prompts, seen, uses, pending, writes = [], [], {}, {}, {}
+    for i, d in enumerate(lines(path)):
+        if not within(i, win):
+            continue
+        text = qwen_prompt(d)
+        if text is not None:
+            prompts.append(sha(text))
+        elif d.get("type") == "assistant":
+            for cid, n, args in qwen_tool_calls(d):
+                uses[cid] = n
+                if n in QWEN_WRITES and args.get(QWEN_WRITES[n]):
+                    whole = args.get("content") if n == "write_file" and isinstance(args.get("content"), str) else None
+                    pending[cid] = (args[QWEN_WRITES[n]], whole)
+        elif d.get("type") == "tool_result":
+            res = d.get("toolCallResult") or {}
+            failed = res.get("status") == "error" or bool(res.get("error"))
+            for x in (d.get("message") or {}).get("parts") or []:
+                fr = x.get("functionResponse") if isinstance(x, dict) else None
+                if isinstance(fr, dict):  # what the model was shown
+                    e = {"tool": uses.get(fr.get("id"), fr.get("name") or "?"), "sha256": sha(canon(fr.get("response")))}
+                    if failed:
+                        e["failed"] = True
+                    seen.append(e)
+            if not failed and res.get("callId") in pending:
+                f, whole = pending[res["callId"]]
+                writes[f] = whole
+    rec = {"prompts": [{"sha256": h} for h in prompts], "tool_results": seen}
+    return rec, writes, ["Qwen Code logs neither the system prompt nor tool definitions"]
+
+
+def record_gemini(path, part, names, counts):
+    msgs, cwd = gemini_messages(path), gemini_cwd(path)
+    marks = [i for i, d in enumerate(msgs) if gemini_prompt(d) is not None] if part else []
+    sel, _ = pick(len(marks), part)
+    win = bounds(marks, sel)
+    prompts, seen, writes = [], [], {}
+    for i, d in enumerate(msgs):
+        if not within(i, win):
+            continue
+        text = gemini_prompt(d)
+        if text is not None:
+            prompts.append(sha(text))
+        for c in gemini_tool_calls(d):
+            n, args = c.get("name") or "?", c.get("args") or {}
+            if c.get("result") is not None:  # what the model was shown
+                e = {"tool": n, "sha256": sha(canon(c["result"]))}
+                if c.get("status") == "error":
+                    e["failed"] = True
+                seen.append(e)
+            if c.get("status") == "success" and n in GEMINI_WRITES and args.get("file_path"):
+                whole = args.get("content") if n == "write_file" and isinstance(args.get("content"), str) else None
+                writes[os.path.join(cwd, args["file_path"])] = whole
+    rec = {"prompts": [{"sha256": h} for h in prompts], "tool_results": seen}
+    return rec, writes, ["Gemini CLI logs neither the system prompt nor tool definitions",
+                         "a subagent's tool results aren't included"]  # fmt: skip
+
+
+def record_copilot(path, part, names, counts):
+    marks = [i for i, d in enumerate(lines(path)) if copilot_prompt(d) is not None] if part else []
+    sel, _ = pick(len(marks), part)
+    win = bounds(marks, sel)
+    prompts, system, seen, uses, pending, writes = [], {}, [], {}, {}, {}
+    for i, d in enumerate(lines(path)):
+        t, x = d.get("type"), d.get("data") or {}
+        if t == "system.message" and isinstance(x.get("content"), str):
+            system.setdefault(sha(x["content"]), 1)
+        if not within(i, win):
+            continue
+        text = copilot_prompt(d)
+        if text is not None:
+            prompts.append(sha(text))
+        elif t == "assistant.message":
+            for c in x.get("toolRequests") or []:
+                n, args = c.get("name") or "?", c.get("arguments") or {}
+                uses[c.get("toolCallId")] = n
+                if n in COPILOT_WRITES and args.get("path"):
+                    whole = args.get("file_text") if n == "create" and isinstance(args.get("file_text"), str) else None
+                    pending[c.get("toolCallId")] = (args["path"], whole)
+        elif t == "tool.execution_complete":
+            res = x.get("result") or {}
+            shown = res.get("content") if x.get("success") else (x.get("error") or {}).get("message")
+            e = {"tool": uses.get(x.get("toolCallId"), "?"), "sha256": sha(content_text(shown or ""))}
+            if not x.get("success"):
+                e["failed"] = True
+            seen.append(e)
+            if x.get("success"):
+                f, whole = pending.get(x.get("toolCallId"), (None, None))
+                for fe in x.get("fileEdits") or []:
+                    if fe.get("kind") != "delete" and fe.get("path"):
+                        writes[fe["path"]] = whole if fe["path"] == f else None
+                if not x.get("fileEdits") and f:
+                    writes[f] = whole
+    rec = {"prompts": [{"sha256": h} for h in prompts], "system_prompt": [{"sha256": h} for h in system],
+           "tool_results": seen}  # fmt: skip
+    return rec, writes, ["Copilot CLI logs no tool definitions"]
+
+
 def make_record(r, tool, key, part, names, counts, hide, renames, turns=()):
     rec, writes, limits = {
         "claude": record_claude,
         "codex": record_codex,
         "opencode": record_opencode,
+        "qwen": record_qwen,
+        "gemini": record_gemini,
+        "copilot": record_copilot,
     }[tool](key, part, names, counts)
     made = [
         output_subject(p, w, r["ended"], names, n)
@@ -3268,6 +3370,9 @@ TOOL_URLS = {  # RO-Crate asks for a url on each piece of software
     "Claude Code": "https://github.com/anthropics/claude-code",
     "Codex CLI": "https://github.com/openai/codex",
     "OpenCode": "https://opencode.ai",
+    "Qwen Code": "https://github.com/QwenLM/qwen-code",
+    "Gemini CLI": "https://github.com/google-gemini/gemini-cli",
+    "Copilot CLI": "https://github.com/github/copilot-cli",
 }
 
 
@@ -5021,8 +5126,6 @@ def main():
             a.outcome.strip(), a.redact, "your --outcome note", "--outcome"
         )
     record = None
-    if (a.record or a.bundle) and tool not in ("claude", "codex", "opencode"):
-        sys.exit(f"receipt: --record and --bundle don't cover {TOOLS[tool]} sessions yet")
     if a.record or a.bundle:
         record = make_record(
             r, tool, path, part, a.file_names, a.counts, hide, renames, rows
