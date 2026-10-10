@@ -92,7 +92,8 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 - `receipt.py` itself never connects to the internet. It reads local files and prints text.
 - It never prints paths, your email, account ids or file contents. Your prompts and the model's reply appear only when you ask (`--prompt`, `--reply`, `--recipe`), and it stops if one holds an email address or a key.
 - `--link` puts the receipt after the `#` in the link, which browsers never send, so nothing is uploaded.
-- `--bundle` packs the files a run wrote, and only when you ask.
+- `--bundle` packs the files a run wrote, and `--page` puts your prompts, the model's replies and those files on one page, only when you ask. Their text is checked for email addresses and keys like `--prompt`.
+- `--output-url` only names where you'll put the page; `receipt.py` uploads nothing. The receipt site fetches it from there when someone opens the receipt.
 - Read the receipt before you share it. Prompts, tool names and times can say more than you mean to.
 
 ### Choosing what it covers
@@ -110,7 +111,7 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 
 | Option | What it does |
 |---|---|
-| `--hide cost,date` | Drop parts: version, date, model, time, cost, items (the priced lines), billing, tokens, work, files, addons, hooks, memory, settings. Hiding the model or the cost hides the priced lines too, since they name both |
+| `--hide cost,date` | Drop parts: version, date, model, time, cost, items (the priced lines), billing, tokens, work, files, output (the size of what it wrote and the replies), addons, hooks, memory, settings. Hiding the model or the cost hides the priced lines too, since they name both |
 | `--counts` | Show numbers instead of the names of skills, MCP servers, plugins, subagent types and memory files |
 | `--rename old=new` | Show one name as another. Stops with an error if the name isn't on the receipt, so a typo can't leave the real one in |
 | `--prompt` | Add your prompts, each one numbered. Home folders become `~`, and it stops if a prompt holds an email address or a key |
@@ -136,6 +137,19 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 | `--link` | Also print a link that shows this receipt on the site. The receipt rides in the part after `#`, which your browser never sends, so nothing is uploaded. Long receipts make links too long for some chats; it warns over 2,000 characters |
 | `--bundle FILE.zip` | Save one zip with the receipt, its JSON, a record, and the files the run wrote, plus [RO-Crate](https://www.researchobject.org/ro-crate/) metadata and a page that shows the receipt |
 | `--shot` | With `--bundle`: add a screenshot of the web page the run made, taken with Chrome, Edge or Chromium if one is installed. It shows the files in the bundle, served to the browser from your own computer only while the picture is taken; pictures the run didn't make aren't in it |
+
+### What the run made
+
+Every receipt says how much the run wrote: `files    3 files written or edited (.html, .js ×2) · 612 lines, 24 KB · a web page`, and `replies  4 replies, 1,180 words`. No names or text.
+
+| Option | What it does |
+|---|---|
+| `--page FILE.html` | Save one page with the receipt, every prompt and the model's full replies, and each file the run wrote. A web page the run made runs inside it, in a sandboxed frame, with the .js, .css and pictures it uses from the run put inside, so the one file works anywhere. Text files are shown as the run wrote them, or as they are on disk now when only edited. With `--redact`, emails and keys are replaced instead of stopping |
+| `--output-url URL` | With `--page`: say where you'll put the page (an `https://` address, such as a GitHub Pages site). The receipt gets a `page` line with the address and the start of the page's SHA-256. When someone opens the receipt's `--link`, the site fetches the page, checks it, and shows it only if it matches byte for byte. Upload the file unchanged; the site where it lives must let other sites read it, as GitHub Pages and raw.githubusercontent.com do |
+
+```sh
+python3 receipt.py --page run.html --output-url https://you.github.io/runs/run.html --link
+```
 
 ### More than one run
 
@@ -224,7 +238,7 @@ echo "$(echo "$input" | ~/.claude/my-statusline.sh) · $(echo "$input" | python3
 - Codex, Qwen Code, Gemini CLI and Copilot CLI don't log a price, so their cost is worked out from their token counts at API list prices (Alibaba Cloud's for Qwen models, Google's for Gemini). OpenCode's own figure is used when it has one. The built-in prices are LiteLLM's, dated on the receipt; `python3 tools/update_prices.py` refreshes them.
 - What you pay can differ from list prices. Qwen OAuth's free allowance isn't charged; Copilot bills a plan's premium requests or AI credits, and the receipt shows the AI credits when the log has them; a key for a service like OpenRouter is charged at that service's prices.
 - Qwen Code's background helpers (its memory extractor) make API calls of their own. They are counted, since Qwen Code logs them.
-- `--record` and `--bundle` cover Claude Code, Codex and OpenCode sessions.
+- `--record` and `--bundle` cover all six tools. Files made by shell commands aren't in a bundle or on a page.
 - The billing line reads your account as it is today, so it shows your plan now, not necessarily when the run happened. A run on a local model (Ollama, LM Studio) says so on the model line.
 - Files count what the edit tools wrote, subagents' included. Files made by shell commands aren't counted, and what subagents read isn't in a record.
 - With `--turns`, some background work Claude Code prices itself (titles, summaries) logs no calls, so no prompt can hold it; the receipt says how much it is. A session that's still running keeps writing its log, so its numbers can move a little between runs.

@@ -1,5 +1,12 @@
 # Changelog
 
+## receipt.py 7.0 (2026-10-10)
+
+- The files line says how much the run wrote (lines and size) and whether one file is a web page, and a new replies line counts the model's replies and their words. No names or text. `--hide output` drops both.
+- `--page FILE.html`: one page with the receipt, every prompt and full reply, the files the run wrote, and each web page it made running in a sandboxed frame with its own .js, .css and pictures inside. The text is checked for email addresses and keys like `--prompt`. A bundle's preview page is now this page.
+- `--output-url URL`: with `--page`, the receipt carries where the page will live and its SHA-256, and the receipt site fetches the page and shows it only if it matches.
+- `--record` and `--bundle` now cover Qwen Code, Gemini CLI and Copilot CLI.
+
 ## receipt.py 6.0 (2026-10-09)
 
 - `--totals`: cost, sessions, prompts, time and tokens added up by day, `week`, `month`, `folder` or `model`, over this folder's sessions or every folder's (`--all`). `--since DATE` and `--until DATE` set the range.

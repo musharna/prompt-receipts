@@ -17,8 +17,8 @@ usage: python3 receipt.py [SESSION] [options]
   --since DATE     with --totals: only prompts sent on or after DATE (2026-10-01); --until DATE for on or before
 
   leaving things out (check the receipt before you share it):
-  --hide a,b       drop parts: version, date, model, time, cost, items, billing, tokens, work, files, addons, hooks,
-                   memory, settings
+  --hide a,b       drop parts: version, date, model, time, cost, items, billing, tokens, work, files, output,
+                   addons, hooks, memory, settings
   --counts         numbers instead of names for skills, MCP servers, plugins, subagent types and memory files
   --rename a=b     show name a as b (repeatable); fails if a isn't on the receipt, so a typo can't leak it
   --prompt         also print your prompts (home folders become ~; stops if one holds an email address or a key)
@@ -52,7 +52,14 @@ usage: python3 receipt.py [SESSION] [options]
   --bundle F.zip   save one zip (an RO-Crate) with the receipt, the record and the files the run wrote
   --shot           with --bundle: add a screenshot of the page the run made (needs Chrome, Edge or Chromium)
 
-Paths, your email and account ids never print, and file contents only go in a --bundle. Standard library only.
+  showing what the run made:
+  --page F.html    save one page with the receipt, every prompt and full reply, the files the run wrote, and
+                   each web page it made running in a sandboxed frame; text is checked like --prompt
+  --output-url URL with --page: you'll put that page at URL (https://); the receipt carries its sha256, and the
+                   receipt site shows the page only if what it fetches matches
+
+Paths, your email and account ids never print, and file contents only go in a --bundle or a --page.
+Standard library only.
 MIT License, Copyright (c) 2026 Jaret Arnold: https://github.com/musharna/prompt-receipts/blob/main/LICENSE
 Prompts and page text: https://musharna.github.io/prompt-receipts/ (CC BY 4.0)."""
 
@@ -86,7 +93,7 @@ import urllib.parse
 import zipfile
 import zlib
 
-VERSION = "6.0"
+VERSION = "7.0"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 SITE = "https://musharna.github.io/prompt-receipts/"
 LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters
