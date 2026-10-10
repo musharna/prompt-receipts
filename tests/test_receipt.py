@@ -602,7 +602,7 @@ class LineItems(Base):
             json.dump({"some-model": {}}, f)
         p = self.run_receipt("--prices", prices)
         self.assertEqual(p.returncode, 1)
-        self.assertIn("no Anthropic or OpenAI prices", p.stderr)
+        self.assertIn("no Anthropic, OpenAI, Gemini or Qwen prices", p.stderr)
 
     def test_hiding_the_lines(self):
         self.claude_log()
