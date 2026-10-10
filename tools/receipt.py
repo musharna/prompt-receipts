@@ -35,6 +35,8 @@ usage: python3 receipt.py [SESSION] [options]
                    nothing is uploaded
   --report         also print a link to the Prompt Receipts form with this receipt filled in
   --hook           read a Claude Code hook's input from stdin (for a SessionEnd hook; needs --out)
+  --statusline     be Claude Code's status line: print a one-line receipt (model, cost, time, plan limits) and
+                   keep the plan-limit readings, so later receipts can say how much of your limits a run used
   --combine A B    add several --json receipts into one (one task spread over sessions)
   --compare A B    put several --json receipts side by side (one prompt on several models or efforts)
   --prices FILE    price the lines with another copy of LiteLLM's model_prices_and_context_window.json
@@ -2717,7 +2719,7 @@ DROP = {
     "time": ["started", "ended", "duration_ms", "model_time_ms", "prompts"],
     "cost": ["cost_usd", "cost_note"],
     "items": ["items", "prices", "cost_check", "extras"],
-    "billing": ["billing"],
+    "billing": ["billing", "plan_use"],
     "tokens": ["tokens_in", "tokens_cached", "tokens_out", "tokens_note"],
     "work": [
         "tool_calls",
@@ -3002,6 +3004,105 @@ def compare(rs, hide):
             ).rstrip()
         )
     return "\n".join(out), same
+
+
+# ---------- the status line, and how much of a plan's limits a run used ----------
+
+# Claude Code tells a status-line command how full a Pro or Max plan's 5-hour and weekly limits are; its session
+# logs don't record it. --statusline keeps each change, one small file per session, so a receipt can say later
+# how far the limits moved while the run went on.
+WINDOWS = {"five_hour": "5-hour", "seven_day": "weekly"}
+
+
+def limits_dir():
+    base = os.environ.get("XDG_CACHE_HOME") or (
+        os.environ.get("LOCALAPPDATA") if os.name == "nt" else None
+    ) or os.path.join(home(), ".cache")
+    return os.path.join(base, "prompt-receipts", "limits")
+
+
+def limits_file(sid):
+    safe = re.sub(r"[^A-Za-z0-9_-]", "", str(sid or ""))[:80]
+    return os.path.join(limits_dir(), safe + ".jsonl") if safe else None
+
+
+def statusline(d):
+    """-> the status line for Claude Code's status-line input d, after keeping its plan-limit reading"""
+    rl = d.get("rate_limits") or {}
+    now = {k: [rl[k].get("used_percentage"), rl[k].get("resets_at")] for k in WINDOWS
+           if isinstance(rl.get(k), dict) and rl[k].get("used_percentage") is not None}  # fmt: skip
+    f = limits_file(d.get("session_id"))
+    seen = readings(f) if f else []
+    if f and now and (not seen or {k: seen[-1].get(k) for k in WINDOWS} != {k: now.get(k) for k in WINDOWS}):
+        os.makedirs(os.path.dirname(f), exist_ok=True)
+        with open(f, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"t": datetime.datetime.now(datetime.timezone.utc).isoformat(), **now}) + "\n")
+        seen.append({"t": None, **now})
+    parts = [(d.get("model") or {}).get("display_name") or (d.get("model") or {}).get("id") or "?"]
+    cost = d.get("cost") or {}
+    if cost.get("total_cost_usd") is not None:
+        parts.append(money(cost["total_cost_usd"]))
+    if cost.get("total_duration_ms"):
+        parts.append(mins(cost["total_duration_ms"]))
+    used = moved(seen)
+    for k, name in WINDOWS.items():
+        if k in now:
+            mine = f" (+{used[k]:.0f}% this session)" if used.get(k, 0) >= 0.5 else ""
+            parts.append(f"{name} {now[k][0]:.0f}%{mine}")
+    return " · ".join(parts)
+
+
+def readings(f, start=None, end=None):
+    """-> the kept plan-limit readings in a file, oldest first. With start and end (datetimes): the last one
+    before start, as where the run began from, then those up to a minute after end, since the status line
+    runs just after each reply is logged"""
+    out = []
+    try:
+        with open(f, encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    x = json.loads(line)
+                    at = when(x["t"]) if start else None
+                except (ValueError, KeyError, TypeError, AttributeError):
+                    continue
+                if start and at <= start:
+                    out[:] = [x]
+                elif not start or at <= end + datetime.timedelta(minutes=1):
+                    out.append(x)
+    except OSError:
+        pass
+    return out
+
+
+def moved(rs):
+    """-> {window: percentage points the limit went up across these readings}; a new window starts from 0"""
+    up = {}
+    for k in WINDOWS:
+        prev = None
+        for x in rs:
+            if not x.get(k):
+                continue
+            used, resets = x[k]
+            if prev is None:
+                up.setdefault(k, 0.0)
+            elif resets != prev[1]:
+                up[k] += used  # the window reset while the run went on: all of the new one's use is since then
+            else:
+                up[k] += max(used - prev[0], 0)
+            prev = (used, resets)
+    return up
+
+
+def plan_use(sid, started, ended):
+    """-> what the plan limits did while this run went on, from the status line's readings; None without any"""
+    f = limits_file(sid)
+    if not f or not started:
+        return None
+    rs = readings(f, when(started), when(ended or started))
+    if len(rs) < 2:
+        return None
+    up = moved(rs)
+    return {WINDOWS[k]: round(v, 1) for k, v in up.items()}
 
 
 # ---------- totals over time ----------
@@ -3291,6 +3392,10 @@ def text(r, hide, with_prompt, width=80):
             out += item_lines(r, width)
     if "billing" not in hide and r.get("billing"):
         out.append(f"billing  {r['billing']}")
+    if "billing" not in hide and r.get("plan_use"):
+        said = ", ".join(f"{k} +{v:g}%" for k, v in r["plan_use"].items())
+        out.append(labelled("limits   ", f"{said} while this ran, from the status line's readings; other sessions "
+                            "running at the same time count too", width))  # fmt: skip
     if "tokens" not in hide and "tokens_in" in r:
         note = f" ({r['tokens_note']})" if r.get("tokens_note") else ""
         out.append(
@@ -3686,6 +3791,7 @@ def main():
     ap.add_argument("--link", action="store_true")
     ap.add_argument("--bundle", metavar="FILE.zip")
     ap.add_argument("--shot", action="store_true")
+    ap.add_argument("--statusline", action="store_true")
     ap.add_argument("--totals", nargs="?", const="day", choices=BY)
     ap.add_argument("--since", metavar="DATE")
     ap.add_argument("--until", metavar="DATE")
@@ -3783,6 +3889,15 @@ def main():
         )
     tool = "codex" if a.codex else "opencode" if a.opencode else "claude"
 
+    if a.statusline:
+        if any(v not in (None, False, [], "") for k, v in vars(a).items() if k != "statusline"):
+            sys.exit("receipt: --statusline reads Claude Code's status-line input and takes no other options")
+        try:
+            d = json.load(sys.stdin)
+        except ValueError as e:
+            sys.exit(f"receipt: --statusline expects Claude Code's status-line input on stdin ({e})")
+        print(statusline(d if isinstance(d, dict) else {}))
+        return
     if (a.since or a.until) and not a.totals:
         sys.exit("receipt: --since and --until go with --totals")
     if a.totals:
@@ -3910,6 +4025,10 @@ def main():
         )
         r.setdefault("extras", {})
         r["receipt_no"] = receipt_no(r["tool"], r.pop("session_key"), r["part"])
+        if tool == "claude":
+            use = plan_use(os.path.splitext(os.path.basename(path))[0], r.get("started"), r.get("ended"))
+            if use:
+                r["plan_use"] = use
         check(r)
         rows = []
         if (

@@ -1290,5 +1290,66 @@ class Totals(Base):
         self.assertEqual(turns[0]["time_ms"], 200000)
 
 
+class StatusLine(Base):
+    """--statusline prints a line for Claude Code and keeps plan-limit readings; receipts read them back"""
+
+    def setUp(self):
+        super().setUp()
+        self.cache = os.path.join(self.home, "cache")
+        self.env["XDG_CACHE_HOME"] = self.cache
+        self.limits = os.path.join(self.cache, "prompt-receipts", "limits")
+
+    def line(self, rl=None, sid="s1"):
+        d = {"session_id": sid, "model": {"id": "claude-opus-5-5", "display_name": "Opus 5.5"},
+             "cost": {"total_cost_usd": 0.42, "total_duration_ms": 720000}}  # fmt: skip
+        if rl:
+            d["rate_limits"] = rl
+        return self.ok("--statusline", stdin=json.dumps(d)).stdout.strip()
+
+    def kept(self, sid="s1"):
+        try:
+            with open(os.path.join(self.limits, sid + ".jsonl"), encoding="utf-8") as f:
+                return [json.loads(x) for x in f]
+        except FileNotFoundError:
+            return []
+
+    def test_prints_and_keeps_readings(self):
+        self.assertEqual(self.line(), "Opus 5.5 · $0.42 · 12 min")  # before the first reply: no limits yet
+        self.assertEqual(self.kept(), [])
+        rl = {"five_hour": {"used_percentage": 20, "resets_at": 100}, "seven_day": {"used_percentage": 51, "resets_at": 900}}
+        self.assertEqual(self.line(rl), "Opus 5.5 · $0.42 · 12 min · 5-hour 20% · weekly 51%")
+        self.line(rl)  # the same reading again isn't kept twice
+        rl["five_hour"]["used_percentage"] = 23
+        self.assertEqual(self.line(rl), "Opus 5.5 · $0.42 · 12 min · 5-hour 23% (+3% this session) · weekly 51%")
+        self.assertEqual([k["five_hour"] for k in self.kept()], [[20, 100], [23, 100]])
+        p = self.run_receipt("--statusline", "--json", stdin="{}")
+        self.assertIn("takes no other options", p.stderr)
+        p = self.run_receipt("--statusline", stdin="not json")
+        self.assertIn("expects Claude Code's status-line input", p.stderr)
+
+    def readings(self, sid, rows):
+        os.makedirs(self.limits, exist_ok=True)
+        with open(os.path.join(self.limits, sid + ".jsonl"), "w", encoding="utf-8") as f:
+            for t, five, week in rows:
+                f.write(json.dumps({"t": t, "five_hour": five, "seven_day": week}) + "\n")
+
+    def test_receipt_says_how_far_the_limits_moved(self):
+        path = self.claude_log()  # prompts at 14:00 and 14:04, last entry 14:05 (UTC)
+        out = self.ok(path).stdout
+        self.assertNotIn("limits", out)  # a positive control: no readings, no line
+        self.readings("s1", [
+            ("2026-10-09T13:50:00+00:00", [10, 1000], [40, 9000]),  # before the run: where it started from
+            ("2026-10-09T14:02:00.250000+00:00", [14, 1000], [41, 9000]),
+            ("2026-10-09T14:04:00+00:00", [3, 2000], [42, 9000]),  # the 5-hour window reset: 3 points since
+            ("2026-10-09T14:30:00+00:00", [50, 2000], [60, 9000]),  # after the run: not this run's
+        ])  # fmt: skip
+        out = self.ok(path).stdout
+        self.assertIn("limits   5-hour +7%, weekly +2% while this ran, from the status line's readings", out)
+        r = json.loads(self.ok(path, "--json").stdout)
+        self.assertEqual(r["plan_use"], {"5-hour": 7.0, "weekly": 2.0})
+        self.assertNotIn("limits", self.ok(path, "--hide", "billing").stdout)
+        self.assertNotIn("plan_use", json.loads(self.ok(path, "--json", "--hide", "billing").stdout))
+
+
 if __name__ == "__main__":
     unittest.main()
