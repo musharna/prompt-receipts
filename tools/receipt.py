@@ -45,6 +45,7 @@ usage: python3 receipt.py [SESSION] [options]
   --shot           with --bundle: add a screenshot of the page the run made (needs Chrome, Edge or Chromium)
 
 Paths, your email and account ids never print, and file contents only go in a --bundle. Standard library only.
+MIT License, Copyright (c) 2026 Jaret Arnold: https://github.com/musharna/prompt-receipts/blob/main/LICENSE
 Prompts and page text: https://musharna.github.io/prompt-receipts/ (CC BY 4.0)."""
 
 import argparse

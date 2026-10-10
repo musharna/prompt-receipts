@@ -1,6 +1,6 @@
 # Prompt Receipts
 
-[![tests](https://github.com/musharna/prompt-receipts/actions/workflows/test.yml/badge.svg)](https://github.com/musharna/prompt-receipts/actions/workflows/test.yml)
+[![tests](https://github.com/musharna/prompt-receipts/actions/workflows/test.yml/badge.svg)](https://github.com/musharna/prompt-receipts/actions/workflows/test.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Prompts for making things with Claude Code and Codex, each shown with a receipt: what it cost, how long it took and what was switched on. Plus a script that prints the same receipt for your own runs in Claude Code, Codex or OpenCode.
 
@@ -189,4 +189,4 @@ Tried one? Use the "Tell us how it went" button on its card. Runs that didn't wo
 
 ## License
 
-Prompts and page text are CC BY 4.0 (see [LICENSE](LICENSE)). The outputs were made by the models named on each card.
+The code (`tools/receipt.py`, the tests and the site's scripts) is MIT: see [LICENSE](LICENSE). Prompts and page text are CC BY 4.0: see [LICENSE-prompts](LICENSE-prompts). The outputs were made by the models named on each card.

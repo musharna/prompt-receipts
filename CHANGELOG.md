@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The code is now under the MIT License (`LICENSE`). Prompts and page text stay CC BY 4.0, now in `LICENSE-prompts`.
+
 ## receipt.py 5.0 (2026-10-09)
 
 - `--turns`: a line per prompt with when it was sent, how long it ran, its cost at API prices (subagents included), tool calls and files, and whether the lines add up to the cost above. `--turns A-B` covers only those prompts, receipt and record both.
