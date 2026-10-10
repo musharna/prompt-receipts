@@ -57,6 +57,16 @@ prompt   A mascot for my habit-tracker app: a round blob that breathes, blinks a
 
 [Play with it](https://musharna.github.io/prompt-receipts/play/1bfe1ef0-9a8/index.html) or [see the other models' versions](https://musharna.github.io/prompt-receipts/#1bfe1ef0-9a8).
 
+Add `--turns --recipe` and it ends with a line per prompt and the command that sends it again:
+
+```
+turns    1  8:16 PM · 4 min · $0.83 · 13 tool calls, 6 shell commands · 2 files
+rerun    claude -p 'A mascot for my habit-tracker app: a round blob that breathes, blinks and giggles when you poke it. I'"'"'d like it in four moods: idle, happy, sleepy and surprised.' --model claude-opus-5-5 --effort medium --permission-mode bypassPermissions
+         (the same prompts and settings; no seed or temperature can be set, so not the same output)
+```
+
+Add `--link` and it prints [a link that shows the receipt on the site](https://musharna.github.io/prompt-receipts/r/#r1.ZVNBbtswELzrFXsIEBu1FUmOZCfNpUh7KBCjQdEPUNLKYk2RgkjF8Uv6lN7bj3VIOY3b6GCLS452ODP7lSuWvaOnPE7o10-6V2Ksme4NfrI4jbObzJcL-lI5ypKsWNDmNi3ocUufPn7zW9rElBerdHm92ayjDkBFeKrwoaXpR7vMl7k_yU1jBkcd13LsIic79gfpmjqpaTYhD2bYS72binOPSqkfTAeKDf4AjipjXQBeJPFmRbMzypeWzEGTM04oEo4-PH4GWlZs35NrmZTUbKlkZQ4k6prGHmdJunlEL89_vF83iKTuR0dvnnRDv3_QxXWcJFdbrO_AK0nPgZWo0HxgUZ8Vs_VqH4BJnE1A_5rkb4GHQTqmWUrtPFRXJ-DmpWP4xvocaEb3lmuWT7gsOQfmacTPbhAWS9dKHeTPgidQ_yCk8wWjwd8NEvLdpWSjSVVAvMRKwpFTpecBWKWk8T7sWVuaXVxt54vJvwdc5eFhS0meFgVnC7r5m6yo9DD0oq14pl4JfUuCGgUfG-YFguaoasWw4zp0GUak5mjGgURVmVE79KvFcR6d2nrDaJUUe5oFrYOYdcgU5PFqRD5tk4crgI3CGaXsAnG3LSssTdcJXdugBJcURmQK0bt8taZlEjVSBR0g2fTq3XKsyQyEoDuQncWt69SC4u92HiF2S-PZ2T2ua3ErDW9NQ-k1iSchlSgVB5Lb-8fX3QRctObKnW7Qq3En9QmOtR1LsWPtLCVRa8w-UAqbyuygWNRxZ4bja1HUKFp23l2MxLEX1j7y0ElrYZ2N5EtWi01SFlmT87oAlZdZBIoHWK4xO6caskCdsBVswpxTd6RWlNItka1qD79E33tDB1hVU6lMibjB2xJzgdmE6iWUBXEI_hrlndztgqotJIXZ1MNcTGxMny9rWBEW3ujGB6Ezpra3JGuFvLRoeFyQVcz98d-v2tFzt1zHfwA), with nothing uploaded.
+
 ### Choosing what it covers
 
 | Option | What it does |
@@ -95,15 +105,19 @@ Read the receipt before you share it. Prompts, tool names and times can say more
 | Option | What it does |
 |---|---|
 | `--md`, `--json` | Wrap it for GitHub or Discord, or print it as JSON (hidden parts stay out) |
-| `--out FILE` | Save it to a `.txt`, `.md`, `.json` or `.png` file, or into a folder |
-| `--out receipt.png` | Draw it as a picture, for posting where text gets mangled |
+| `--out FILE` | Save it to a `.txt`, `.md`, `.json` or `.png` file, or into a folder. A `.png` is a picture, for posting where text gets mangled |
 | `--report` | Also print a link to [the report form](https://musharna.github.io/prompt-receipts/) with this receipt filled in |
 | `--link` | Also print a link that shows this receipt on the site. The receipt rides in the part after `#`, which your browser never sends, so nothing is uploaded. Long receipts make links too long for some chats; it warns over 2,000 characters |
 | `--bundle FILE.zip` | Save one zip with the receipt, its JSON, a record, and the files the run wrote, plus [RO-Crate](https://www.researchobject.org/ro-crate/) metadata and a page that shows the receipt |
 | `--shot` | With `--bundle`: add a screenshot of the web page the run made, taken with Chrome, Edge or Chromium if one is installed. It shows the files in the bundle, served to the browser from your own computer only while the picture is taken; pictures the run didn't make aren't in it |
+
+### More than one run
+
+| Option | What it does |
+|---|---|
+| `--compare A.json B.json` | Set receipts side by side, for one prompt run on several models or efforts |
 | `--prompt-id` | Add a short fingerprint of the prompt (not the prompt itself), so `--compare` can tell runs of one prompt |
 | `--combine A.json B.json` | Add up receipts for one task spread over several sessions |
-| `--compare A.json B.json` | Set receipts side by side, for one prompt run on several models or efforts |
 
 ### A record of what went in and came out
 
@@ -140,6 +154,7 @@ Keep `receipt.py` in your home folder for this, or change the path. Sessions wit
 - Claude Code deletes session logs after 30 days unless you raise `cleanupPeriodDays` in `~/.claude/settings.json`. Logs can be large, so check your free disk space before raising it a lot. Codex and OpenCode keep theirs.
 - If you moved Claude Code, Codex or OpenCode's folder with `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or `XDG_DATA_HOME`, the receipt looks there.
 - For a whole Claude Code session, the cost and tokens are Claude Code's own totals and include subagents, added up over every time the session was opened. The lines under the cost price each call at API list prices, and the receipt says whether they add up to Claude Code's total or by how much they miss; long sessions that were compacted many times can miss. With `--last`, the cost is worked out from that part's calls.
+- A Claude Code session resumed into a new log file gets its own receipt; `--combine` adds them up.
 - Codex doesn't log a price, so a Codex cost is worked out from its token counts at API prices. OpenCode's own figure is used when it has one. The built-in prices are LiteLLM's, dated on the receipt; `python3 tools/update_prices.py` refreshes them.
 - The billing line reads your account as it is today, so it shows your plan now, not necessarily when the run happened. A run on a local model (Ollama, LM Studio) says so on the model line.
 - Files count what the edit tools wrote, subagents' included. Files made by shell commands aren't counted, and what subagents read isn't in a record.
@@ -147,7 +162,6 @@ Keep `receipt.py` in your home folder for this, or change the path. Sessions wit
 - Codex logs don't record hooks, and OpenCode's record neither hooks nor memory files. Claude Code logs a hook run only when the hook prints something, so hook counts are a floor.
 - If a log has your prompts but no replies or token counts, the receipt says so: the tool may have changed how it writes logs. Please [open an issue](https://github.com/musharna/prompt-receipts/issues).
 - Checked on Linux, macOS and Windows (Python 3.9 and 3.13) on every change, and by hand on WSL and Windows 11.
-- A Claude Code session resumed into a new log file gets its own receipt; `--combine` adds them up.
 - A receipt is text you can edit. It shows what someone reports, not proof, unless it's signed by a key you trust.
 
 ## The prompts
