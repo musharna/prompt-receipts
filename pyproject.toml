@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prompt-receipts"
+dynamic = ["version"]
+description = "Receipts for AI coding runs: what a Claude Code, Codex or OpenCode session cost, took and did"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [{ name = "Jaret Arnold" }]
+keywords = ["claude-code", "codex", "opencode", "llm-cost", "ai-coding"]
+classifiers = [
+    "Environment :: Console",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development",
+]
+
+[project.urls]
+Homepage = "https://musharna.github.io/prompt-receipts/"
+Source = "https://github.com/musharna/prompt-receipts"
+Changelog = "https://github.com/musharna/prompt-receipts/blob/main/CHANGELOG.md"
+
+[project.scripts]
+prompt-receipts = "receipt:main"
+receipt = "receipt:main"
+
+[tool.setuptools]
+package-dir = { "" = "tools" }
+py-modules = ["receipt"]
+
+[tool.setuptools.dynamic]
+version = { attr = "receipt.VERSION" }
