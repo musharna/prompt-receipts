@@ -56,8 +56,8 @@ curl.exe -sO https://musharna.github.io/prompt-receipts/tools/receipt.py; py rec
 Or install it as a command, `receipt` (also `prompt-receipts`):
 
 ```
-uvx --from git+https://github.com/musharna/prompt-receipts receipt      # run it without installing
-pipx install git+https://github.com/musharna/prompt-receipts            # or keep it installed
+uvx prompt-receipts              # run it without installing
+pipx install prompt-receipts     # or keep it installed
 ```
 
 It needs only Python 3.9 or later. It reads the logs these tools already keep, so it works on runs you've already finished:
