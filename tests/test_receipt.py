@@ -1644,8 +1644,8 @@ class OutputShape(Base):
 
     def test_an_edited_file_is_measured_as_it_is_now(self):
         app, gone = os.path.join(self.proj, "app.js"), os.path.join(self.proj, "gone.js")
-        with open(app, "w", encoding="utf-8") as f:
-            f.write("a\nb\nc\n")
+        with open(app, "wb") as f:  # bytes, so Windows doesn't add a \r per line
+            f.write(b"a\nb\nc\n")
 
         def use(i, name, **inp):
             return {"type": "tool_use", "id": i, "name": name, "input": inp}
