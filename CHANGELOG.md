@@ -1,5 +1,11 @@
 # Changelog
 
+## receipt.py 7.3 (2026-10-10)
+
+- A `.png` receipt reads like one from a shop: what was asked for (with `--prompt`), what the run made, what it took, and the total at the bottom.
+- `--picture FILE.png` puts a picture of what the run made on it, and `--shot` now works with a `.png` too, putting a screenshot of the page the run made there. Pictures wider than the receipt are made smaller; it still needs no extra packages.
+- Fixed: `--shot` could wait until its 60-second limit and give up on a page that draws in 3D. The browser's helper processes kept its output open after the browser was done, and the time budget it was given could take over 90 seconds to use up without a GPU. It now waits on the browser itself, stops its helpers, and gives a page 10 seconds to load.
+
 ## receipt.py 7.2 (2026-10-10)
 
 - `--page` says how to share the page without a site of your own: put it in a public GitHub gist and make the receipt again with `--output-url` and the gist file's raw address. The receipt site checks gists like any other address.
