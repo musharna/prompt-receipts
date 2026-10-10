@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/musharna/prompt-receipts/actions/workflows/test.yml/badge.svg)](https://github.com/musharna/prompt-receipts/actions/workflows/test.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Prompts for making things with Claude Code and Codex, each shown with a receipt: what it cost, how long it took and what was switched on. Plus a script that prints the same receipt for your own runs in Claude Code, Codex or OpenCode.
+Prompts for making things with Claude Code and Codex, each shown with a receipt: what it cost, how long it took and what was switched on. Plus a script that prints the same receipt for your own runs in Claude Code, Codex, OpenCode, Qwen Code, Gemini CLI or GitHub Copilot CLI.
 
 **[Browse the prompts](https://musharna.github.io/prompt-receipts/)** · **[Make a receipt for your own run](#make-a-receipt-for-your-own-run)** · [What's new](CHANGELOG.md)
 
@@ -53,6 +53,13 @@ On Windows, in PowerShell:
 curl.exe -sO https://musharna.github.io/prompt-receipts/tools/receipt.py; py receipt.py
 ```
 
+Or install it as a command, `receipt` (also `prompt-receipts`):
+
+```
+uvx --from git+https://github.com/musharna/prompt-receipts receipt      # run it without installing
+pipx install git+https://github.com/musharna/prompt-receipts            # or keep it installed
+```
+
 It needs only Python 3.9 or later. It reads the logs these tools already keep, so it works on runs you've already finished:
 
 | Tool | Add | Logs it reads |
@@ -60,6 +67,9 @@ It needs only Python 3.9 or later. It reads the logs these tools already keep, s
 | Claude Code | nothing | `~/.claude/projects/`, or under `$CLAUDE_CONFIG_DIR` |
 | Codex | `--codex` | `~/.codex/sessions/`, or under `$CODEX_HOME` |
 | OpenCode | `--opencode` | `~/.local/share/opencode/opencode.db`, or under `$XDG_DATA_HOME` |
+| Qwen Code | `--qwen` | `~/.qwen/projects/`, or under `$QWEN_HOME` |
+| Gemini CLI | `--gemini` | `~/.gemini/tmp/`, or under `$GEMINI_CLI_HOME` |
+| GitHub Copilot CLI | `--copilot` | `~/.copilot/session-state/`, or under `$COPILOT_HOME` |
 
 Run it somewhere else and it tells you where your sessions are; `--list --all` lists them from every folder.
 
@@ -71,6 +81,7 @@ python3 receipt.py --pick 2 --prompt       # a receipt for one of them, with you
 python3 receipt.py --hide cost --link      # leave out the cost and print a link to share
 python3 receipt.py --turns --recipe        # a line per prompt, and the commands to rerun them
 python3 receipt.py --out receipt.png       # a picture, for posting where text gets mangled
+python3 receipt.py --totals week --all     # cost, prompts and time by week, every folder
 
 python3 receipt.py --json --prompt-id --out opus.json      # save one receipt per model,
 python3 receipt.py --compare opus.json sonnet.json         # then set them side by side
@@ -88,7 +99,7 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 
 | Option | What it does |
 |---|---|
-| `--codex`, `--opencode` | Use Codex or OpenCode sessions instead of Claude Code ones |
+| `--codex`, `--opencode`, `--qwen`, `--gemini`, `--copilot` | Use that tool's sessions instead of Claude Code ones |
 | `--list`, then `--pick N` | List this folder's recent sessions, then make a receipt for one of them |
 | `--all` | With `--list` or `--pick`: sessions from every folder |
 | `--last N` | Cover only your last N prompts, when one session held several tasks |
@@ -113,7 +124,7 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 | `--turns` | Add a line per prompt: when you sent it, how long it ran, its cost (subagents included), tool calls and files. The receipt says whether the lines add up to the cost above |
 | `--reply` | Add the model's last reply, checked for email addresses and keys like a prompt |
 | `--outcome TEXT` | Add your own word on how it went, marked as yours |
-| `--recipe` | Add the commands that send the same prompts again, each with the model and effort it ran on (`claude -p`, `codex exec`, `opencode run`). Models give a different answer each time, so it reruns the run, not its output |
+| `--recipe` | Add the commands that send the same prompts again, each with the model and effort it ran on (`claude -p`, `codex exec`, `opencode run`, `qwen`, `gemini -p`, `copilot -p`). Models give a different answer each time, so it reruns the run, not its output |
 
 ### Saving and sharing
 
@@ -133,6 +144,26 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 | `--compare A.json B.json` | Set receipts side by side, for one prompt run on several models or efforts |
 | `--prompt-id` | Add a short fingerprint of the prompt (not the prompt itself), so `--compare` can tell runs of one prompt |
 | `--combine A.json B.json` | Add up receipts for one task spread over several sessions |
+
+### Totals over time
+
+`--totals` adds up every prompt in this folder's sessions (every folder's with `--all`), by `day`, `week`, `month`, `folder` or `model`:
+
+```
+$ python3 receipt.py --gemini --totals
+Totals v6.0 · Gemini CLI · folder gwork · 9 Oct 2026 · by day
+day              cost  sessions  prompts  time  tokens in / out
+Fri 9 Oct 2026  $0.01         1        2  <1 s        62k / 312
+---------------------------------------------------------------
+total           $0.01         1        2  <1 s        62k / 312
+```
+
+| Option | What it does |
+|---|---|
+| `--totals [BY]` | Add up cost, sessions, prompts, time and tokens by day (the default), week, month, folder or model. Each prompt's cost is worked out from its own calls at API list prices |
+| `--since DATE`, `--until DATE` | Count only prompts sent on or after, or on or before, a date (`2026-10-01`) |
+
+`--json`, `--md`, `--out` and `--link` work on totals too.
 
 ### A record of what went in and came out
 
@@ -164,17 +195,40 @@ Put this in `~/.claude/settings.json` (merge it with any `hooks` you already hav
 
 Keep `receipt.py` in your home folder for this, or change the path. Sessions with no prompts leave no receipt.
 
+### Plan use on the status line
+
+On a Pro or Max plan, Claude Code tells the status line how much of your 5-hour and weekly limits you've used. `--statusline` shows that, and keeps the readings so a receipt made later can say how much of your plan a run took:
+
+```json
+{ "statusLine": { "type": "command", "command": "python3 ~/receipt.py --statusline" } }
+```
+
+```
+Opus 5.5 · $0.28 · 3 s · 5-hour 2% · weekly 51%
+```
+
+Receipts for sessions that ran with it get a `limits` line, such as `5-hour +7%, weekly +2% while this ran`. Other sessions running at the same time count toward the same limits, so the receipt says so. The readings are kept in `~/.cache/prompt-receipts/limits/` (under `$XDG_CACHE_HOME` if set, `%LOCALAPPDATA%` on Windows), only when a number changes. To keep the status line you have, call both from one script, passing each the same input:
+
+```sh
+#!/bin/sh
+input=$(cat)
+echo "$(echo "$input" | ~/.claude/my-statusline.sh) · $(echo "$input" | python3 ~/receipt.py --statusline)"
+```
+
 ### Good to know
 
-- Claude Code deletes session logs after 30 days unless you raise `cleanupPeriodDays` in `~/.claude/settings.json`. Logs can be large, so check your free disk space before raising it a lot. Codex and OpenCode keep theirs.
-- If you moved Claude Code, Codex or OpenCode's folder with `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or `XDG_DATA_HOME`, the receipt looks there.
+- Claude Code deletes session logs after 30 days unless you raise `cleanupPeriodDays` in `~/.claude/settings.json`. Logs can be large, so check your free disk space before raising it a lot.
+- If you moved a tool's folder with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_DATA_HOME`, `QWEN_HOME`, `GEMINI_CLI_HOME` or `COPILOT_HOME`, the receipt looks there.
 - For a whole Claude Code session, the cost and tokens are Claude Code's own totals and include subagents, added up over every time the session was opened. The lines under the cost price each call at API list prices, and the receipt says whether they add up to Claude Code's total or by how much they miss; long sessions that were compacted many times can miss. With `--last`, the cost is worked out from that part's calls.
 - A Claude Code session resumed into a new log file gets its own receipt; `--combine` adds them up.
-- Codex doesn't log a price, so a Codex cost is worked out from its token counts at API prices. OpenCode's own figure is used when it has one. The built-in prices are LiteLLM's, dated on the receipt; `python3 tools/update_prices.py` refreshes them.
+- Codex, Qwen Code, Gemini CLI and Copilot CLI don't log a price, so their cost is worked out from their token counts at API list prices (Alibaba Cloud's for Qwen models, Google's for Gemini). OpenCode's own figure is used when it has one. The built-in prices are LiteLLM's, dated on the receipt; `python3 tools/update_prices.py` refreshes them.
+- What you pay can differ from list prices. Qwen OAuth's free allowance isn't charged; Copilot bills a plan's premium requests or AI credits, and the receipt shows the AI credits when the log has them; a key for a service like OpenRouter is charged at that service's prices.
+- Qwen Code's background helpers (its memory extractor) make API calls of their own. They are counted, since Qwen Code logs them.
+- `--record` and `--bundle` cover Claude Code, Codex and OpenCode sessions.
 - The billing line reads your account as it is today, so it shows your plan now, not necessarily when the run happened. A run on a local model (Ollama, LM Studio) says so on the model line.
 - Files count what the edit tools wrote, subagents' included. Files made by shell commands aren't counted, and what subagents read isn't in a record.
 - With `--turns`, some background work Claude Code prices itself (titles, summaries) logs no calls, so no prompt can hold it; the receipt says how much it is. A session that's still running keeps writing its log, so its numbers can move a little between runs.
-- Codex logs don't record hooks, and OpenCode's record neither hooks nor memory files. Claude Code logs a hook run only when the hook prints something, so hook counts are a floor.
+- Codex logs don't record hooks, and OpenCode's, Qwen Code's, Gemini CLI's and Copilot CLI's record neither hooks nor memory files. Gemini CLI logs no version, effort or approval setting either. Claude Code logs a hook run only when the hook prints something, so hook counts are a floor.
 - If a log has your prompts but no replies or token counts, the receipt says so: the tool may have changed how it writes logs. Please [open an issue](https://github.com/musharna/prompt-receipts/issues).
 - Checked on Linux, macOS and Windows (Python 3.9 and 3.13) on every change, and by hand on WSL and Windows 11.
 - A receipt is text you can edit. It shows what someone reports, not proof, unless it's signed by a key you trust.

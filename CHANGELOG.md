@@ -1,8 +1,14 @@
 # Changelog
 
-## Unreleased
+## receipt.py 6.0 (2026-10-09)
 
+- `--totals`: cost, sessions, prompts, time and tokens added up by day, `week`, `month`, `folder` or `model`, over this folder's sessions or every folder's (`--all`). `--since DATE` and `--until DATE` set the range.
+- New tools: Qwen Code (`--qwen`), Gemini CLI (`--gemini`) and GitHub Copilot CLI (`--copilot`), with `--turns`, `--recipe`, `--list` and `--totals`. A log file passed directly is recognized by where it lives. Qwen Code's background calls are counted; Copilot's AI credits go on the billing line when the log has them.
+- `--statusline`: a status line for Claude Code (model, cost, time, and your plan's 5-hour and weekly use on Pro and Max). It keeps the readings, so later receipts for those sessions say how much of the plan the run took.
+- Installs as a command: `uvx --from git+https://github.com/musharna/prompt-receipts receipt`, or `pipx install` from the same address. The commands are `receipt` and `prompt-receipts`.
+- Prices for Google's Gemini models and Alibaba Cloud's Qwen models (priced by prompt size), from the same LiteLLM copy. Copilot's model names (`claude-opus-4.7`) are matched to them.
 - The code is now under the MIT License (`LICENSE`). Prompts and page text stay CC BY 4.0, now in `LICENSE-prompts`.
+- Fixed: with `--turns`, a prompt's time could run on until the next prompt (one showed 120 hours for a 2-minute run). Time now ends at the prompt's last reply, tool result or interruption.
 
 ## receipt.py 5.0 (2026-10-09)
 
