@@ -2765,7 +2765,7 @@ def output_page(r, s, rows, files, a, hide, extra=""):
             f'</iframe><p class="dim">Running in a sandboxed frame: it can\'t reach this page or your browser\'s '
             f"storage, so a page that saves things may show an error.{note}</p>"
         )
-    out = [f'<div class="paper"><pre>{e(s)}</pre></div>']
+    out = [f'<div class="paper own"><pre>{e(s)}</pre></div>']
     if parts:
         out.append(f"<h2>{'The page it made' if len(parts) == 1 else 'The pages it made'}</h2>" + "".join(parts))
     if rows:
@@ -2805,11 +2805,15 @@ def output_page(r, s, rows, files, a, hide, extra=""):
         "details pre{padding:10px 12px;border-top:1px solid #eee}details img{max-width:100%;display:block;margin:10px}"
         "iframe{width:100%;height:70vh;border:1px solid #bbb;border-radius:4px;background:#fff}"
         ".dim{color:#555;font-size:.9em}"
-        "</style></head><body><main><h1>What the run made</h1>"
+        "</style></head><body><main><h1 class=own>What the run made</h1>"
         + "".join(out)
         + extra
         + f'<p class="dim">Made with <a href="{SITE}">receipt.py</a> {VERSION}. Home folders are shown as ~. '
-        "Files written whole are shown as the run wrote them; files it edited, as they are on disk now.</p>"
+        "Files written whole are shown as the run wrote them; files it edited or changed afterward, as they are on disk "
+        "now.</p>"
+        # shown inside the receipt site, which has the receipt above it already, the page leaves out its own copy
+        "<script>if (window.top !== window.self) for (const x of document.querySelectorAll('.own')) x.hidden = true"
+        "</script>"
         "</main></body></html>"
     )
 

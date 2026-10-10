@@ -1744,6 +1744,8 @@ class OutputPage(Base):
         self.assertIn("make a page &lt;script&gt;alert(1)&lt;/script&gt;", page)  # shown, never run
         self.assertNotIn("<script>alert(1)", page)
         self.assertIn("files    4 files written or edited", page)  # the receipt itself
+        self.assertIn('<div class="paper own"><pre>Receipt v', page)  # left out when shown inside the receipt site
+        self.assertIn("if (window.top !== window.self) for (const x of document.querySelectorAll('.own'))", page)
         r = json.loads(self.ok("--json").stdout)
         self.assertFalse([k for k in r if k.startswith("_")])
 
