@@ -3,7 +3,7 @@
 usage: python3 receipt.py [SESSION] [options]
 
   no SESSION       the newest Claude Code session for the current folder
-  --codex          use Codex sessions instead; --opencode for OpenCode
+  --codex          use Codex sessions instead; --opencode for OpenCode, --qwen for Qwen Code
   --list           list this folder's recent sessions; then --pick N to choose one
   --all            with --list or --pick: sessions from every folder, not just this one
   --last N         only your last N prompts
@@ -92,7 +92,7 @@ FORM = (
     "https://docs.google.com/forms/d/e/1FAIpQLSfo7LHk0Ljj2NES_qAX3-OMIbxbql9fhCsSNSzVLF_bEXoXNA/viewform"
     "?usp=pp_url&entry.349092046=tool&entry.1393206370="
 )
-TOOLS = {"claude": "Claude Code", "codex": "Codex CLI", "opencode": "OpenCode"}
+TOOLS = {"claude": "Claude Code", "codex": "Codex CLI", "opencode": "OpenCode", "qwen": "Qwen Code"}
 LOCAL = {"ollama", "lmstudio", "oss", "llama.cpp", "llamacpp", "local", "vllm"}
 PLANS = {
     "claude_max": "Max plan",
@@ -705,6 +705,10 @@ def sessions(tool, everywhere=False):
         )
         fs.sort(key=os.path.getmtime, reverse=True)
         return fs if everywhere else [f for f in fs if same_folder(codex_cwd(f))]
+    if tool == "qwen":
+        fs = glob.glob(os.path.join(qwen_dir(), "projects", "*", "chats", "*.jsonl"))
+        fs.sort(key=os.path.getmtime, reverse=True)
+        return fs if everywhere else [f for f in fs if same_folder(qwen_cwd(f))]
     fs = glob.glob(os.path.join(claude_dir(), "projects", "*", "*.jsonl"))
     if not everywhere:
         slugs = {slug(h) for h in heres()}
@@ -718,13 +722,14 @@ def where(tool):
         "claude": tilde(os.path.join(claude_dir(), "projects", slug(os.getcwd()))),
         "codex": tilde(os.path.join(codex_dir(), "sessions")) + " (matched on folder)",
         "opencode": tilde(opencode_db()) + " (matched on folder)",
+        "qwen": tilde(os.path.join(qwen_dir(), "projects")) + " (matched on folder)",
     }[tool]
 
 
 def folder_of(tool, key):
     if tool == "opencode":
         return next((d for i, d, _ in oc_rows() if i == key), "")
-    return codex_cwd(key) if tool == "codex" else claude_cwd(key)
+    return {"codex": codex_cwd, "qwen": qwen_cwd}.get(tool, claude_cwd)(key)
 
 
 def changed(tool, key):
@@ -740,7 +745,7 @@ def first_prompt_of(tool, key):
             return text.strip().replace("\n", " ")
         return ""
     for d in lines(key):
-        t = codex_prompt(d) if tool == "codex" else claude_prompt(d)
+        t = {"codex": codex_prompt, "qwen": qwen_prompt}.get(tool, claude_prompt)(d)
         if t is not None:
             return t.strip().replace("\n", " ")
     return ""
@@ -755,8 +760,8 @@ def elsewhere(tool):
             slug(h) for h in heres()
         }
         n = sum(1 for f in fs if os.path.basename(os.path.dirname(f)) in others)
-    elif tool == "codex":
-        cwds = [codex_cwd(f) for f in sessions("codex", True)]
+    elif tool in ("codex", "qwen"):
+        cwds = [folder_of(tool, f) for f in sessions(tool, True)]
         others = {c for c in cwds if not same_folder(c)}
         n = sum(1 for c in cwds if c in others)
     else:
@@ -775,8 +780,9 @@ def elsewhere(tool):
             continue
         k = len(sessions(other))
         if k:
+            flags = [f"--{t}" for t in TOOLS if t != "claude"]
             how = (
-                "leave out --codex and --opencode"
+                f"leave out {', '.join(flags[:-1])} and {flags[-1]}"
                 if other == "claude"
                 else f"add --{other}"
             )
@@ -1870,6 +1876,218 @@ def opencode_turns(sid):
         for t in rows:
             t["own"] = 0
     return done_turns(rows, priced=not local)
+
+
+# ---------- Qwen Code ----------
+
+# Qwen Code (a fork of Gemini CLI) keeps one JSONL file per session in ~/.qwen/projects/<folder>/chats/. Each API
+# call is logged twice: on the reply, and as an api_response telemetry event. Only the events also cover calls made
+# in the background (its memory extractor), so they are the ledger; a log without them is read from the replies.
+QWEN_SHELL = ("run_shell_command",)
+QWEN_WRITES = {"write_file": "file_path", "edit": "file_path", "replace": "file_path"}
+GOOGLE_AUTH = ("gemini", "vertex-ai", "gemini-api-key", "oauth-personal")  # reasoning is counted apart from output
+
+
+def qwen_dir():
+    return os.path.expanduser(
+        os.environ.get("QWEN_RUNTIME_DIR") or os.environ.get("QWEN_HOME") or os.path.join(home(), ".qwen")
+    )
+
+
+def qwen_prompt(d):
+    """-> your prompt text if this entry is one, else None; Qwen Code marks what it adds itself with a subtype"""
+    if d.get("type") != "user" or d.get("subtype") or d.get("provenance", "real_user") != "real_user":
+        return None
+    parts = (d.get("message") or {}).get("parts") or []
+    text = "\n".join(
+        x["text"] for x in parts if isinstance(x, dict) and isinstance(x.get("text"), str) and not x.get("thought")
+    )
+    return text if text.strip() else None
+
+
+def qwen_cwd(path):
+    for i, d in enumerate(lines(path)):
+        if d.get("cwd"):
+            return d["cwd"]
+        if i > 50:
+            break
+    return ""
+
+
+def qwen_calls(path):
+    """-> [(line number, time, model, login type, usage)] for every API call the session made"""
+    events, replies, auth = [], [], None
+    for i, d in enumerate(lines(path)):
+        auth = (d.get("executionContext") or {}).get("authType") or auth
+        u = (d.get("systemPayload") or {}).get("uiEvent") or {}
+        if d.get("type") == "system" and str(u.get("event.name", "")).endswith("api_response"):
+            events.append((i, d.get("timestamp") or "", u.get("model"), u.get("auth_type") or auth, {
+                "in": u.get("input_token_count") or 0, "cached": u.get("cached_content_token_count") or 0,
+                "out": u.get("output_token_count") or 0, "thoughts": u.get("thoughts_token_count") or 0,
+                "ms": u.get("duration_ms") or 0}))  # fmt: skip
+        elif d.get("type") == "assistant" and d.get("usageMetadata"):
+            m = d["usageMetadata"]
+            replies.append((i, d.get("timestamp") or "", d.get("model"), auth, {
+                "in": m.get("promptTokenCount") or 0, "cached": m.get("cachedContentTokenCount") or 0,
+                "out": m.get("candidatesTokenCount") or 0, "thoughts": m.get("thoughtsTokenCount") or 0,
+                "ms": 0}))  # fmt: skip
+    return events or replies
+
+
+def qwen_call(bill, model, auth, u):
+    # the prompt count includes the cached tokens; reasoning is inside the output count, except on Google's API
+    out = u["out"] + (u["thoughts"] if auth in GOOGLE_AUTH else 0)
+    bill.add(model, [max(u["in"] - u["cached"], 0), u["cached"], 0, 0, out])
+    return u["in"], u["cached"], out
+
+
+QWEN_LOGINS = {
+    "openai": "an API key for an OpenAI-compatible service",
+    "anthropic": "an Anthropic API key",
+    "gemini": "a Gemini API key",
+    "vertex-ai": "Vertex AI",
+}
+
+
+def qwen_billing(auths):
+    auths = [x for x in dict.fromkeys(auths) if x]
+    if auths == ["qwen-oauth"]:
+        return "Qwen OAuth: a free daily allowance, not charged per run"
+    if auths:
+        how = " and ".join(QWEN_LOGINS.get(x, f"a {x} login") for x in auths)
+        return f"{how}: charged per token by that service, whose prices can differ from the list prices above"
+    return "not recorded in the session log"
+
+
+def qwen_window(path, part):
+    marks = [i for i, d in enumerate(lines(path)) if qwen_prompt(d) is not None] if part else []
+    sel, name = pick(len(marks), part)
+    return bounds(marks, sel), name
+
+
+def qwen_tool_calls(d):
+    """-> [(call id, tool name, args)] in a reply"""
+    return [
+        (fc.get("id"), fc.get("name") or "?", fc.get("args") or {})
+        for x in (d.get("message") or {}).get("parts") or []
+        for fc in [x.get("functionCall") if isinstance(x, dict) else None]
+        if isinstance(fc, dict)
+    ]
+
+
+def qwen(path, part=None):
+    win, name = qwen_window(path, part)
+    r = {"tool": "Qwen Code", "part": name}
+    versions, models, modes, auths, stamps = [], [], [], [], []
+    prompts, first_prompt, key = 0, None, None
+    calls, mcp = collections.Counter(), collections.Counter()
+    errors, interrupted, written, pending = 0, 0, set(), {}
+    for i, d in enumerate(lines(path)):
+        key = key or d.get("sessionId")
+        if not within(i, win):
+            continue
+        t, ts = d.get("type"), d.get("timestamp")
+        if ts:
+            stamps.append(ts)
+        versions.append(d.get("version"))
+        ctx = d.get("executionContext") or {}
+        modes.append(ctx.get("approvalMode"))
+        auths.append(ctx.get("authType"))
+        text = qwen_prompt(d)
+        if text is not None:
+            prompts += 1
+            first_prompt = first_prompt or text
+        elif t == "assistant":
+            for cid, n, args in qwen_tool_calls(d):
+                calls[n] += 1
+                if n.startswith("mcp__") or "__" in n:
+                    mcp[n] += 1
+                if n in QWEN_WRITES and args.get(QWEN_WRITES[n]):
+                    pending[cid] = args[QWEN_WRITES[n]]
+        elif t == "tool_result":
+            res = d.get("toolCallResult") or {}
+            if res.get("status") == "error" or res.get("error"):
+                errors += 1
+            elif res.get("callId") in pending:
+                written.add(pending[res["callId"]])
+        elif t == "system" and d.get("subtype") == "turn_result":
+            interrupted += (d.get("systemPayload") or {}).get("state") == "cancelled"
+    if not stamps:
+        sys.exit(f"receipt: {path} has no timestamped entries; is it a Qwen Code session log?")
+    bill, tin, tcached, tout, busy = Bill(), 0, 0, 0, 0
+    for i, ts, model, auth, u in qwen_calls(path):
+        if within(i, win):
+            a, c, o = qwen_call(bill, model, auth, u)
+            tin, tcached, tout, busy = tin + a, tcached + c, tout + o, busy + u["ms"]
+            models.append(model)
+            auths.append(auth)
+    r["version"] = span(versions)
+    r["models"] = list(dict.fromkeys(m for m in models if m))
+    r["effort"] = "not in Qwen Code logs"
+    r["permissions"] = f"approvals {span(modes)}"
+    r["started"], r["ended"] = min(stamps), max(stamps)
+    r["prompts"] = prompts
+    r["model_time_ms"] = busy or None
+    r["session_key"] = key or os.path.basename(path)
+    if bill.lines:
+        r["cost_usd"] = round(bill.total(), 6)
+        r["cost_note"] = "worked out from the logged calls at API list prices; Qwen Code logs no price"
+        priced(r, bill)
+    else:
+        r["cost_note"] = "Qwen Code logs no price" + (
+            f", and the price table has none for {', '.join(bill.unpriced)}" if bill.unpriced else ""
+        )
+    r["billing"] = qwen_billing(auths)
+    r["tokens_in"], r["tokens_cached"], r["tokens_out"] = tin, tcached, tout
+    r["tool_calls"] = sum(calls.values())
+    r["shell_commands"] = sum(calls.get(n, 0) for n in QWEN_SHELL)
+    r["web"] = sum(v for n, v in calls.items() if n.startswith("web_") or n.endswith("web_search"))
+    r["tool_errors"] = errors
+    r["interrupted"] = interrupted
+    files_part(r, sorted(written))
+    r["skills_used"] = {}
+    r["mcp_used"] = dict(mcp)
+    r["hooks"] = None
+    r["memory"] = None
+    r["first_prompt"] = first_prompt
+    return r
+
+
+def qwen_turns(path):
+    by_line = collections.defaultdict(list)
+    for c in qwen_calls(path):
+        by_line[c[0]].append(c)
+    rows, pending = [], {}
+    for i, d in enumerate(lines(path)):
+        ts, t = d.get("timestamp") or "", d.get("type")
+        text = qwen_prompt(d)
+        if text is not None:
+            rows.append(new_turn(ts, text))
+            continue
+        if not rows:
+            continue
+        cur = rows[-1]
+        for _, cts, model, auth, u in by_line.get(i, []):
+            qwen_call(cur["bill"], model, auth, u)
+            cur["model"] = cur["model"] or model
+            cur["end"] = max(cur["end"], cts)
+        if t in ("assistant", "tool_result"):
+            cur["end"] = max(cur["end"], ts)
+        if t == "assistant":
+            said = [x["text"] for x in (d.get("message") or {}).get("parts") or []
+                    if isinstance(x, dict) and isinstance(x.get("text"), str) and not x.get("thought")]  # fmt: skip
+            if "".join(said).strip():
+                cur["texts"][i], cur["reply_of"] = said, i
+            for cid, n, args in qwen_tool_calls(d):
+                cur["tools"] += 1
+                cur["shell"] += n in QWEN_SHELL
+                if n in QWEN_WRITES and args.get(QWEN_WRITES[n]):
+                    pending[cid] = args[QWEN_WRITES[n]]
+        elif t == "tool_result":
+            res = d.get("toolCallResult") or {}
+            if res.get("status") != "error" and not res.get("error") and res.get("callId") in pending:
+                cur["files"].add(pending[res["callId"]])
+    return done_turns(rows)
 
 
 # ---------- a record of what went in and came out ----------
@@ -3194,7 +3412,7 @@ NO_CALL = "(no model call)"  # a prompt stopped before the model answered, or a 
 
 def totals(tool, keys, by, since, until):
     """-> {bucket: sums} over every prompt in these sessions sent between since and until (local dates)"""
-    turns_of = {"claude": claude_turns, "codex": codex_turns, "opencode": opencode_turns}[tool]
+    turns_of = {"claude": claude_turns, "codex": codex_turns, "opencode": opencode_turns, "qwen": qwen_turns}[tool]
     out, priced = {}, True
     for key in keys:
         folder = base_name(folder_of(tool, key)) or "?"
@@ -3841,6 +4059,7 @@ def main():
     ap.add_argument("--version", action="version", version=f"receipt.py {VERSION}")
     ap.add_argument("--codex", action="store_true")
     ap.add_argument("--opencode", action="store_true")
+    ap.add_argument("--qwen", action="store_true")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--pick", type=int)
@@ -3920,8 +4139,8 @@ def main():
     part = ("last", a.last) if a.last else turn_range(a.turns)
     if a.last and part and a.turns not in (None, "all"):
         sys.exit("receipt: pick one of --last N and --turns A-B")
-    if a.codex and a.opencode:
-        sys.exit("receipt: pick one of --codex and --opencode")
+    if sum(map(bool, (a.codex, a.opencode, a.qwen))) > 1:
+        sys.exit("receipt: pick one of --codex, --opencode and --qwen")
     if a.redact and not (a.prompt or a.reply or a.outcome or a.recipe):
         sys.exit(
             "receipt: --redact changes text the receipt shows, so it needs --prompt, --reply, --recipe or --outcome"
@@ -3968,7 +4187,7 @@ def main():
         sys.exit(
             "receipt: --sign signs what is saved, so add --out FILE, --record FILE or both"
         )
-    tool = "codex" if a.codex else "opencode" if a.opencode else "claude"
+    tool = "codex" if a.codex else "opencode" if a.opencode else "qwen" if a.qwen else "claude"
 
     if a.statusline:
         if any(v not in (None, False, [], "") for k, v in vars(a).items() if k != "statusline"):
@@ -4053,9 +4272,12 @@ def main():
             tool = "claude"
         elif a.session:
             path = a.session
-            if not (a.codex or a.opencode):
+            if not (a.codex or a.opencode or a.qwen):
+                where_ = os.path.abspath(path).replace(os.sep, "/")
                 if a.session.startswith("ses_") and not os.path.exists(a.session):
                     tool = "opencode"
+                elif where_.startswith(qwen_dir().replace(os.sep, "/") + "/") or "/.qwen/" in where_:
+                    tool = "qwen"
                 elif (
                     os.path.basename(path).startswith("rollout-")
                     or os.path.abspath(path).startswith(codex_dir() + os.sep)
@@ -4093,13 +4315,7 @@ def main():
                 sys.exit(
                     f"receipt: --pick {n}, but {scope} has {found} sessions (see --list)"
                 )
-        r = (
-            opencode(path, part)
-            if tool == "opencode"
-            else codex(path, part)
-            if tool == "codex"
-            else claude(path, part)
-        )
+        r = {"opencode": opencode, "codex": codex, "qwen": qwen, "claude": claude}[tool](path, part)
         r["receipt_version"] = VERSION
         r["duration_ms"] = round(
             (when(r["ended"]) - when(r["started"])).total_seconds() * 1000
@@ -4124,6 +4340,7 @@ def main():
                 "claude": claude_turns,
                 "codex": codex_turns,
                 "opencode": opencode_turns,
+                "qwen": qwen_turns,
             }[tool](path)
             sel, _ = pick(len(rows), part)
             rows = rows[sel[0] : sel[1]] if sel else rows
@@ -4153,6 +4370,8 @@ def main():
             a.outcome.strip(), a.redact, "your --outcome note", "--outcome"
         )
     record = None
+    if (a.record or a.bundle) and tool not in ("claude", "codex", "opencode"):
+        sys.exit(f"receipt: --record and --bundle don't cover {TOOLS[tool]} sessions yet")
     if a.record or a.bundle:
         record = make_record(
             r, tool, path, part, a.file_names, a.counts, hide, renames, rows
@@ -4295,6 +4514,11 @@ def recipe(r, rows, prompts, hide, renames):
                 else ""
             )
             cmds.append(f"opencode run{' -c' if i else ''}{tail} {q(p)}")
+        elif r["tool"] == "Qwen Code":
+            mode = re.match(r"approvals (\S+)$", settings)
+            tail = f" -m {q(model)}" if model else ""
+            tail += f" --approval-mode {q(mode.group(1))}" if mode and mode.group(1) != "default" else ""
+            cmds.append(f"qwen{' --continue' if i else ''}{tail} {q(p)}")
     return cmds
 
 

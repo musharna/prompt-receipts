@@ -1351,5 +1351,102 @@ class StatusLine(Base):
         self.assertNotIn("plan_use", json.loads(self.ok(path, "--json", "--hide", "billing").stdout))
 
 
+class Qwen(Base):
+    """Qwen Code: one JSONL per session; each API call logged on the reply and as an api_response event"""
+
+    def setUp(self):
+        super().setUp()
+        self.qhome = os.path.join(self.home, "qwen-home")
+        self.env["QWEN_HOME"] = self.qhome
+
+    def qwen_log(self, telemetry=True, auth="qwen-oauth", name="q1", thoughts=0):
+        def rec(t, ts_, **kw):
+            return {"uuid": f"u{ts_}", "sessionId": name, "timestamp": ts(ts_), "type": t, "cwd": self.proj,
+                    "version": "0.25.0", **kw}  # fmt: skip
+
+        def api(ts_, inp, cached, out, thoughts=0, sub=None):
+            ev = {"event.name": "qwen-code.api_response", "model": "qwen3-coder-plus", "duration_ms": 2000,
+                  "input_token_count": inp, "cached_content_token_count": cached, "output_token_count": out,
+                  "thoughts_token_count": thoughts, "auth_type": auth}  # fmt: skip
+            if sub:
+                ev["subagent_name"] = sub
+            return rec("system", ts_, subtype="ui_telemetry", systemPayload={"uiEvent": ev})
+
+        def reply(ts_, inp, cached, out, parts, thoughts=0):
+            return rec("assistant", ts_, model="qwen3-coder-plus", message={"role": "model", "parts": parts},
+                       usageMetadata={"promptTokenCount": inp, "cachedContentTokenCount": cached,
+                                      "candidatesTokenCount": out, "thoughtsTokenCount": thoughts})  # fmt: skip
+
+        call = lambda cid, n, args: {"functionCall": {"id": cid, "name": n, "args": args}}  # noqa: E731
+        es = [
+            rec("user", 0, executionContext={"modelId": "qwen3-coder-plus", "authType": auth, "approvalMode": "yolo"},
+                message={"role": "user", "parts": [{"text": "make hello.txt"}]}),
+            rec("user", 0, subtype="notification", message={"role": "user", "parts": [{"text": "a notice"}]}),
+            api(1, 20000, 0, 100, thoughts),
+            reply(1, 20000, 0, 100, [{"text": "thinking", "thought": True}, {"text": "ok"},
+                                     call("c1", "write_file", {"file_path": os.path.join(self.proj, "hello.txt"), "content": "hi"}),
+                                     call("c2", "run_shell_command", {"command": "ls"}),
+                                     call("c3", "write_file", {"file_path": os.path.join(self.proj, "nope.txt"), "content": "x"})]),
+            rec("tool_result", 2, toolCallResult={"callId": "c1", "status": "success"}),
+            rec("tool_result", 2, toolCallResult={"callId": "c2", "status": "success"}),
+            rec("tool_result", 2, toolCallResult={"callId": "c3", "status": "error", "error": {"message": "denied"}}),
+            api(3, 21000, 20000, 20),
+            reply(3, 21000, 20000, 20, [{"text": "made hello.txt"}]),
+            api(4, 5000, 0, 200, sub="managed-auto-memory-extractor"),  # in the background: no reply logged
+            rec("user", 5, executionContext={"authType": auth, "approvalMode": "yolo"},
+                message={"role": "user", "parts": [{"text": "stop"}]}),
+            rec("system", 6, subtype="turn_result", systemPayload={"state": "cancelled"}),
+        ]  # fmt: skip
+        if not telemetry:
+            es = [e for e in es if e.get("subtype") != "ui_telemetry"]
+        folder = os.path.join(self.qhome, "projects", slug(self.proj), "chats")
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, f"{name}.jsonl")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in es))
+        return path
+
+    def test_receipt(self):
+        self.qwen_log()
+        out = self.ok("--qwen").stdout
+        self.assertIn("Receipt v6.0 · Qwen Code 0.25.0", out)
+        self.assertIn("2 prompts from me", out)  # Qwen Code's own notice isn't a prompt
+        # all three calls, the memory extractor's too: 46k in (20k cached), 320 out
+        self.assertIn("tokens   in 46k (20k cached) · out 320", out)
+        self.assertIn("work     3 tool calls, 1 shell command · web 0 · 1 failed call · interrupted 1×", out)
+        self.assertIn("files    1 file written or edited (.txt)", out)  # the failed write isn't one
+        self.assertIn("billing  Qwen OAuth: a free daily allowance", out)
+        self.assertIn("settings approvals yolo", out)
+        r = json.loads(self.ok("--qwen", "--json").stdout)
+        # 26k uncached at $1/M, 20k cached at $0.10/M, 320 out at $5/M
+        self.assertAlmostEqual(r["cost_usd"], 0.026 + 0.002 + 0.0016, places=6)
+
+    def test_replies_when_there_is_no_telemetry(self):
+        self.qwen_log(telemetry=False)
+        out = self.ok("--qwen").stdout
+        self.assertIn("tokens   in 41k (20k cached) · out 120", out)  # no background call to see
+
+    def test_google_reasoning_is_extra_output(self):
+        self.qwen_log(auth="gemini", thoughts=50)
+        r = json.loads(self.ok("--qwen", "--json").stdout)
+        self.assertEqual(r["tokens_out"], 370)  # Google counts reasoning apart from the output
+        self.assertIn("a Gemini API key", r["billing"])
+        self.qwen_log(thoughts=50)  # the same session on Qwen's own login: reasoning is inside the output
+        self.assertEqual(json.loads(self.ok("--qwen", "--json").stdout)["tokens_out"], 320)
+
+    def test_turns_recipe_list_and_totals(self):
+        path = self.qwen_log()
+        out = self.ok(path, "--turns", "--recipe").stdout  # found as Qwen Code from where it lives
+        self.assertRegex(out, r"turns    1  \d+:\d\d [AP]M · 4 min · \$0\.03 · 3 tool calls, 1 shell command · 1 file")
+        self.assertIn("rerun    qwen -m qwen3-coder-plus --approval-mode yolo 'make hello.txt'", out)
+        self.assertIn("qwen --continue -m qwen3-coder-plus --approval-mode yolo stop", out)
+        self.assertIn("make hello.txt", self.ok("--qwen", "--list").stdout)
+        self.assertRegex(self.ok("--qwen", "--totals").stdout, r"\ntotal +\$0\.03 +1 +2 ")
+        p = self.run_receipt("--qwen", "--record", os.path.join(self.home, "r.json"))
+        self.assertIn("don't cover Qwen Code sessions yet", p.stderr)
+        p = self.run_receipt("--qwen", "--codex")
+        self.assertIn("pick one of --codex, --opencode and --qwen", p.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
