@@ -1973,8 +1973,9 @@ class ShopReceipt(Base):
             os.chdir(self.proj)
             try:
                 with mock.patch.dict(os.environ, dict(self.env, RECEIPT_BROWSER=fake), clear=True), \
-                        mock.patch.object(sys, "argv", ["receipt", "--out", out, "--shot", *more]):
-                    mod.main()
+                        mock.patch.object(sys, "argv", ["receipt", "--out", out, "--shot", *more]), \
+                        mock.patch("socket.getfqdn", side_effect=AssertionError("looked up 127.0.0.1's name")):
+                    mod.main()  # no name lookup for the page's server: on some Macs it takes ~35 s
             finally:
                 os.chdir(here)
             rows, pic = drawn[0]

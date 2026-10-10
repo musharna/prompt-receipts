@@ -84,6 +84,7 @@ import re
 import shlex
 import shutil
 import signal
+import socketserver
 import sqlite3
 import struct
 import subprocess
@@ -3360,6 +3361,12 @@ class QuietFiles(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+class LocalServer(http.server.ThreadingHTTPServer):
+    def server_bind(self):  # without the name lookup of 127.0.0.1 http.server does, which takes ~35 s on some Macs
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+
 def shot(outputs, tmp):
     """-> a PNG of the first page the run made, taken with a headless browser, from the files that go in the
     bundle, laid out in their folders. They are served from 127.0.0.1, and only while the picture is taken:
@@ -3399,7 +3406,7 @@ def shot(outputs, tmp):
         )
     png = os.path.join(tmp, "preview.png")
     # no --user-data-dir: given a profile of its own, Chromium starts as a whole browser and doesn't exit
-    srv = http.server.ThreadingHTTPServer(
+    srv = LocalServer(
         ("127.0.0.1", 0), functools.partial(QuietFiles, directory=folder)
     )
     threading.Thread(target=srv.serve_forever, daemon=True).start()
