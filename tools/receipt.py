@@ -34,8 +34,8 @@ usage: python3 receipt.py [SESSION] [options]
   --out PATH       save it to a file (.txt, .md, .json or .png) or into a folder
   --png            with --out: draw it as a picture, for posting where text gets mangled: what was asked
                    for, what it made, what it took and the total
-  --picture F.png  with --png: put a picture of what the run made on it (with --shot: a screenshot of the
-                   page it made)
+  --picture F.png  with --png: put a picture of what the run made on it, or a .wav's spectrogram (with
+                   --shot: a screenshot of the page it made)
   --link           also print a link that shows the receipt on the site; the receipt is inside the link, so
                    nothing is uploaded
   --report         also print a link to the Prompt Receipts form with this receipt filled in
@@ -67,6 +67,7 @@ MIT License, Copyright (c) 2026 Jaret Arnold: https://github.com/musharna/prompt
 Prompts and page text: https://musharna.github.io/prompt-receipts/ (CC BY 4.0)."""
 
 import argparse
+import array
 import base64
 import bisect
 import collections
@@ -78,6 +79,7 @@ import html
 import http.server
 import itertools
 import json
+import math
 import mimetypes
 import os
 import re
@@ -97,7 +99,7 @@ import urllib.parse
 import zipfile
 import zlib
 
-VERSION = "7.3"
+VERSION = "7.4"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 SITE = "https://musharna.github.io/prompt-receipts/"
 LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters
@@ -4892,7 +4894,7 @@ def png(rows, scale=2, pic=None):
 
 def pixels(data, what):
     """PNG bytes -> (width, height, RGB rows), see-through parts laid on the receipt's paper. Reads the PNGs
-    browsers and most programs save (8 bits a channel, not interlaced); stops with a message on others"""
+    browsers and most programs save (8 or 16 bits a channel, not interlaced); stops with a message on others"""
     if data[:8] != b"\x89PNG\r\n\x1a\n":
         sys.exit(f"receipt: {what} isn't a PNG; save it as one (a screenshot tool's PNG works)")
     pos, idat, plte, trns = 8, [], b"", b""
@@ -4911,14 +4913,15 @@ def pixels(data, what):
         elif tag == b"IEND":
             break
         pos += 12 + n
-    if depth != 8 or lace or kind not in (0, 2, 3, 4, 6):
-        sys.exit(f"receipt: {what} is a kind of PNG receipt.py can't read (it reads 8 bits a channel, not "
+    if depth not in (8, 16) or (kind == 3 and depth != 8) or lace or kind not in (0, 2, 3, 4, 6):
+        sys.exit(f"receipt: {what} is a kind of PNG receipt.py can't read (it reads 8 or 16 bits a channel, not "
                  "interlaced); save it again as an ordinary PNG")  # fmt: skip
     try:
         raw = zlib.decompress(b"".join(idat))
     except zlib.error as e:
         sys.exit(f"receipt: {what} is damaged ({e})")
-    bpp = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[kind]
+    ch = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[kind]  # samples a pixel
+    bpp = ch * depth // 8  # bytes a pixel, which the row filters work in
     stride = w * bpp
     if len(raw) < h * (stride + 1):
         sys.exit(f"receipt: {what} is cut short")
@@ -4943,6 +4946,8 @@ def pixels(data, what):
         elif f:
             sys.exit(f"receipt: {what} is damaged (row filter {f})")
         prev = line
+        if depth == 16:  # the high byte of each sample is plenty for a picture on a receipt
+            line = line[0::2]
         if kind == 2:
             rows.append(bytes(line))
             continue
@@ -4953,7 +4958,7 @@ def pixels(data, what):
                 px = plte[i * 3 : i * 3 + 3] or b"\0\0\0"
                 alpha = trns[i] if i < len(trns) else 255
             elif kind in (0, 4):
-                px, alpha = bytes([line[x * bpp]] * 3), (line[x * bpp + 1] if kind == 4 else 255)
+                px, alpha = bytes([line[x * ch]] * 3), (line[x * ch + 1] if kind == 4 else 255)
             else:
                 px, alpha = line[x * 4 : x * 4 + 3], line[x * 4 + 3]
             out += bytes((v * alpha + q * (255 - alpha)) // 255 for v, q in zip(px, paper))
@@ -4962,10 +4967,12 @@ def pixels(data, what):
 
 
 def shrink(w, h, rows, most):
-    """make a picture at most `most` pixels wide, each new pixel the average of the ones it covers"""
-    if w <= most:
+    """make a picture fit a square `most` pixels a side (a tall one would make a receipt metres long), each
+    new pixel the average of the ones it covers"""
+    if w <= most and h <= most:
         return w, h, rows
-    nw, nh = most, max(1, round(h * most / w))
+    k = min(most / w, most / h)
+    nw, nh = max(1, round(w * k)), max(1, round(h * k))
     xs = [(x * w // nw, max(x * w // nw + 1, (x + 1) * w // nw)) for x in range(nw)]
     out = []
     for y in range(nh):
@@ -4979,6 +4986,137 @@ def shrink(w, h, rows, most):
             line += bytes(sum(acc[x_a * 3 + c : x_b * 3 : 3]) // n for c in range(3))
         out.append(bytes(line))
     return nw, nh, out
+
+
+MAGMA = [(0, 0, 4), (28, 16, 68), (79, 18, 123), (129, 37, 129), (181, 54, 122), (229, 80, 100),
+         (251, 135, 97), (254, 194, 135), (252, 253, 191)]  # quiet to loud, as spectrograms are often coloured
+
+
+def sound(data, what, wide=960, tall=240):
+    """WAV bytes -> (its spectrogram as (width, height, RGB rows), a line saying how to read it): time left to
+    right, pitch (on the mel scale, as ears hear it) bottom to top, loudness as colour, the loudest part
+    brightest. Reads the WAVs most programs save (whole-number samples of 8 to 32 bits, or 32- or 64-bit
+    floats); stops with a message on others. Only the stretches each column needs are read, so a long file
+    takes no longer than a short one"""
+    if data[:4] in (b"RF64", b"BW64", b"RIFX") and data[8:12] == b"WAVE":
+        sys.exit(f"receipt: {what} is a kind of WAV receipt.py can't read ({data[:4].decode()}); "
+                 "save it again as an ordinary WAV")  # fmt: skip
+    if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+        sys.exit(f"receipt: {what} isn't a WAV")
+    pos, fmt, body = 12, None, None
+    while pos + 8 <= len(data):
+        tag, n = struct.unpack("<4sI", data[pos : pos + 8])
+        if tag == b"fmt ":
+            fmt = data[pos + 8 : pos + 8 + n]
+        elif tag == b"data":
+            body = data[pos + 8 : pos + 8 + n]
+        pos += 8 + n + (n & 1)
+    if fmt is None or body is None or len(fmt) < 16:
+        sys.exit(f"receipt: {what} is damaged (no {'fmt' if fmt is None or len(fmt) < 16 else 'data'} part)")
+    code, ch, rate, _, align, bits = struct.unpack("<HHIIHH", fmt[:16])
+    if code == 0xFFFE and len(fmt) >= 26:  # WAVE_FORMAT_EXTENSIBLE: the kind is in its sub-format
+        code = struct.unpack("<H", fmt[24:26])[0]
+    size = align // ch if ch else 0  # bytes a sample takes, whatever its bits
+    kind = {(1, 1): "B", (1, 2): "h", (1, 3): "i", (1, 4): "i", (3, 4): "f", (3, 8): "d"}.get((code, size))
+    if not kind or rate < 1 or align != size * ch:
+        sys.exit(f"receipt: {what} is a kind of WAV receipt.py can't read (it reads whole-number samples of 8 "
+                 "to 32 bits and 32- or 64-bit floats); save it again as an ordinary WAV")  # fmt: skip
+    frames = len(body) // align
+    if not frames:
+        sys.exit(f"receipt: {what} has no sound in it")
+    scale = {"B": 1 / 128, "h": 1 / 32768, "i": 1 / 2**31, "f": 1.0, "d": 1.0}[kind] / ch
+    n = 1024  # samples a column hears
+    hann = [0.5 - 0.5 * math.cos(2 * math.pi * i / n) for i in range(n)]
+
+    def heard(start):  # n samples from frame `start`, the channels mixed into one, silence outside the file
+        lo, hi = max(start, 0), min(start + n, frames)
+        if lo >= hi:
+            return [0.0] * n
+        raw = body[lo * align : hi * align]
+        if size == 3:  # 24-bit: shifted into 32, low byte empty
+            wide4 = bytearray(len(raw) // 3 * 4)
+            for k in range(3):
+                wide4[k + 1 :: 4] = raw[k::3]
+            raw = bytes(wide4)
+        v = array.array(kind, raw)
+        if sys.byteorder == "big" and v.itemsize > 1:
+            v.byteswap()
+        if kind == "B":
+            v = [x - 128 for x in v]
+        mono = list(v) if ch == 1 else [sum(t) for t in zip(*(v[c::ch] for c in range(ch)))]
+        return [0.0] * (lo - start) + [x * scale for x in mono] + [0.0] * (start + n - hi)
+
+    rev = [int(format(i, "010b")[::-1], 2) for i in range(n)]
+    tw = [complex(math.cos(-2 * math.pi * k / n), math.sin(-2 * math.pi * k / n)) for k in range(n // 2)]
+
+    def fft(z):
+        a = [z[i] for i in rev]
+        size2 = 2
+        while size2 <= n:
+            half, step = size2 // 2, n // size2
+            ws = tw[::step][:half]
+            for s0 in range(0, n, size2):
+                for k in range(half):
+                    i, j = s0 + k, s0 + k + half
+                    t = ws[k] * a[j]
+                    a[j] = a[i] - t
+                    a[i] += t
+            size2 *= 2
+        return a
+
+    top = min(rate / 2, 16000)
+    df = rate / n
+
+    def mel(f):
+        return 2595 * math.log10(1 + f / 700)
+
+    def hz(m):
+        return 700 * (10 ** (m / 2595) - 1)
+
+    bands = []  # the FFT bins each row of pixels covers, lowest pitch first
+    for r in range(tall):
+        f0, f1 = hz(mel(top) * r / tall), hz(mel(top) * (r + 1) / tall)
+        b0 = min(int(f0 / df), n // 2)
+        bands.append((b0, max(b0 + 1, min(math.ceil(f1 / df), n // 2 + 1))))
+    cols = []
+    for c in range(0, wide, 2):  # two real columns go through one complex FFT
+        x, y = (heard(int((c + d + 0.5) * frames / wide) - n // 2) for d in (0, 1))
+        z = fft([complex(p * w, q * w) for p, q, w in zip(x, y, hann)])
+        for part in (0, 1):
+            power = []
+            for k in range(n // 2 + 1):
+                zk, zn = z[k % n], z[-k % n].conjugate()
+                v = (zk + zn) / 2 if part == 0 else (zk - zn) / 2j
+                power.append(v.real * v.real + v.imag * v.imag)
+            cols.append([sum(power[b0:b1]) / (b1 - b0) for b0, b1 in bands])
+    cols = cols[:wide]
+    loud = max(max(c) for c in cols)
+    peak = 10 * math.log10(loud) if loud > 0 else 0
+    lut = []
+    for i in range(256):
+        f = i / 255 * (len(MAGMA) - 1)
+        lo_c, hi_c, t = MAGMA[int(f)], MAGMA[min(int(f) + 1, len(MAGMA) - 1)], f - int(f)
+        lut.append(bytes(round(p + (q - p) * t) for p, q in zip(lo_c, hi_c)))
+    rows = []
+    for r in range(tall - 1, -1, -1):  # high pitches at the top
+        line = bytearray()
+        for c in cols:
+            v = (10 * math.log10(c[r]) - peak + 80) / 80 if c[r] > 0 and loud > 0 else 0
+            line += lut[max(0, min(255, int(v * 255)))]
+        rows.append(bytes(line))
+    secs = frames / rate
+    long_ = f"{secs:.2g} s" if secs < 10 else f"{int(secs // 60)}:{int(secs % 60):02d}"
+    note = f"the sound as a spectrogram: {long_} across, 0-{top / 1000:g} kHz up"
+    return (len(cols), tall, rows), note + (" (silent)" if not loud else "")
+
+
+def look(data, what):
+    """--picture's file -> (picture, note): a PNG as it is, a WAV as its spectrogram"""
+    if data[8:12] == b"WAVE":
+        return sound(data, what)
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        sys.exit(f"receipt: {what} isn't a PNG or a WAV; save it as one")
+    return pixels(data, what), None
 
 
 PNG_COLS = 62  # narrow enough to stay legible when a feed shrinks the picture to a phone's width
@@ -5007,7 +5145,7 @@ def fold(value, n):
     return out + [cur]
 
 
-def picture(s, table=False, pic=None, total=None):
+def picture(s, table=False, pic=None, total=None, note=None):
     """a receipt's lines wrap under their label (s is made at PNG_COLS); a comparison table keeps its columns.
     A receipt reads like one from a shop: what was asked for, what it made (with a picture of it if given),
     what it took, and the total"""
@@ -5041,6 +5179,8 @@ def picture(s, table=False, pic=None, total=None):
         rows.append(("MADE", 3))
         if pic:
             rows.append((None, 0))
+            if note:
+                rows += [(x, 3) for x in textwrap.wrap(note, PNG_COLS)]
         for label, values in made:
             rows += [(x, 1 if label.strip() == "files" else 3) for x in fold(" ".join(v.strip() for v in values), PNG_COLS)]
         rows.append(rule)
@@ -5229,11 +5369,11 @@ def main():
     if a.picture and (many_in or a.list or a.totals):
         sys.exit("receipt: --picture goes on one session's receipt, so it can't go with --combine, --compare, "
                  "--list or --totals")  # fmt: skip
-    pic = None
+    pic = note = None
     if a.picture:  # read it now, so a file it can't use stops it before anything is made
         try:
             with open(os.path.expanduser(a.picture), "rb") as fh:
-                pic = pixels(fh.read(), a.picture)
+                pic, note = look(fh.read(), a.picture)
         except OSError as e:
             sys.exit(f"receipt: can't read --picture {a.picture} ({e.strerror})")
     if a.bundle and (many_in or a.list):
@@ -5503,7 +5643,7 @@ def main():
             pic = pixels(shot(outputs, tmp), "the screenshot")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
-    saved = [emit(a, r, s, payload, pic=pic)]
+    saved = [emit(a, r, s, payload, pic=pic, note=note)]
     if a.record:
         rp = os.path.expanduser(a.record)
         with open(rp, "wb") as fh:
@@ -5657,12 +5797,12 @@ def nothing_found(tool, everywhere):
     sys.exit("\n  ".join([msg] + hints))
 
 
-def emit(a, r, s, payload, table=False, pic=None):
+def emit(a, r, s, payload, table=False, pic=None, note=None):
     if a.png:
         total = None
         if not table and r.get("cost_usd") is not None and any(x.startswith("cost     $") for x in s.split("\n")):
             total = ("TOTAL at API prices" if "API" in r.get("cost_note", "") else "TOTAL", money(r["cost_usd"]))
-        data, ext = picture(s, table, pic, total), "png"
+        data, ext = picture(s, table, pic, total, note), "png"
     elif payload is not None:
         data, ext = payload, "json"
     else:

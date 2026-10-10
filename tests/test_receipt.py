@@ -8,6 +8,7 @@ import datetime
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import re
 import shlex
@@ -282,7 +283,7 @@ class Receipts(Base):
     def test_claude_code_receipt(self):
         self.claude_log()
         out = self.ok().stdout
-        self.assertIn("Receipt v7.3 · Claude Code 2.1.300", out)
+        self.assertIn("Receipt v7.4 · Claude Code 2.1.300", out)
         self.assertIn(
             "2 prompts from me", out
         )  # the "[Request interrupted" line isn't a prompt
@@ -337,7 +338,7 @@ class Receipts(Base):
     def test_opencode(self):
         self.opencode_db()
         out = self.ok("--opencode").stdout
-        self.assertIn("Receipt v7.3 · OpenCode 1.18.31", out)
+        self.assertIn("Receipt v7.4 · OpenCode 1.18.31", out)
         self.assertIn("qwen3:8b (ollama, on this computer)", out)
         self.assertIn("2 prompts from me", out)
         self.assertIn("1 failed call", out)
@@ -411,7 +412,7 @@ class Receipts(Base):
             "prompt_id",
         ):
             self.assertNotIn(k, r)
-        self.assertEqual(r["receipt_version"], "7.3")
+        self.assertEqual(r["receipt_version"], "7.4")
         self.assertEqual(r["tool_errors"], 1)
         names = json.loads(self.ok("--json", "--file-names").stdout)["file_names"]
         self.assertEqual(names, ["index.html"])
@@ -425,7 +426,7 @@ class Receipts(Base):
         self.assertIn("warning  found your prompts but no model reply", p.stdout)
 
     def test_version(self):
-        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.3")
+        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.4")
 
     # ---------- output ----------
 
@@ -458,7 +459,7 @@ class Receipts(Base):
         url = out.strip().split("\n")[-1]
         self.assertTrue(url.startswith("https://docs.google.com/forms/"), url)
         self.assertIn("entry.349092046=tool", url)
-        self.assertIn("entry.1393206370=Receipt%20v7.3", url)
+        self.assertIn("entry.1393206370=Receipt%20v7.4", url)
 
     def test_hook_saves_a_receipt(self):
         log = self.claude_log()
@@ -475,7 +476,7 @@ class Receipts(Base):
         saved = os.listdir(folder)
         self.assertEqual(len(saved), 1)
         with open(os.path.join(folder, saved[0]), encoding="utf-8") as f:
-            self.assertIn("Receipt v7.3 · Claude Code", f.read())
+            self.assertIn("Receipt v7.4 · Claude Code", f.read())
 
     def test_combine_and_compare(self):
         self.claude_log()
@@ -1227,7 +1228,7 @@ class Totals(Base):
 
     def test_by_day_in_this_folder(self):
         out = self.ok("--totals").stdout
-        self.assertIn("Totals v7.3 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
+        self.assertIn("Totals v7.4 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
         self.assertRegex(out, r"\nThu 1 Oct 2026 +\$4\.00 +1 +1 ")
         self.assertRegex(out, r"\nSat 3 Oct 2026 +\$2\.00 +1 +2 ")
         self.assertRegex(out, r"\ntotal +\$6\.00 +1 +3 ")
@@ -1414,7 +1415,7 @@ class Qwen(Base):
     def test_receipt(self):
         self.qwen_log()
         out = self.ok("--qwen").stdout
-        self.assertIn("Receipt v7.3 · Qwen Code 0.25.0", out)
+        self.assertIn("Receipt v7.4 · Qwen Code 0.25.0", out)
         self.assertIn("2 prompts from me", out)  # Qwen Code's own notice isn't a prompt
         # all three calls, the memory extractor's too: 46k in (20k cached), 320 out
         self.assertIn("tokens   in 46k (20k cached) · out 320", out)
@@ -1515,7 +1516,7 @@ class Gemini(Base):
     def test_receipt(self):
         self.gemini_log()
         out = self.ok("--gemini").stdout
-        self.assertIn("Receipt v7.3 · Gemini CLI · ", out)  # no version is logged
+        self.assertIn("Receipt v7.4 · Gemini CLI · ", out)  # no version is logged
         self.assertIn("2 prompts from me", out)  # its opening message and the tool results aren't prompts
         # each reply once, and the subagent's: 36k in (18k cached); out counts the 40 tokens of reasoning
         self.assertIn("tokens   in 36k (18k cached) · out 186", out)
@@ -1609,7 +1610,7 @@ class Copilot(Base):
     def test_receipt(self):
         self.copilot_log()
         out = self.ok("--copilot").stdout
-        self.assertIn("Receipt v7.3 · Copilot CLI 1.0.95", out)
+        self.assertIn("Receipt v7.4 · Copilot CLI 1.0.95", out)
         self.assertIn("model    claude-opus-4.7 · effort high → xhigh", out)
         self.assertIn("2 prompts from me", out)  # the skill's message isn't one
         # the three calls only: the input counts include cache reads and writes, the output the reasoning
@@ -1817,9 +1818,9 @@ def paeth(a, b, c):
     return a if pa <= pb and pa <= pc else b if pb <= pc else c
 
 
-def png_file(path, w, h, rows, kind=6, depth=8):
+def png_file(path, w, h, rows, kind=6, depth=8, lace=0):
     """write a PNG the way other programs do: each row with one of the five filters, in turn"""
-    bpp = {2: 3, 6: 4}[kind]
+    bpp = {2: 3, 6: 4}[kind] * depth // 8
     raw, prev = b"", bytes(w * bpp)
     for y, line in enumerate(rows):
         f = y % 5
@@ -1835,8 +1836,33 @@ def png_file(path, w, h, rows, kind=6, depth=8):
         return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
 
     with open(path, "wb") as fh:
-        fh.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, depth, kind, 0, 0, 0))
+        fh.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, depth, kind, 0, 0, lace))
                  + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+
+def wav_bytes(samples, rate=44100, ch=1, bits=16, code=1, extensible=False):
+    """-> a WAV of samples (-1 to 1, channels interleaved), stored as whole numbers of `bits` or as floats (code 3)"""
+    if code == 3:
+        body = struct.pack(f"<{len(samples)}{'f' if bits == 32 else 'd'}", *samples)
+    elif bits == 8:
+        body = bytes(int(128 + x * 127) for x in samples)
+    else:
+        body = b"".join(int(x * (2 ** (bits - 1) - 1)).to_bytes(bits // 8, "little", signed=True) for x in samples)
+    align = ch * bits // 8
+    fmt = struct.pack("<HHIIHH", 0xFFFE if extensible else code, ch, rate, rate * align, align, bits)
+    if extensible:  # cbSize, valid bits, channel mask, then the sub-format GUID, which starts with the kind
+        fmt += struct.pack("<HHIH", 22, bits, 0, code) + bytes(14)
+    chunks = b"fmt " + struct.pack("<I", len(fmt)) + fmt + b"data" + struct.pack("<I", len(body)) + body
+    return b"RIFF" + struct.pack("<I", 4 + len(chunks)) + b"WAVE" + chunks
+
+
+def tone(hz, secs, rate=44100, loud=0.5):
+    return [loud * math.sin(2 * math.pi * hz * i / rate) for i in range(int(secs * rate))]
+
+
+def mel_row(hz, tall, top=16000):
+    """the row of a spectrogram, counted from the bottom, that a pitch falls in"""
+    return int(math.log10(1 + hz / 700) / math.log10(1 + top / 700) * tall)
 
 
 def rgb_pixels(path):
@@ -1877,7 +1903,7 @@ class ShopReceipt(Base):
     def test_its_parts_come_in_order(self):
         mod, drawn = self.module()
         s = "\n".join([
-            "Receipt v7.3 · Claude Code 2.1.300 · 9 Oct 2026",
+            "Receipt v7.4 · Claude Code 2.1.300 · 9 Oct 2026",
             "model    claude-opus-5-5 · effort high",
             "cost     $1.23 (Claude Code's own total at API prices)",
             "files    1 file written or edited (index.html) · 12 lines, 1 KB · a web page",
@@ -1901,7 +1927,7 @@ class ShopReceipt(Base):
         self.assertEqual(len(texts[at["TOTAL"]]), len(texts[at["TOTAL"] - 1]))  # as wide as the rule above it
         self.assertEqual(pic, (1, 1, [b"\xff\0\0"]))
         drawn.clear()
-        mod.picture("Receipt v7.3 · Claude Code\nmodel    m · effort high\nsettings default")
+        mod.picture("Receipt v7.4 · Claude Code\nmodel    m · effort high\nsettings default")
         texts = [t for t, _ in drawn[0][0]]
         for heading in ("ASKED FOR", "MADE", "IT TOOK", "TOTAL"):
             self.assertNotIn(heading, texts)  # nothing asked for or shown: the plain receipt
@@ -1934,6 +1960,88 @@ class ShopReceipt(Base):
         self.assertGreater(green, 0)
         self.assertLess(green, 3000 * 30 // 2)  # scaled to the strip, not cut off at its edge
 
+    def test_a_16_bit_picture_goes_on_it(self):
+        self.claude_log()
+        for kind, px, seen_as in [(2, (200, 7, 0, 255, 100, 1), (200, 0, 100)),
+                                  (6, (10, 0, 20, 0, 30, 0, 255, 255), (10, 20, 30))]:  # fmt: skip
+            pic = os.path.join(self.home, f"deep{kind}.png")
+            png_file(pic, 30, 10, [bytes(px * 30) for _ in range(10)], kind=kind, depth=16)
+            out = os.path.join(self.home, "r.png")
+            self.ok("--out", out, "--picture", pic)
+            self.assertEqual(rgb_pixels(out).get(seen_as), 300)  # the high byte of each sample, every pixel
+
+    def test_a_tall_picture_fits_a_square(self):
+        self.claude_log()
+        pic = os.path.join(self.home, "tall.png")
+        png_file(pic, 20, 3000, [bytes((0, 128, 0) * 20) for _ in range(3000)], kind=2)
+        out = os.path.join(self.home, "r.png")
+        self.ok("--out", out, "--picture", pic)
+        with open(out, "rb") as fh:
+            w, h = struct.unpack(">II", fh.read()[16:24])
+        self.assertLess(h, w + 1000)  # not a receipt metres long
+        self.assertGreater(rgb_pixels(out).get((0, 128, 0), 0), 0)
+
+    def loudest(self, pic):
+        """each column's loudest row, counted from the bottom (the colours run dark to bright)"""
+        w, h, rows = pic
+        return [h - 1 - max(range(h), key=lambda y: sum(rows[y][x * 3 : x * 3 + 3])) for x in range(w)]
+
+    def test_a_sound_shows_its_pitch_however_it_is_saved(self):
+        mod, _ = self.module()
+        t = tone(1000, 0.5)
+        want = mel_row(1000, 100)
+        (w, h, base), note = mod.sound(wav_bytes(t), "a.wav", wide=6, tall=100)
+        self.assertEqual((w, h), (6, 100))
+        self.assertEqual(note, "the sound as a spectrogram: 0.5 s across, 0-16 kHz up")
+        for x in self.loudest((w, h, base)):
+            self.assertLessEqual(abs(x - want), 1)
+        stereo = [v for x in t for v in (x, 0.0)]
+        for label, data in [
+            ("8-bit", wav_bytes(t, bits=8)),
+            ("24-bit", wav_bytes(t, bits=24)),
+            ("32-bit", wav_bytes(t, bits=32)),
+            ("float", wav_bytes(t, bits=32, code=3)),
+            ("double", wav_bytes(t, bits=64, code=3)),
+            ("extensible 24-bit", wav_bytes(t, bits=24, extensible=True)),
+            ("stereo", wav_bytes(stereo, ch=2)),
+        ]:
+            (_, _, rows), _ = mod.sound(data, label, wide=6, tall=100)
+            for x in self.loudest((6, 100, rows)):
+                self.assertLessEqual(abs(x - want), 1, label)
+            if label != "8-bit":  # finer than 16 bits, the same picture (8 bits brings up a floor of noise)
+                diff = sum(abs(a - b) for r1, r2 in zip(rows, base) for a, b in zip(r1, r2)) / (6 * 100 * 3)
+                self.assertLess(diff, 2, label)
+
+    def test_each_column_hears_its_own_moment(self):
+        mod, _ = self.module()
+        samples = []
+        for c in range(8):  # 1024 samples a column, one window's worth, low and high pitch in turn
+            samples += tone(500 if c % 2 == 0 else 4000, 1024 / 44100)[:1024]
+        (w, h, rows), _ = mod.sound(wav_bytes(samples), "x", wide=8, tall=100)
+        for c, x in enumerate(self.loudest((w, h, rows))):
+            self.assertLessEqual(abs(x - mel_row(500 if c % 2 == 0 else 4000, 100)), 1, c)
+
+    def test_a_silent_sound_and_a_long_one(self):
+        mod, _ = self.module()
+        (w, h, rows), note = mod.sound(wav_bytes([0.0] * (75 * 8000), rate=8000), "x", wide=4, tall=10)
+        self.assertEqual(note, "the sound as a spectrogram: 1:15 across, 0-4 kHz up (silent)")
+        self.assertEqual(set(rows), {bytes(mod.MAGMA[0]) * 4})
+
+    def test_a_sound_goes_on_the_receipt_with_how_to_read_it(self):
+        self.claude_log()
+        wav = os.path.join(self.home, "song.wav")
+        with open(wav, "wb") as fh:
+            fh.write(wav_bytes(tone(1000, 0.5)))
+        out = os.path.join(self.home, "r.png")
+        self.ok("--out", out, "--picture", wav)
+        seen = rgb_pixels(out)
+        self.assertGreater(sum(n for px, n in seen.items() if sum(px) > 600), 0)  # the tone, bright
+        mod, drawn = self.module()
+        mod.picture("Receipt v7.4 · Claude Code\nmodel    m", pic=(1, 1, [b"\0\0\0"]), note="the sound, read so")
+        texts = [t for t, _ in drawn[0][0]]
+        i = texts.index(None)
+        self.assertEqual(drawn[0][0][i + 1], ("the sound, read so", 3))  # faint, right under it
+
     def test_pictures_it_cant_use(self):
         self.claude_log()
         p = self.run_receipt("--picture", "x.png")
@@ -1945,9 +2053,23 @@ class ShopReceipt(Base):
         p = self.run_receipt("--out", "r.png", "--picture", gif)
         self.assertIn("isn't a PNG", p.stderr)
         deep = os.path.join(self.home, "deep.png")
-        png_file(deep, 2, 2, [bytes(8), bytes(8)], kind=6, depth=16)
+        png_file(deep, 2, 2, [bytes(8), bytes(8)], kind=6, lace=1)  # interlaced
         p = self.run_receipt("--out", "r.png", "--picture", deep)
         self.assertIn("a kind of PNG receipt.py can't read", p.stderr)
+        self.assertIn("isn't a PNG or a WAV", self.run_receipt("--out", "r.png", "--picture", gif).stderr)
+        good = wav_bytes(tone(440, 0.1))
+        for name, data, says in [
+            ("mulaw.wav", good[:20] + struct.pack("<H", 7) + good[22:], "a kind of WAV receipt.py can't read"),
+            ("rf64.wav", b"RF64" + good[4:], "a kind of WAV receipt.py can't read (RF64)"),
+            ("nodata.wav", good[: good.index(b"data")], "is damaged (no data part)"),
+            ("empty.wav", wav_bytes([]), "has no sound in it"),
+        ]:
+            path = os.path.join(self.home, name)
+            with open(path, "wb") as fh:
+                fh.write(data)
+            p = self.run_receipt("--out", "r.png", "--picture", path)
+            self.assertNotEqual(p.returncode, 0, name)
+            self.assertIn(says, p.stderr, name)
         self.assertFalse(os.path.exists(os.path.join(self.proj, "r.png")))
         p = self.run_receipt("--out", "r.png", "--picture", os.path.join(self.home, "none.png"))
         self.assertIn("can't read --picture", p.stderr)
