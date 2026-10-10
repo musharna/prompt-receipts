@@ -1,5 +1,10 @@
 # Changelog
 
+## receipt.py 7.1 (2026-10-10)
+
+- Reads the output of `claude -p --output-format stream-json --verbose` saved to a file, like a session log: cost and output tokens from its result, time from its duration, subagents' files included. The prompt, effort, hooks and memory files aren't in that output, and the receipt says so.
+- Fixed: a file the run wrote and then changed with a shell command was measured, shown and recorded as first written. It is now taken as the run left it on disk, when the file was last changed before the run ended.
+
 ## receipt.py 7.0 (2026-10-10)
 
 - The files line says how much the run wrote (lines and size) and whether one file is a web page, and a new replies line counts the model's replies and their words. No names or text. `--hide output` drops both.

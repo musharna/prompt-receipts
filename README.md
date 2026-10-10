@@ -73,6 +73,8 @@ It needs only Python 3.9 or later. It reads the logs these tools already keep, s
 
 Run it somewhere else and it tells you where your sessions are; `--list --all` lists them from every folder.
 
+A run with `claude -p` in a script or CI can be saved with `--output-format stream-json --verbose > run.jsonl`, and `receipt run.jsonl` reads it like a session log. That output has no prompt, effort, hooks or memory files, so the receipt says they aren't in it.
+
 ### Common uses
 
 ```
@@ -240,7 +242,7 @@ echo "$(echo "$input" | ~/.claude/my-statusline.sh) · $(echo "$input" | python3
 - Qwen Code's background helpers (its memory extractor) make API calls of their own. They are counted, since Qwen Code logs them.
 - `--record` and `--bundle` cover all six tools. Files made by shell commands aren't in a bundle or on a page.
 - The billing line reads your account as it is today, so it shows your plan now, not necessarily when the run happened. A run on a local model (Ollama, LM Studio) says so on the model line.
-- Files count what the edit tools wrote, subagents' included. Files made by shell commands aren't counted, and what subagents read isn't in a record.
+- Files count what the edit tools wrote, subagents' included. A file the run changed again with a shell command counts as the run left it on disk. Files made only by shell commands aren't counted, and what subagents read isn't in a record.
 - With `--turns`, some background work Claude Code prices itself (titles, summaries) logs no calls, so no prompt can hold it; the receipt says how much it is. A session that's still running keeps writing its log, so its numbers can move a little between runs.
 - Codex logs don't record hooks, and OpenCode's, Qwen Code's, Gemini CLI's and Copilot CLI's record neither hooks nor memory files. Gemini CLI logs no version, effort or approval setting either. Claude Code logs a hook run only when the hook prints something, so hook counts are a floor.
 - If a log has your prompts but no replies or token counts, the receipt says so: the tool may have changed how it writes logs. Please [open an issue](https://github.com/musharna/prompt-receipts/issues).
