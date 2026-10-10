@@ -1,0 +1,1483 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>What the run made · receipt no. d06b-3b78</title><style>body{font:16px/1.5 system-ui,sans-serif;margin:0;background:#f4f2ee;color:#222}main{max-width:960px;margin:auto;padding:16px}.paper{background:#fffdf8;border:1px solid #ddd;border-radius:4px;padding:18px 20px;overflow-x:auto}pre{font:13px/1.45 ui-monospace,monospace;margin:0;overflow-x:auto}.said{white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:4px;padding:10px 12px}details{background:#fff;border:1px solid #ddd;border-radius:4px;margin:10px 0}summary{cursor:pointer;padding:8px 12px;font-family:ui-monospace,monospace}details pre{padding:10px 12px;border-top:1px solid #eee}details img{max-width:100%;display:block;margin:10px}iframe{width:100%;height:70vh;border:1px solid #bbb;border-radius:4px;background:#fff}.dim{color:#555;font-size:.9em}</style></head><body><main><h1 class=own>What the run made</h1><div class="paper own"><pre>Receipt v7.1 · Claude Code 2.1.292 · 7 Oct 2026, 7:55 AM EDT · no. d06b-3b78
+model    claude-opus-5-5 · effort not recorded
+time     11 min (model working 9 min) · 1 prompt from me
+cost     $1.98 (Claude Code&#x27;s own total at API prices; the lines below add up to it)
+         claude-opus-5-5
+           input                  48 × $4.00/M   &lt;$0.01
+           cache read           1.5M × $0.20/M    $0.29
+           cache write (1 h)     74k × $8.00/M    $0.59
+           output               55k × $20.00/M    $1.10
+extras   thinking 5 min
+prices   API list prices per million tokens ($/M), from LiteLLM 05166e2, 9 Oct 2026
+billing  Max plan: a flat fee, not charged per run (your account today)
+tokens   in 1.5M (1.5M cached) · out 55k
+work     25 tool calls, 18 shell commands · web 0 · 1 failed call
+files    1 file written or edited (galaxy-slime.html) · 720 lines, 32 KB · a web page
+replies  1 reply, 354 words
+add-ons  skills none (of 19 available) · MCP none (of 0 connected) · plugins none · subagents 0
+hooks    not in claude -p output
+memory   not in claude -p output
+settings bypassPermissions</pre></div><h2>The page it made</h2><h3>galaxy-slime.html</h3><iframe sandbox="allow-scripts" srcdoc="&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1,user-scalable=no&quot;&gt;
+&lt;title&gt;Galaxy Slime&lt;/title&gt;
+&lt;style&gt;
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: #05030f;
+    font-family: system-ui, -apple-system, &quot;Segoe UI&quot;, Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: none;
+  }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #bar {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; z-index: 2;
+    max-width: calc(100% - 24px);
+  }
+  button {
+    font: 600 16px system-ui, -apple-system, &quot;Segoe UI&quot;, sans-serif; color: #fff;
+    background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.25);
+    border-radius: 999px; padding: 9px 16px; cursor: pointer;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    transition: background .15s, transform .1s;
+  }
+  button:hover { background: rgba(255,255,255,.2); }
+  button:active { transform: scale(.95); }
+  button.on { background: rgba(170,110,255,.45); border-color: rgba(220,190,255,.7); }
+  #blobs {
+    position: fixed; left: 16px; top: 16px; z-index: 2; color: #fff;
+    font-weight: 700; font-size: 20px; text-shadow: 0 0 10px #a060ff;
+    pointer-events: none;
+  }
+  #hint {
+    position: fixed; bottom: 16px; left: 0; right: 0; text-align: center; z-index: 1;
+    color: rgba(255,255,255,.8); font-size: 18px; pointer-events: none;
+    transition: opacity 1.2s; text-shadow: 0 1px 6px #000;
+  }
+  #info {
+    position: fixed; right: 16px; top: 70px; width: 300px; z-index: 2;
+    background: rgba(10,6,30,.82); color: #eee; border: 1px solid rgba(200,160,255,.4);
+    border-radius: 14px; padding: 14px 16px; font-size: 15px; line-height: 1.45;
+    display: none; pointer-events: none;
+  }
+  #info h3 { margin: 0 0 6px; color: #d8b8ff; font-size: 17px; }
+  #info p { margin: 6px 0; }
+  #info .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ffe680; }
+  #info .bond { display: inline-block; width: 18px; height: 2px; background: #7fd8ff; vertical-align: middle; }
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;canvas id=&quot;c&quot;&gt;&lt;/canvas&gt;
+&lt;div id=&quot;bar&quot;&gt;
+  &lt;button id=&quot;bNew&quot; title=&quot;R&quot;&gt;✨ New slime&lt;/button&gt;
+  &lt;button id=&quot;bSquish&quot; title=&quot;S&quot;&gt;🤲 Squish together&lt;/button&gt;
+  &lt;button id=&quot;bTheme&quot; title=&quot;C&quot;&gt;🎨 Change galaxy&lt;/button&gt;
+  &lt;button id=&quot;bXray&quot; title=&quot;X&quot;&gt;🔬 X-ray&lt;/button&gt;
+  &lt;button id=&quot;bSound&quot; title=&quot;M&quot;&gt;🔊 Sound&lt;/button&gt;
+  &lt;button id=&quot;bFull&quot; title=&quot;F&quot;&gt;⛶ Full screen&lt;/button&gt;
+&lt;/div&gt;
+&lt;div id=&quot;blobs&quot;&gt;&lt;/div&gt;
+&lt;div id=&quot;hint&quot;&gt;👆 Drag to stretch &amp;nbsp;•&amp;nbsp; Pull fast to tear it apart &amp;nbsp;•&amp;nbsp; Push pieces together to merge &amp;nbsp;•&amp;nbsp; Right-click to pin a spot down&lt;/div&gt;
+&lt;div id=&quot;info&quot;&gt;
+  &lt;h3&gt;How does the slime work?&lt;/h3&gt;
+  &lt;p&gt;The slime is made of about &lt;b id=&quot;nCount&quot;&gt;700&lt;/b&gt; tiny particles &lt;span class=&quot;dot&quot;&gt;&lt;/span&gt;.&lt;/p&gt;
+  &lt;p&gt;&lt;b&gt;Cohesion:&lt;/b&gt; each particle pulls on its neighbours, so they clump into a blob (like surface tension holding a raindrop together). Squash them too close and they push back.&lt;/p&gt;
+  &lt;p&gt;&lt;b&gt;Bonds&lt;/b&gt; &lt;span class=&quot;bond&quot;&gt;&lt;/span&gt; join neighbours. They stretch slowly, but pull too fast and they snap, so the slime tears in two.&lt;/p&gt;
+  &lt;p&gt;Push two blobs together and cohesion pulls them back into one.&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+&#x27;use strict&#x27;;
+
+// ===== SIM-START =====
+// Particle slime: &quot;viscoelastic fluid&quot; model (Clavet, Beaudoin &amp; Poulin 2005):
+// double density relaxation (cohesion + incompressibility), plastic springs
+// (stretchiness) and viscosity (gooeyness). All lengths in CSS pixels.
+function createSim(W, H, h) {
+  const MAXN = 4000;
+  const px = new Float32Array(MAXN), py = new Float32Array(MAXN);
+  const vx = new Float32Array(MAXN), vy = new Float32Array(MAXN);
+  const qx = new Float32Array(MAXN), qy = new Float32Array(MAXN);
+  const tu = new Float32Array(MAXN), tv = new Float32Array(MAXN);
+  const spark = new Float32Array(MAXN);
+  const rho = new Float32Array(MAXN), rhoN = new Float32Array(MAXN);
+  const ddx = new Float32Array(MAXN), ddy = new Float32Array(MAXN);
+  const held = new Uint8Array(MAXN);
+  const cellOf = new Int32Array(MAXN), sorted = new Int32Array(MAXN);
+  const uf = new Int32Array(MAXN), ufSize = new Int32Array(MAXN);
+  const PAIRCAP = MAXN * 40;
+  const pairI = new Int32Array(PAIRCAP), pairJ = new Int32Array(PAIRCAP);
+  let cellStart = new Int32Array(1), cellCount = new Int32Array(1);
+  const springs = new Map();   // key (i&lt;&lt;12)|j  -&gt;  rest length
+  const grabs = new Map();     // id -&gt; {x, y, pin, idx, ox, oy}
+  const pokers = new Map();    // id -&gt; {x, y, r}
+
+  const S = {
+    n: 0, W, H, h, np: 0, gather: 0,
+    px, py, vx, vy, tu, tv, spark, held, springs, grabs, pokers, pairI, pairJ,
+    spacing: 0.5 * h,
+    K: 0.30,        // pressure stiffness
+    KN: 0.60,       // near-pressure stiffness (stops clumping)
+    SIGMA: 0.15,    // linear viscosity
+    BETA: 0.3 / h,  // quadratic viscosity
+    KS: 0.80,       // spring stiffness
+    GAMMA: 0.50,    // spring yield ratio
+    ALPHA: 0.02,    // plasticity
+    BREAK: h,       // springs snap once their rest length exceeds h (must not exceed h)
+    FRICTION: 0.965,
+    MAXV: 0.45 * h,
+  };
+
+  // Rest density = density of an interior particle in the starting hex lattice,
+  // so a fresh blob starts out (almost) at rest.
+  {
+    const s = S.spacing; let r0 = 0;
+    for (let a = -6; a &lt;= 6; a++) for (let b = -6; b &lt;= 6; b++) {
+      if (!a &amp;&amp; !b) continue;
+      const x = (a + b * 0.5) * s, y = b * s * Math.sqrt(3) / 2, q = Math.hypot(x, y) / h;
+      if (q &lt; 1) r0 += (1 - q) * (1 - q);
+    }
+    S.R0 = r0;
+  }
+
+  S.clear = function () { S.n = 0; springs.clear(); grabs.clear(); held.fill(0); };
+
+  S.spawnBlob = function (cx, cy, R, texOff) {
+    const s = S.spacing, dy = s * Math.sqrt(3) / 2;
+    for (let row = -Math.ceil(R / dy); row &lt;= Math.ceil(R / dy); row++) {
+      const y = row * dy, off = (row &amp; 1) ? s / 2 : 0;
+      for (let x = -R - off; x &lt;= R; x += s) {
+        const xx = x + off;
+        if (xx * xx + y * y &gt; R * R || S.n &gt;= MAXN) continue;
+        const i = S.n++;
+        px[i] = cx + xx + (Math.random() - 0.5) * 0.02 * s;
+        py[i] = cy + y + (Math.random() - 0.5) * 0.02 * s;
+        vx[i] = vy[i] = 0; held[i] = 0;
+        tu[i] = texOff + (xx + R) * 0.9; tv[i] = texOff + (y + R) * 0.9;
+        spark[i] = Math.random() &lt; 0.14 ? 0.5 + Math.random() * 6 : 0;
+      }
+    }
+  };
+
+  S.resize = function (w, hh) { S.W = w; S.H = hh; };
+
+  // ---- hands ----
+  S.addGrab = function (id, x, y, r, pin) {
+    const idx = [], ox = [], oy = [];
+    for (let i = 0; i &lt; S.n; i++) {
+      if (held[i]) continue;
+      const dx = px[i] - x, dy = py[i] - y;
+      if (dx * dx + dy * dy &lt; r * r) { idx.push(i); ox.push(dx * 0.85); oy.push(dy * 0.85); held[i] = 1; }
+    }
+    if (!idx.length) return 0;
+    grabs.set(id, { x, y, pin: !!pin, idx, ox, oy });
+    return idx.length;
+  };
+  S.moveGrab = function (id, x, y) { const g = grabs.get(id); if (g) { g.x = x; g.y = y; } };
+  S.removeGrab = function (id) {
+    const g = grabs.get(id); if (!g) return;
+    for (const i of g.idx) held[i] = 0;
+    grabs.delete(id);
+  };
+
+  function buildPairs() {
+    const n = S.n, cs = h;
+    const cols = Math.ceil(S.W / cs) + 2, rows = Math.ceil(S.H / cs) + 2, nc = cols * rows;
+    if (cellCount.length &lt; nc) { cellCount = new Int32Array(nc); cellStart = new Int32Array(nc + 1); }
+    cellCount.fill(0, 0, nc);
+    for (let i = 0; i &lt; n; i++) {
+      let cx = (px[i] / cs) | 0, cy = (py[i] / cs) | 0;
+      cx = cx &lt; 0 ? 0 : cx &gt;= cols ? cols - 1 : cx;
+      cy = cy &lt; 0 ? 0 : cy &gt;= rows ? rows - 1 : cy;
+      const c = cy * cols + cx; cellOf[i] = c; cellCount[c]++;
+    }
+    cellStart[0] = 0;
+    for (let c = 0; c &lt; nc; c++) cellStart[c + 1] = cellStart[c] + cellCount[c];
+    cellCount.fill(0, 0, nc);
+    for (let i = 0; i &lt; n; i++) { const c = cellOf[i]; sorted[cellStart[c] + cellCount[c]++] = i; }
+    const h2 = h * h; let np = 0;
+    for (let i = 0; i &lt; n; i++) {
+      const c = cellOf[i], cx = c % cols, cy = (c / cols) | 0;
+      for (let yy = cy - 1; yy &lt;= cy + 1; yy++) {
+        if (yy &lt; 0 || yy &gt;= rows) continue;
+        for (let xx = cx - 1; xx &lt;= cx + 1; xx++) {
+          if (xx &lt; 0 || xx &gt;= cols) continue;
+          const cc = yy * cols + xx;
+          for (let k = cellStart[cc], e = cellStart[cc + 1]; k &lt; e; k++) {
+            const j = sorted[k];
+            if (j &lt;= i) continue;
+            const dx = px[j] - px[i], dy = py[j] - py[i];
+            if (dx * dx + dy * dy &lt; h2 &amp;&amp; np &lt; PAIRCAP) { pairI[np] = i; pairJ[np] = j; np++; }
+          }
+        }
+      }
+    }
+    S.np = np;
+  }
+
+  S.step = function () {
+    const n = S.n, W = S.W, H = S.H;
+
+    // 1. hands, friction, gathering
+    for (const g of grabs.values()) {
+      for (let k = 0; k &lt; g.idx.length; k++) {
+        const i = g.idx[k];
+        const tx = (g.x + g.ox[k] - px[i]) * 0.3, ty = (g.y + g.oy[k] - py[i]) * 0.3;
+        vx[i] += (tx - vx[i]) * 0.6; vy[i] += (ty - vy[i]) * 0.6;
+      }
+    }
+    const fr = S.FRICTION, mv = S.MAXV, mv2 = mv * mv;
+    const gk = S.gather &gt; 0 ? 0.05 : 0, gcx = W / 2, gcy = H / 2;
+    if (S.gather &gt; 0) S.gather--;
+    for (let i = 0; i &lt; n; i++) {
+      if (!held[i]) { vx[i] *= fr; vy[i] *= fr; }
+      if (gk) {   // steer gently towards the middle, slowing down on arrival
+        const dx = gcx - px[i], dy = gcy - py[i], d = Math.hypot(dx, dy) + 1e-6;
+        const sp = Math.min(d * 0.012, 0.08 * h) / d;
+        vx[i] += (dx * sp - vx[i]) * gk; vy[i] += (dy * sp - vy[i]) * gk;
+      }
+      const v2 = vx[i] * vx[i] + vy[i] * vy[i];
+      if (v2 &gt; mv2) { const s = mv / Math.sqrt(v2); vx[i] *= s; vy[i] *= s; }
+    }
+
+    buildPairs();
+    const np = S.np, invH = 1 / h;
+
+    // 2. viscosity (pairwise velocity impulses)
+    const sig = S.SIGMA, beta = S.BETA;
+    for (let p = 0; p &lt; np; p++) {
+      const i = pairI[p], j = pairJ[p];
+      const dx = px[j] - px[i], dy = py[j] - py[i];
+      const r = Math.sqrt(dx * dx + dy * dy); if (r &lt; 1e-6) continue;
+      const ux = dx / r, uy = dy / r, q = r * invH;
+      const u = (vx[i] - vx[j]) * ux + (vy[i] - vy[j]) * uy;
+      const I = (1 - q) * (sig * u + (u &gt; 0 ? beta * u * u : 0)) * 0.5;
+      vx[i] -= I * ux; vy[i] -= I * uy; vx[j] += I * ux; vy[j] += I * uy;
+    }
+
+    // 3. predict positions
+    for (let i = 0; i &lt; n; i++) { qx[i] = px[i]; qy[i] = py[i]; px[i] += vx[i]; py[i] += vy[i]; }
+
+    // 4. plastic springs
+    for (let p = 0; p &lt; np; p++) {
+      const key = (pairI[p] &lt;&lt; 12) | pairJ[p];
+      if (!springs.has(key)) {
+        const i = pairI[p], j = pairJ[p];
+        const r = Math.hypot(px[j] - px[i], py[j] - py[i]);
+        if (r &lt; h) springs.set(key, r);
+      }
+    }
+    const ks = S.KS, gam = S.GAMMA, alp = S.ALPHA;
+    for (const [key, rest0] of springs) {
+      const i = key &gt;&gt;&gt; 12, j = key &amp; 4095;
+      if (i &gt;= n || j &gt;= n) { springs.delete(key); continue; }
+      const dx = px[j] - px[i], dy = py[j] - py[i];
+      const L = Math.sqrt(dx * dx + dy * dy);
+      if (L &gt; 2.5 * h || L &lt; 1e-6) { springs.delete(key); continue; }
+      let rest = rest0; const d = gam * rest;
+      if (L &gt; rest + d) rest += alp * (L - rest - d);
+      else if (L &lt; rest - d) rest -= alp * (rest - d - L);
+      if (rest &gt; S.BREAK) { springs.delete(key); continue; }
+      springs.set(key, rest);
+      const D = ks * (1 - rest * invH) * (rest - L) / L * 0.5;
+      px[i] -= D * dx; py[i] -= D * dy; px[j] += D * dx; py[j] += D * dy;
+    }
+
+    // 5. double density relaxation
+    rho.fill(0, 0, n); rhoN.fill(0, 0, n); ddx.fill(0, 0, n); ddy.fill(0, 0, n);
+    for (let p = 0; p &lt; np; p++) {
+      const i = pairI[p], j = pairJ[p];
+      const dx = px[j] - px[i], dy = py[j] - py[i];
+      const q = Math.sqrt(dx * dx + dy * dy) * invH;
+      if (q &gt;= 1) continue;
+      const a = 1 - q, a2 = a * a, a3 = a2 * a;
+      rho[i] += a2; rho[j] += a2; rhoN[i] += a3; rhoN[j] += a3;
+    }
+    const K = S.K, KN = S.KN, R0 = S.R0;
+    for (let p = 0; p &lt; np; p++) {
+      const i = pairI[p], j = pairJ[p];
+      const dx = px[j] - px[i], dy = py[j] - py[i];
+      const r = Math.sqrt(dx * dx + dy * dy), q = r * invH;
+      if (q &gt;= 1 || r &lt; 1e-6) continue;
+      const a = 1 - q;
+      const P = K * (rho[i] + rho[j] - 2 * R0) * 0.5, PN = KN * (rhoN[i] + rhoN[j]) * 0.5;
+      const D = (P * a + PN * a * a) * h * 0.25 / r;
+      ddx[i] -= D * dx; ddy[i] -= D * dy; ddx[j] += D * dx; ddy[j] += D * dy;
+    }
+    for (let i = 0; i &lt; n; i++) { px[i] += ddx[i]; py[i] += ddy[i]; }
+
+    // 6. fingers poking empty space push slime away
+    for (const pk of pokers.values()) {
+      const r2 = pk.r * pk.r;
+      for (let i = 0; i &lt; n; i++) {
+        const dx = px[i] - pk.x, dy = py[i] - pk.y, d2 = dx * dx + dy * dy;
+        if (d2 &lt; r2 &amp;&amp; d2 &gt; 1e-6) { const d = Math.sqrt(d2), s = (pk.r - d) / d * 0.5; px[i] += dx * s; py[i] += dy * s; }
+      }
+    }
+
+    // 7. walls, then velocity from displacement
+    const m = 0.3 * h;
+    for (let i = 0; i &lt; n; i++) {
+      if (px[i] &lt; m) px[i] = m; else if (px[i] &gt; W - m) px[i] = W - m;
+      if (py[i] &lt; m) py[i] = m; else if (py[i] &gt; H - m) py[i] = H - m;
+      vx[i] = px[i] - qx[i]; vy[i] = py[i] - qy[i];
+    }
+  };
+
+  // Count connected pieces with at least minSize particles.
+  S.countBlobs = function (minSize) {
+    const n = S.n;
+    for (let i = 0; i &lt; n; i++) { uf[i] = i; ufSize[i] = 0; }
+    const find = (a) =&gt; { while (uf[a] !== a) { uf[a] = uf[uf[a]]; a = uf[a]; } return a; };
+    const h2 = h * h;
+    for (let p = 0; p &lt; S.np; p++) {
+      const i = pairI[p], j = pairJ[p];
+      const dx = px[j] - px[i], dy = py[j] - py[i];
+      if (dx * dx + dy * dy &gt;= h2) continue;
+      const a = find(i), b = find(j); if (a !== b) uf[a] = b;
+    }
+    for (let i = 0; i &lt; n; i++) ufSize[find(i)]++;
+    let c = 0;
+    for (let i = 0; i &lt; n; i++) if (ufSize[i] &gt;= minSize) c++;
+    return c;
+  };
+
+  return S;
+}
+// ===== SIM-END =====
+
+(() =&gt; {
+  const canvas = document.getElementById(&#x27;c&#x27;);
+  const ctx = canvas.getContext(&#x27;2d&#x27;);
+  let W = innerWidth, H = innerHeight, DPR = Math.min(devicePixelRatio || 1, 2);
+  const h = Math.max(14, Math.min(34, Math.min(W, H) / 32));
+  const sim = createSim(W, H, h);
+
+  // ---------- galaxy textures ----------
+  const TEX = 512, TMASK = TEX - 1;
+  const THEMES = [
+    { name: &#x27;Galaxy&#x27;,    stops: [&#x27;#0a0526&#x27;, &#x27;#2a1260&#x27;, &#x27;#5b23a8&#x27;, &#x27;#b23ab8&#x27;, &#x27;#ff7ccf&#x27;, &#x27;#ffe1f6&#x27;], accent: [80, 200, 255], rim: [255, 150, 255] },
+    { name: &#x27;Nebula&#x27;,    stops: [&#x27;#02101f&#x27;, &#x27;#073b52&#x27;, &#x27;#0f7d8c&#x27;, &#x27;#2fd0d6&#x27;, &#x27;#a8ff9a&#x27;, &#x27;#f2fff0&#x27;], accent: [190, 120, 255], rim: [140, 255, 230] },
+    { name: &#x27;Supernova&#x27;, stops: [&#x27;#140208&#x27;, &#x27;#4a0820&#x27;, &#x27;#a01a3a&#x27;, &#x27;#ff5a2a&#x27;, &#x27;#ffc24a&#x27;, &#x27;#fff6d8&#x27;], accent: [255, 80, 200], rim: [255, 200, 120] },
+    { name: &#x27;Aurora&#x27;,    stops: [&#x27;#040a1c&#x27;, &#x27;#132e6b&#x27;, &#x27;#1f6fb5&#x27;, &#x27;#28c48f&#x27;, &#x27;#c6ff6a&#x27;, &#x27;#f8fff2&#x27;], accent: [255, 110, 210], rim: [160, 255, 200] },
+  ];
+  let themeIdx = 0, tex = null, rimCol = THEMES[0].rim;
+
+  function hexRGB(s) { const v = parseInt(s.slice(1), 16); return [v &gt;&gt; 16, (v &gt;&gt; 8) &amp; 255, v &amp; 255]; }
+
+  function makeTexture(theme) {
+    let seed = (Math.random() * 1e9) | 0;
+    const rnd = () =&gt; { seed = (seed * 1664525 + 1013904223) | 0; return ((seed &gt;&gt;&gt; 0) / 4294967296); };
+    // tileable value-noise fbm
+    function layer(period) { const g = new Float32Array(period * period); for (let i = 0; i &lt; g.length; i++) g[i] = rnd(); return { p: period, g }; }
+    function fbmMaker(base) {
+      const ls = [base, base * 2, base * 4, base * 8, base * 16].map(layer);
+      return (x, y) =&gt; {
+        let s = 0, amp = 0.5, tot = 0;
+        for (const L of ls) {
+          const fx = x / TEX * L.p, fy = y / TEX * L.p;
+          const x0 = Math.floor(fx), y0 = Math.floor(fy);
+          let tx = fx - x0, ty = fy - y0; tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+          const p = L.p, xa = ((x0 % p) + p) % p, ya = ((y0 % p) + p) % p, xb = (xa + 1) % p, yb = (ya + 1) % p;
+          const a = L.g[ya * p + xa], b = L.g[ya * p + xb], c = L.g[yb * p + xa], d = L.g[yb * p + xb];
+          s += amp * (a + (b - a) * tx + (c - a + (a - b - c + d) * tx) * ty);
+          tot += amp; amp *= 0.5;
+        }
+        return s / tot;
+      };
+    }
+    const nA = fbmMaker(3), nB = fbmMaker(3), nC = fbmMaker(4), nD = fbmMaker(5);
+    const stops = theme.stops.map(hexRGB), acc = theme.accent;
+    const out = new Float32Array(TEX * TEX * 3);
+    for (let y = 0; y &lt; TEX; y++) for (let x = 0; x &lt; TEX; x++) {
+      const wx = x + 160 * (nB(x, y) - 0.5), wy = y + 160 * (nC(x, y) - 0.5);
+      let t = nA(wx, wy);
+      t = Math.min(1, Math.max(0, (t - 0.27) / 0.48));
+      t = t * t * (3 - 2 * t);
+      const f = t * (stops.length - 1), k = Math.min(stops.length - 2, f | 0), u = f - k;
+      let r = stops[k][0] + (stops[k + 1][0] - stops[k][0]) * u;
+      let g = stops[k][1] + (stops[k + 1][1] - stops[k][1]) * u;
+      let b = stops[k][2] + (stops[k + 1][2] - stops[k][2]) * u;
+      let a = nD(wy, wx); a = Math.max(0, (a - 0.55) / 0.2); a = Math.min(1, a) * 0.55;
+      r += (acc[0] - r) * a; g += (acc[1] - g) * a; b += (acc[2] - b) * a;
+      const o = (y * TEX + x) * 3; out[o] = r; out[o + 1] = g; out[o + 2] = b;
+    }
+    // stars
+    function star(cx, cy, rad, br, tint) {
+      const R = Math.ceil(rad * 3);
+      for (let dy = -R; dy &lt;= R; dy++) for (let dx = -R; dx &lt;= R; dx++) {
+        const d2 = (dx * dx + dy * dy) / (rad * rad);
+        let w = Math.exp(-d2) * br;
+        if (rad &gt; 1.5) w += br * 0.5 * Math.exp(-Math.abs(dy) / 0.7 - Math.abs(dx) / (rad * 2.5)) * (dy === 0 ? 1 : 0.2)
+                         + br * 0.5 * Math.exp(-Math.abs(dx) / 0.7 - Math.abs(dy) / (rad * 2.5)) * (dx === 0 ? 1 : 0.2);
+        if (w &lt; 0.01) continue;
+        const o = ((((cy + dy) &amp; TMASK) * TEX) + ((cx + dx) &amp; TMASK)) * 3;
+        out[o] += w * tint[0]; out[o + 1] += w * tint[1]; out[o + 2] += w * tint[2];
+      }
+    }
+    for (let i = 0; i &lt; 1500; i++) {
+      const tint = rnd() &lt; 0.3 ? [180, 210, 255] : rnd() &lt; 0.5 ? [255, 230, 200] : [255, 255, 255];
+      star((rnd() * TEX) | 0, (rnd() * TEX) | 0, 0.5 + rnd() * 0.7, 0.25 + rnd() * 0.75, tint);
+    }
+    for (let i = 0; i &lt; 22; i++) star((rnd() * TEX) | 0, (rnd() * TEX) | 0, 1.6 + rnd() * 1.4, 0.8, [255, 245, 255]);
+    const t8 = new Uint8ClampedArray(out.length);
+    for (let i = 0; i &lt; out.length; i++) t8[i] = out[i];
+    return t8;
+  }
+
+  function setTheme(i) {
+    themeIdx = i % THEMES.length;
+    tex = makeTexture(THEMES[themeIdx]);
+    rimCol = THEMES[themeIdx].rim;
+  }
+
+  // ---------- background ----------
+  const bg = document.createElement(&#x27;canvas&#x27;), bctx = bg.getContext(&#x27;2d&#x27;);
+  function drawBackground() {
+    bg.width = Math.round(W * DPR); bg.height = Math.round(H * DPR);
+    bctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const gr = bctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.hypot(W, H) / 1.6);
+    gr.addColorStop(0, &#x27;#1a1040&#x27;); gr.addColorStop(0.6, &#x27;#0a0620&#x27;); gr.addColorStop(1, &#x27;#030209&#x27;);
+    bctx.fillStyle = gr; bctx.fillRect(0, 0, W, H);
+    const count = (W * H) / 2500;
+    for (let i = 0; i &lt; count; i++) {
+      const x = Math.random() * W, y = Math.random() * H, r = Math.random() * 1.1 + 0.2;
+      bctx.globalAlpha = 0.2 + Math.random() * 0.6;
+      bctx.fillStyle = Math.random() &lt; 0.3 ? &#x27;#bcd4ff&#x27; : &#x27;#ffffff&#x27;;
+      bctx.beginPath(); bctx.arc(x, y, r, 0, 7); bctx.fill();
+    }
+    bctx.globalAlpha = 1;
+  }
+
+  // ---------- slime field rendering ----------
+  const FS = 3;                         // CSS pixels per field cell
+  const KR = 1.1 * h, KR2 = KR * KR;    // splat radius
+  const T = 0.8, invT = 1 / T;          // surface threshold
+  const ZH = 0.35 * h;                  // fake dome height
+  const LX = -0.45, LY = -0.6, LZ = 0.66;
+  const hl = Math.hypot(LX, LY, LZ + 1), HX = LX / hl, HY = LY / hl, HZ = (LZ + 1) / hl;
+  let fw, fh, field, fu, fv, img;
+  const fcan = document.createElement(&#x27;canvas&#x27;), fctx = fcan.getContext(&#x27;2d&#x27;);
+
+  function setupField() {
+    fw = Math.ceil(W / FS) + 1; fh = Math.ceil(H / FS) + 1;
+    field = new Float32Array(fw * fh); fu = new Float32Array(fw * fh); fv = new Float32Array(fw * fh);
+    fcan.width = fw; fcan.height = fh;
+    img = fctx.createImageData(fw, fh);
+  }
+
+  function renderField(time) {
+    const n = sim.n, px = sim.px, py = sim.py, tu = sim.tu, tv = sim.tv;
+    field.fill(0); fu.fill(0); fv.fill(0);
+    const rc = KR / FS;
+    for (let i = 0; i &lt; n; i++) {
+      const cx = px[i] / FS - 0.5, cy = py[i] / FS - 0.5, u = tu[i], v = tv[i];
+      const x0 = Math.max(0, Math.ceil(cx - rc)), x1 = Math.min(fw - 1, Math.floor(cx + rc));
+      const y0 = Math.max(0, Math.ceil(cy - rc)), y1 = Math.min(fh - 1, Math.floor(cy + rc));
+      for (let y = y0; y &lt;= y1; y++) {
+        const dy = (y - cy) * FS, dy2 = dy * dy, row = y * fw;
+        for (let x = x0; x &lt;= x1; x++) {
+          const dx = (x - cx) * FS, d2 = dx * dx + dy2;
+          if (d2 &gt;= KR2) continue;
+          const t = 1 - d2 / KR2, w = t * t * t, k = row + x;
+          field[k] += w; fu[k] += w * u; fv[k] += w * v;
+        }
+      }
+    }
+    const data = img.data, tx = tex, rr = rimCol[0], rg = rimCol[1], rb = rimCol[2];
+    const driftU = time * 0.004, driftV = time * 0.0025;
+    const sCoef = ZH * invT / (2 * FS);
+    data.fill(0);
+    for (let y = 1; y &lt; fh - 1; y++) {
+      for (let x = 1; x &lt; fw - 1; x++) {
+        const k = y * fw + x, f = field[k];
+        if (f &lt; T * 0.72) continue;
+        let a = (f - T * 0.72) / (T * 0.4); if (a &gt; 1) a = 1;
+        const inv = 1 / f;
+        const ti = ((((fv[k] * inv + driftV) | 0) &amp; TMASK) * TEX + (((fu[k] * inv + driftU) | 0) &amp; TMASK)) * 3;
+        const fe = f &lt; T ? T : f;
+        const s = sCoef * Math.exp(-(fe - T) * invT * 0.9);
+        const nx = -(field[k + 1] - field[k - 1]) * s, ny = -(field[k + fw] - field[k - fw]) * s;
+        const nl = 1 / Math.sqrt(nx * nx + ny * ny + 1);
+        const ux = nx * nl, uy = ny * nl, uz = nl;
+        let dif = ux * LX + uy * LY + uz * LZ; if (dif &lt; 0) dif = 0;
+        let sp = ux * HX + uy * HY + uz * HZ; sp = sp &gt; 0 ? sp * sp : 0; sp *= sp; sp *= sp; sp *= sp; sp *= sp; // ^32
+        const rim = (1 - uz) * (1 - uz);
+        const lit = 0.5 + 0.7 * dif, spec = sp * 230;
+        const o = k * 4;
+        data[o]     = tx[ti] * lit + spec + rr * rim * 0.55;
+        data[o + 1] = tx[ti + 1] * lit + spec + rg * rim * 0.55;
+        data[o + 2] = tx[ti + 2] * lit + spec + rb * rim * 0.55;
+        data[o + 3] = a * 255;
+      }
+    }
+    fctx.putImageData(img, 0, 0);
+  }
+
+  // sparkle sprite
+  const spr = document.createElement(&#x27;canvas&#x27;); spr.width = spr.height = 64;
+  {
+    const s = spr.getContext(&#x27;2d&#x27;);
+    const g = s.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, &#x27;rgba(255,255,255,1)&#x27;); g.addColorStop(0.15, &#x27;rgba(255,240,255,.7)&#x27;); g.addColorStop(1, &#x27;rgba(255,200,255,0)&#x27;);
+    s.fillStyle = g; s.fillRect(0, 0, 64, 64);
+    s.globalCompositeOperation = &#x27;lighter&#x27;;
+    const l = s.createLinearGradient(0, 32, 64, 32);
+    l.addColorStop(0, &#x27;rgba(255,255,255,0)&#x27;); l.addColorStop(0.5, &#x27;rgba(255,255,255,1)&#x27;); l.addColorStop(1, &#x27;rgba(255,255,255,0)&#x27;);
+    s.fillStyle = l; s.fillRect(0, 31, 64, 2);
+    const l2 = s.createLinearGradient(32, 0, 32, 64);
+    l2.addColorStop(0, &#x27;rgba(255,255,255,0)&#x27;); l2.addColorStop(0.5, &#x27;rgba(255,255,255,1)&#x27;); l2.addColorStop(1, &#x27;rgba(255,255,255,0)&#x27;);
+    s.fillStyle = l2; s.fillRect(31, 0, 2, 64);
+  }
+
+  // ---------- sound ----------
+  let ac = null, soundOn = true, noiseBuf = null;
+  function audio() {
+    if (!soundOn) return null;
+    if (!ac) {
+      try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+      noiseBuf = ac.createBuffer(1, ac.sampleRate * 0.5, ac.sampleRate);
+      const d = noiseBuf.getChannelData(0); for (let i = 0; i &lt; d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (ac.state === &#x27;suspended&#x27;) ac.resume();
+    return ac;
+  }
+  function squelch(pitch = 1, vol = 0.5) {
+    const a = audio(); if (!a) return; const t = a.currentTime;
+    const src = a.createBufferSource(); src.buffer = noiseBuf;
+    const bp = a.createBiquadFilter(); bp.type = &#x27;bandpass&#x27;; bp.Q.value = 6;
+    bp.frequency.setValueAtTime(300 * pitch, t); bp.frequency.exponentialRampToValueAtTime(1400 * pitch, t + 0.16);
+    const g = a.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    src.connect(bp).connect(g).connect(a.destination); src.start(t, Math.random() * 0.2); src.stop(t + 0.25);
+  }
+  function tone(f0, f1, dur, vol, type = &#x27;sine&#x27;) {
+    const a = audio(); if (!a) return; const t = a.currentTime;
+    const o = a.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = a.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  const pop = () =&gt; { tone(900, 140, 0.12, 0.35); squelch(1.6, 0.25); };
+  const blorp = () =&gt; { tone(160, 520, 0.18, 0.3); squelch(0.7, 0.3); };
+
+  // ---------- state, input ----------
+  let xray = false, lastBlobs = 1, blobCheck = 0, lastInteract = performance.now(), hintShown = true;
+  const pointers = new Map();     // pointerId -&gt; &#x27;grab&#x27; | &#x27;poke&#x27;
+  const hint = document.getElementById(&#x27;hint&#x27;), blobsEl = document.getElementById(&#x27;blobs&#x27;);
+  const GRAB_R = 2.0 * h;
+
+  function newSlime() {
+    sim.clear();
+    sim.spawnBlob(W / 2, H / 2 + 10, 0.22 * Math.min(W, H), 1000 + Math.random() * 400);
+    document.getElementById(&#x27;nCount&#x27;).textContent = sim.n;
+    for (let i = 0; i &lt; 20; i++) sim.step();
+    lastBlobs = sim.countBlobs(6);
+  }
+
+  function resize() {
+    W = innerWidth; H = innerHeight; DPR = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+    sim.resize(W, H);
+    setupField(); drawBackground();
+  }
+
+  function pos(e) { return [e.clientX, e.clientY]; }
+  function interacted() {
+    lastInteract = performance.now();
+    if (hintShown) { hint.style.opacity = 0; hintShown = false; }
+  }
+
+  canvas.addEventListener(&#x27;contextmenu&#x27;, e =&gt; e.preventDefault());
+  canvas.addEventListener(&#x27;pointerdown&#x27;, e =&gt; {
+    e.preventDefault(); interacted();
+    const [x, y] = pos(e);
+    if (e.button === 2) {           // right click: toggle a pin
+      for (const [id, g] of sim.grabs) {
+        if (g.pin &amp;&amp; Math.hypot(g.x - x, g.y - y) &lt; GRAB_R) { sim.removeGrab(id); squelch(0.8, 0.3); return; }
+      }
+      if (sim.addGrab(&#x27;pin&#x27; + Math.random(), x, y, GRAB_R * 0.9, true)) squelch(1.2, 0.35);
+      return;
+    }
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    if (sim.addGrab(e.pointerId, x, y, GRAB_R, false)) { pointers.set(e.pointerId, &#x27;grab&#x27;); squelch(1, 0.5); }
+    else { pointers.set(e.pointerId, &#x27;poke&#x27;); sim.pokers.set(e.pointerId, { x, y, r: 1.6 * h }); }
+  });
+  canvas.addEventListener(&#x27;pointermove&#x27;, e =&gt; {
+    const kind = pointers.get(e.pointerId); if (!kind) return;
+    interacted();
+    const [x, y] = pos(e);
+    if (kind === &#x27;grab&#x27;) sim.moveGrab(e.pointerId, x, y);
+    else { const p = sim.pokers.get(e.pointerId); p.x = x; p.y = y; }
+  });
+  function up(e) {
+    const kind = pointers.get(e.pointerId); if (!kind) return;
+    pointers.delete(e.pointerId);
+    if (kind === &#x27;grab&#x27;) { sim.removeGrab(e.pointerId); squelch(0.75, 0.3); }
+    else sim.pokers.delete(e.pointerId);
+  }
+  canvas.addEventListener(&#x27;pointerup&#x27;, up);
+  canvas.addEventListener(&#x27;pointercancel&#x27;, up);
+
+  const bXray = document.getElementById(&#x27;bXray&#x27;), bSound = document.getElementById(&#x27;bSound&#x27;);
+  const actions = {
+    newSlime: () =&gt; { newSlime(); squelch(0.6, 0.4); },
+    squish: () =&gt; { sim.gather = 360; squelch(0.9, 0.4); },
+    theme: () =&gt; { setTheme(themeIdx + 1); },
+    xray: () =&gt; {
+      xray = !xray; bXray.classList.toggle(&#x27;on&#x27;, xray);
+      document.getElementById(&#x27;info&#x27;).style.display = xray ? &#x27;block&#x27; : &#x27;none&#x27;;
+    },
+    sound: () =&gt; { soundOn = !soundOn; bSound.textContent = soundOn ? &#x27;🔊 Sound&#x27; : &#x27;🔇 Sound&#x27;; bSound.classList.toggle(&#x27;on&#x27;, !soundOn); },
+    full: () =&gt; {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen?.();
+    },
+  };
+  const wire = (id, fn) =&gt; document.getElementById(id).addEventListener(&#x27;click&#x27;, e =&gt; { interacted(); fn(); e.currentTarget.blur(); });
+  wire(&#x27;bNew&#x27;, actions.newSlime); wire(&#x27;bSquish&#x27;, actions.squish); wire(&#x27;bTheme&#x27;, actions.theme);
+  wire(&#x27;bXray&#x27;, actions.xray); wire(&#x27;bSound&#x27;, actions.sound); wire(&#x27;bFull&#x27;, actions.full);
+  addEventListener(&#x27;keydown&#x27;, e =&gt; {
+    const k = e.key.toLowerCase();
+    const map = { r: &#x27;newSlime&#x27;, s: &#x27;squish&#x27;, c: &#x27;theme&#x27;, x: &#x27;xray&#x27;, m: &#x27;sound&#x27;, f: &#x27;full&#x27; };
+    if (map[k]) { interacted(); actions[map[k]](); }
+  });
+  addEventListener(&#x27;resize&#x27;, resize);
+
+  // ---------- main loop ----------
+  const STEP_MS = 1000 / 120;
+  let acc = 0, last = performance.now();
+
+  function frame(now) {
+    acc += Math.min(now - last, 50); last = now;
+    let steps = 0;
+    while (acc &gt;= STEP_MS &amp;&amp; steps &lt; 4) { sim.step(); acc -= STEP_MS; steps++; }
+    if (steps === 4) acc = 0;
+
+    if (++blobCheck &gt;= 8) {
+      blobCheck = 0;
+      const b = sim.countBlobs(6);
+      if (b &gt; lastBlobs) pop(); else if (b &lt; lastBlobs) blorp();
+      lastBlobs = b;
+      blobsEl.textContent = b === 1 ? &#x27;🪐 1 blob&#x27; : `🪐 ${b} blobs`;
+    }
+    if (!hintShown &amp;&amp; now - lastInteract &gt; 25000) { hint.style.opacity = 1; hintShown = true; }
+
+    const t = now / 1000;
+    renderField(now / 16);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.globalCompositeOperation = &#x27;source-over&#x27;; ctx.globalAlpha = 1;
+    ctx.drawImage(bg, 0, 0, W, H);
+    ctx.imageSmoothingEnabled = true;
+
+    // soft glow behind the slime
+    ctx.globalCompositeOperation = &#x27;lighter&#x27;;
+    ctx.globalAlpha = xray ? 0.1 : 0.35;
+    ctx.filter = &#x27;blur(18px)&#x27;;
+    ctx.drawImage(fcan, 0, 0, fw * FS, fh * FS);
+    ctx.filter = &#x27;none&#x27;;
+    ctx.globalCompositeOperation = &#x27;source-over&#x27;;
+    ctx.globalAlpha = xray ? 0.3 : 1;
+    ctx.drawImage(fcan, 0, 0, fw * FS, fh * FS);
+    ctx.globalAlpha = 1;
+
+    const n = sim.n, px = sim.px, py = sim.py;
+    if (xray) {
+      ctx.strokeStyle = &#x27;rgba(127,216,255,.45)&#x27;; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (const key of sim.springs.keys()) {
+        const i = key &gt;&gt;&gt; 12, j = key &amp; 4095;
+        ctx.moveTo(px[i], py[i]); ctx.lineTo(px[j], py[j]);
+      }
+      ctx.stroke();
+      ctx.fillStyle = &#x27;#ffe680&#x27;;
+      ctx.beginPath();
+      const r = Math.max(1.5, h * 0.09);
+      for (let i = 0; i &lt; n; i++) { ctx.moveTo(px[i] + r, py[i]); ctx.arc(px[i], py[i], r, 0, 6.2832); }
+      ctx.fill();
+    } else {
+      // twinkling sparkles riding inside the slime
+      ctx.globalCompositeOperation = &#x27;lighter&#x27;;
+      const sp = sim.spark;
+      for (let i = 0; i &lt; n; i++) {
+        if (!sp[i]) continue;
+        const fx = Math.min(fw - 1, Math.max(0, (px[i] / FS) | 0)), fy = Math.min(fh - 1, Math.max(0, (py[i] / FS) | 0));
+        if (field[fy * fw + fx] &lt; T * 1.6) continue;
+        let b = Math.sin(t * (1.2 + sp[i] * 0.3) + sp[i] * 7.3);
+        if (b &lt;= 0.2) continue;
+        b = (b - 0.2) / 0.8; b = b * b;
+        const s = 4 + b * h * 0.7;
+        ctx.globalAlpha = b * 0.9;
+        ctx.drawImage(spr, px[i] - s / 2, py[i] - s / 2, s, s);
+      }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = &#x27;source-over&#x27;;
+    }
+
+    // pins and fingers
+    for (const g of sim.grabs.values()) {
+      ctx.beginPath(); ctx.arc(g.x, g.y, g.pin ? h * 0.7 : h * 0.5, 0, 6.2832);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = g.pin ? &#x27;rgba(255,230,120,.9)&#x27; : &#x27;rgba(255,255,255,.35)&#x27;;
+      ctx.stroke();
+      if (g.pin) { ctx.fillStyle = &#x27;rgba(255,230,120,.9)&#x27;; ctx.beginPath(); ctx.arc(g.x, g.y, 4, 0, 6.2832); ctx.fill(); }
+    }
+    for (const p of sim.pokers.values()) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.8, 0, 6.2832);
+      ctx.strokeStyle = &#x27;rgba(255,255,255,.25)&#x27;; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  resize();
+  setTheme(0);
+  newSlime();
+  requestAnimationFrame(t =&gt; { last = t; frame(t); });
+})();
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+" title="galaxy-slime.html"></iframe><p class="dim">Running in a sandboxed frame: it can't reach this page or your browser's storage, so a page that saves things may show an error.</p><h2>Prompts and replies</h2><h3>Prompt 1</h3><p class="dim">Not in the log: claude -p doesn't write the prompt it was given.</p><h3>Reply</h3><pre class="said">I&#x27;ve built the galaxy slime toy. It&#x27;s a single file, `galaxy-slime.html`, with nothing to install and no internet needed. Double-click it to open it in Chrome, Edge or Firefox.
+
+**How to play**
+- **Drag** the slime to stretch it. A slow pull drags the whole blob along; a fast yank stretches it out and then tears a piece off with a &quot;pop&quot; sound.
+- **Push pieces together** and they merge back into one blob with a &quot;blorp&quot; sound. A counter in the corner shows how many blobs there are.
+- **Click empty space** and drag into the slime to poke and squish it.
+- **Right-click** to pin a spot down, like a second hand holding it. Then pull the other side to stretch a long string before it snaps. Right-click the pin again to remove it. On a touchscreen you can just use two fingers.
+
+**Buttons** (each also has a keyboard shortcut):
+- ✨ **New slime** (R) starts over with a fresh blob.
+- 🤲 **Squish together** (S) gathers all the bits back into the middle.
+- 🎨 **Change galaxy** (C) switches between four colour schemes: Galaxy, Nebula, Supernova and Aurora.
+- 🔬 **X-ray** (X) shows the slime as about 700 particles joined by stretchy bonds, with a short explanation of cohesion and bonds snapping.
+- 🔊 **Sound** (M) turns the squelches and pops on or off.
+- ⛶ **Full screen** (F).
+
+**How I checked it**
+- I ran the physics on its own and tested resting, stretching, tearing at different speeds, and gathering the pieces back together. It stayed stable throughout.
+- I took screenshots in a headless browser of the normal view, X-ray mode, and a pinned stretch.
+- I haven&#x27;t played it with a real mouse or on a laptop. Try it on the laptop you&#x27;ll use at the stall before the night.
+
+**Tips for the stall**
+- Use full screen and plug the laptop in. The toy runs a smooth animation constantly, so it will drain the battery.
+- The usage hint at the bottom fades once someone starts playing and comes back after 25 seconds of nobody touching it.</pre><h2>Files</h2><details open><summary>galaxy-slime.html · as it is on disk now · 32 KB</summary><pre><code>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1,user-scalable=no&quot;&gt;
+&lt;title&gt;Galaxy Slime&lt;/title&gt;
+&lt;style&gt;
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: #05030f;
+    font-family: system-ui, -apple-system, &quot;Segoe UI&quot;, Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: none;
+  }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #bar {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; z-index: 2;
+    max-width: calc(100% - 24px);
+  }
+  button {
+    font: 600 16px system-ui, -apple-system, &quot;Segoe UI&quot;, sans-serif; color: #fff;
+    background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.25);
+    border-radius: 999px; padding: 9px 16px; cursor: pointer;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    transition: background .15s, transform .1s;
+  }
+  button:hover { background: rgba(255,255,255,.2); }
+  button:active { transform: scale(.95); }
+  button.on { background: rgba(170,110,255,.45); border-color: rgba(220,190,255,.7); }
+  #blobs {
+    position: fixed; left: 16px; top: 16px; z-index: 2; color: #fff;
+    font-weight: 700; font-size: 20px; text-shadow: 0 0 10px #a060ff;
+    pointer-events: none;
+  }
+  #hint {
+    position: fixed; bottom: 16px; left: 0; right: 0; text-align: center; z-index: 1;
+    color: rgba(255,255,255,.8); font-size: 18px; pointer-events: none;
+    transition: opacity 1.2s; text-shadow: 0 1px 6px #000;
+  }
+  #info {
+    position: fixed; right: 16px; top: 70px; width: 300px; z-index: 2;
+    background: rgba(10,6,30,.82); color: #eee; border: 1px solid rgba(200,160,255,.4);
+    border-radius: 14px; padding: 14px 16px; font-size: 15px; line-height: 1.45;
+    display: none; pointer-events: none;
+  }
+  #info h3 { margin: 0 0 6px; color: #d8b8ff; font-size: 17px; }
+  #info p { margin: 6px 0; }
+  #info .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ffe680; }
+  #info .bond { display: inline-block; width: 18px; height: 2px; background: #7fd8ff; vertical-align: middle; }
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;canvas id=&quot;c&quot;&gt;&lt;/canvas&gt;
+&lt;div id=&quot;bar&quot;&gt;
+  &lt;button id=&quot;bNew&quot; title=&quot;R&quot;&gt;✨ New slime&lt;/button&gt;
+  &lt;button id=&quot;bSquish&quot; title=&quot;S&quot;&gt;🤲 Squish together&lt;/button&gt;
+  &lt;button id=&quot;bTheme&quot; title=&quot;C&quot;&gt;🎨 Change galaxy&lt;/button&gt;
+  &lt;button id=&quot;bXray&quot; title=&quot;X&quot;&gt;🔬 X-ray&lt;/button&gt;
+  &lt;button id=&quot;bSound&quot; title=&quot;M&quot;&gt;🔊 Sound&lt;/button&gt;
+  &lt;button id=&quot;bFull&quot; title=&quot;F&quot;&gt;⛶ Full screen&lt;/button&gt;
+&lt;/div&gt;
+&lt;div id=&quot;blobs&quot;&gt;&lt;/div&gt;
+&lt;div id=&quot;hint&quot;&gt;👆 Drag to stretch &amp;nbsp;•&amp;nbsp; Pull fast to tear it apart &amp;nbsp;•&amp;nbsp; Push pieces together to merge &amp;nbsp;•&amp;nbsp; Right-click to pin a spot down&lt;/div&gt;
+&lt;div id=&quot;info&quot;&gt;
+  &lt;h3&gt;How does the slime work?&lt;/h3&gt;
+  &lt;p&gt;The slime is made of about &lt;b id=&quot;nCount&quot;&gt;700&lt;/b&gt; tiny particles &lt;span class=&quot;dot&quot;&gt;&lt;/span&gt;.&lt;/p&gt;
+  &lt;p&gt;&lt;b&gt;Cohesion:&lt;/b&gt; each particle pulls on its neighbours, so they clump into a blob (like surface tension holding a raindrop together). Squash them too close and they push back.&lt;/p&gt;
+  &lt;p&gt;&lt;b&gt;Bonds&lt;/b&gt; &lt;span class=&quot;bond&quot;&gt;&lt;/span&gt; join neighbours. They stretch slowly, but pull too fast and they snap, so the slime tears in two.&lt;/p&gt;
+  &lt;p&gt;Push two blobs together and cohesion pulls them back into one.&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+&#x27;use strict&#x27;;
+
+// ===== SIM-START =====
+// Particle slime: &quot;viscoelastic fluid&quot; model (Clavet, Beaudoin &amp; Poulin 2005):
+// double density relaxation (cohesion + incompressibility), plastic springs
+// (stretchiness) and viscosity (gooeyness). All lengths in CSS pixels.
+function createSim(W, H, h) {
+  const MAXN = 4000;
+  const px = new Float32Array(MAXN), py = new Float32Array(MAXN);
+  const vx = new Float32Array(MAXN), vy = new Float32Array(MAXN);
+  const qx = new Float32Array(MAXN), qy = new Float32Array(MAXN);
+  const tu = new Float32Array(MAXN), tv = new Float32Array(MAXN);
+  const spark = new Float32Array(MAXN);
+  const rho = new Float32Array(MAXN), rhoN = new Float32Array(MAXN);
+  const ddx = new Float32Array(MAXN), ddy = new Float32Array(MAXN);
+  const held = new Uint8Array(MAXN);
+  const cellOf = new Int32Array(MAXN), sorted = new Int32Array(MAXN);
+  const uf = new Int32Array(MAXN), ufSize = new Int32Array(MAXN);
+  const PAIRCAP = MAXN * 40;
+  const pairI = new Int32Array(PAIRCAP), pairJ = new Int32Array(PAIRCAP);
+  let cellStart = new Int32Array(1), cellCount = new Int32Array(1);
+  const springs = new Map();   // key (i&lt;&lt;12)|j  -&gt;  rest length
+  const grabs = new Map();     // id -&gt; {x, y, pin, idx, ox, oy}
+  const pokers = new Map();    // id -&gt; {x, y, r}
+
+  const S = {
+    n: 0, W, H, h, np: 0, gather: 0,
+    px, py, vx, vy, tu, tv, spark, held, springs, grabs, pokers, pairI, pairJ,
+    spacing: 0.5 * h,
+    K: 0.30,        // pressure stiffness
+    KN: 0.60,       // near-pressure stiffness (stops clumping)
+    SIGMA: 0.15,    // linear viscosity
+    BETA: 0.3 / h,  // quadratic viscosity
+    KS: 0.80,       // spring stiffness
+    GAMMA: 0.50,    // spring yield ratio
+    ALPHA: 0.02,    // plasticity
+    BREAK: h,       // springs snap once their rest length exceeds h (must not exceed h)
+    FRICTION: 0.965,
+    MAXV: 0.45 * h,
+  };
+
+  // Rest density = density of an interior particle in the starting hex lattice,
+  // so a fresh blob starts out (almost) at rest.
+  {
+    const s = S.spacing; let r0 = 0;
+    for (let a = -6; a &lt;= 6; a++) for (let b = -6; b &lt;= 6; b++) {
+      if (!a &amp;&amp; !b) continue;
+      const x = (a + b * 0.5) * s, y = b * s * Math.sqrt(3) / 2, q = Math.hypot(x, y) / h;
+      if (q &lt; 1) r0 += (1 - q) * (1 - q);
+    }
+    S.R0 = r0;
+  }
+
+  S.clear = function () { S.n = 0; springs.clear(); grabs.clear(); held.fill(0); };
+
+  S.spawnBlob = function (cx, cy, R, texOff) {
+    const s = S.spacing, dy = s * Math.sqrt(3) / 2;
+    for (let row = -Math.ceil(R / dy); row &lt;= Math.ceil(R / dy); row++) {
+      const y = row * dy, off = (row &amp; 1) ? s / 2 : 0;
+      for (let x = -R - off; x &lt;= R; x += s) {
+        const xx = x + off;
+        if (xx * xx + y * y &gt; R * R || S.n &gt;= MAXN) continue;
+        const i = S.n++;
+        px[i] = cx + xx + (Math.random() - 0.5) * 0.02 * s;
+        py[i] = cy + y + (Math.random() - 0.5) * 0.02 * s;
+        vx[i] = vy[i] = 0; held[i] = 0;
+        tu[i] = texOff + (xx + R) * 0.9; tv[i] = texOff + (y + R) * 0.9;
+        spark[i] = Math.random() &lt; 0.14 ? 0.5 + Math.random() * 6 : 0;
+      }
+    }
+  };
+
+  S.resize = function (w, hh) { S.W = w; S.H = hh; };
+
+  // ---- hands ----
+  S.addGrab = function (id, x, y, r, pin) {
+    const idx = [], ox = [], oy = [];
+    for (let i = 0; i &lt; S.n; i++) {
+      if (held[i]) continue;
+      const dx = px[i] - x, dy = py[i] - y;
+      if (dx * dx + dy * dy &lt; r * r) { idx.push(i); ox.push(dx * 0.85); oy.push(dy * 0.85); held[i] = 1; }
+    }
+    if (!idx.length) return 0;
+    grabs.set(id, { x, y, pin: !!pin, idx, ox, oy });
+    return idx.length;
+  };
+  S.moveGrab = function (id, x, y) { const g = grabs.get(id); if (g) { g.x = x; g.y = y; } };
+  S.removeGrab = function (id) {
+    const g = grabs.get(id); if (!g) return;
+    for (const i of g.idx) held[i] = 0;
+    grabs.delete(id);
+  };
+
+  function buildPairs() {
+    const n = S.n, cs = h;
+    const cols = Math.ceil(S.W / cs) + 2, rows = Math.ceil(S.H / cs) + 2, nc = cols * rows;
+    if (cellCount.length &lt; nc) { cellCount = new Int32Array(nc); cellStart = new Int32Array(nc + 1); }
+    cellCount.fill(0, 0, nc);
+    for (let i = 0; i &lt; n; i++) {
+      let cx = (px[i] / cs) | 0, cy = (py[i] / cs) | 0;
+      cx = cx &lt; 0 ? 0 : cx &gt;= cols ? cols - 1 : cx;
+      cy = cy &lt; 0 ? 0 : cy &gt;= rows ? rows - 1 : cy;
+      const c = cy * cols + cx; cellOf[i] = c; cellCount[c]++;
+    }
+    cellStart[0] = 0;
+    for (let c = 0; c &lt; nc; c++) cellStart[c + 1] = cellStart[c] + cellCount[c];
+    cellCount.fill(0, 0, nc);
+    for (let i = 0; i &lt; n; i++) { const c = cellOf[i]; sorted[cellStart[c] + cellCount[c]++] = i; }
+    const h2 = h * h; let np = 0;
+    for (let i = 0; i &lt; n; i++) {
+      const c = cellOf[i], cx = c % cols, cy = (c / cols) | 0;
+      for (let yy = cy - 1; yy &lt;= cy + 1; yy++) {
+        if (yy &lt; 0 || yy &gt;= rows) continue;
+        for (let xx = cx - 1; xx &lt;= cx + 1; xx++) {
+          if (xx &lt; 0 || xx &gt;= cols) continue;
+          const cc = yy * cols + xx;
+          for (let k = cellStart[cc], e = cellStart[cc + 1]; k &lt; e; k++) {
+            const j = sorted[k];
+            if (j &lt;= i) continue;
+            const dx = px[j] - px[i], dy = py[j] - py[i];
+            if (dx * dx + dy * dy &lt; h2 &amp;&amp; np &lt; PAIRCAP) { pairI[np] = i; pairJ[np] = j; np++; }
+          }
+        }
+      }
+    }
+    S.np = np;
+  }
+
+  S.step = function () {
+    const n = S.n, W = S.W, H = S.H;
+
+    // 1. hands, friction, gathering
+    for (const g of grabs.values()) {
+      for (let k = 0; k &lt; g.idx.length; k++) {
+        const i = g.idx[k];
+        const tx = (g.x + g.ox[k] - px[i]) * 0.3, ty = (g.y + g.oy[k] - py[i]) * 0.3;
+        vx[i] += (tx - vx[i]) * 0.6; vy[i] += (ty - vy[i]) * 0.6;
+      }
+    }
+    const fr = S.FRICTION, mv = S.MAXV, mv2 = mv * mv;
+    const gk = S.gather &gt; 0 ? 0.05 : 0, gcx = W / 2, gcy = H / 2;
+    if (S.gather &gt; 0) S.gather--;
+    for (let i = 0; i &lt; n; i++) {
+      if (!held[i]) { vx[i] *= fr; vy[i] *= fr; }
+      if (gk) {   // steer gently towards the middle, slowing down on arrival
+        const dx = gcx - px[i], dy = gcy - py[i], d = Math.hypot(dx, dy) + 1e-6;
+        const sp = Math.min(d * 0.012, 0.08 * h) / d;
+        vx[i] += (dx * sp - vx[i]) * gk; vy[i] += (dy * sp - vy[i]) * gk;
+      }
+      const v2 = vx[i] * vx[i] + vy[i] * vy[i];
+      if (v2 &gt; mv2) { const s = mv / Math.sqrt(v2); vx[i] *= s; vy[i] *= s; }
+    }
+
+    buildPairs();
+    const np = S.np, invH = 1 / h;
+
+    // 2. viscosity (pairwise velocity impulses)
+    const sig = S.SIGMA, beta = S.BETA;
+    for (let p = 0; p &lt; np; p++) {
+      const i = pairI[p], j = pairJ[p];
+      const dx = px[j] - px[i], dy = py[j] - py[i];
+      const r = Math.sqrt(dx * dx + dy * dy); if (r &lt; 1e-6) continue;
+      const ux = dx / r, uy = dy / r, q = r * invH;
+      const u = (vx[i] - vx[j]) * ux + (vy[i] - vy[j]) * uy;
+      const I = (1 - q) * (sig * u + (u &gt; 0 ? beta * u * u : 0)) * 0.5;
+      vx[i] -= I * ux; vy[i] -= I * uy; vx[j] += I * ux; vy[j] += I * uy;
+    }
+
+    // 3. predict positions
+    for (let i = 0; i &lt; n; i++) { qx[i] = px[i]; qy[i] = py[i]; px[i] += vx[i]; py[i] += vy[i]; }
+
+    // 4. plastic springs
+    for (let p = 0; p &lt; np; p++) {
+      const key = (pairI[p] &lt;&lt; 12) | pairJ[p];
+      if (!springs.has(key)) {
+        const i = pairI[p], j = pairJ[p];
+        const r = Math.hypot(px[j] - px[i], py[j] - py[i]);
+        if (r &lt; h) springs.set(key, r);
+      }
+    }
+    const ks = S.KS, gam = S.GAMMA, alp = S.ALPHA;
+    for (const [key, rest0] of springs) {
+      const i = key &gt;&gt;&gt; 12, j = key &amp; 4095;
+      if (i &gt;= n || j &gt;= n) { springs.delete(key); continue; }
+      const dx = px[j] - px[i], dy = py[j] - py[i];
+      const L = Math.sqrt(dx * dx + dy * dy);
+      if (L &gt; 2.5 * h || L &lt; 1e-6) { springs.delete(key); continue; }
+      let rest = rest0; const d = gam * rest;
+      if (L &gt; rest + d) rest += alp * (L - rest - d);
+      else if (L &lt; rest - d) rest -= alp * (rest - d - L);
+      if (rest &gt; S.BREAK) { springs.delete(key); continue; }
+      springs.set(key, rest);
+      const D = ks * (1 - rest * invH) * (rest - L) / L * 0.5;
+      px[i] -= D * dx; py[i] -= D * dy; px[j] += D * dx; py[j] += D * dy;
+    }
+
+    // 5. double density relaxation
+    rho.fill(0, 0, n); rhoN.fill(0, 0, n); ddx.fill(0, 0, n); ddy.fill(0, 0, n);
+    for (let p = 0; p &lt; np; p++) {
+      const i = pairI[p], j = pairJ[p];
+      const dx = px[j] - px[i], dy = py[j] - py[i];
+      const q = Math.sqrt(dx * dx + dy * dy) * invH;
+      if (q &gt;= 1) continue;
+      const a = 1 - q, a2 = a * a, a3 = a2 * a;
+      rho[i] += a2; rho[j] += a2; rhoN[i] += a3; rhoN[j] += a3;
+    }
+    const K = S.K, KN = S.KN, R0 = S.R0;
+    for (let p = 0; p &lt; np; p++) {
+      const i = pairI[p], j = pairJ[p];
+      const dx = px[j] - px[i], dy = py[j] - py[i];
+      const r = Math.sqrt(dx * dx + dy * dy), q = r * invH;
+      if (q &gt;= 1 || r &lt; 1e-6) continue;
+      const a = 1 - q;
+      const P = K * (rho[i] + rho[j] - 2 * R0) * 0.5, PN = KN * (rhoN[i] + rhoN[j]) * 0.5;
+      const D = (P * a + PN * a * a) * h * 0.25 / r;
+      ddx[i] -= D * dx; ddy[i] -= D * dy; ddx[j] += D * dx; ddy[j] += D * dy;
+    }
+    for (let i = 0; i &lt; n; i++) { px[i] += ddx[i]; py[i] += ddy[i]; }
+
+    // 6. fingers poking empty space push slime away
+    for (const pk of pokers.values()) {
+      const r2 = pk.r * pk.r;
+      for (let i = 0; i &lt; n; i++) {
+        const dx = px[i] - pk.x, dy = py[i] - pk.y, d2 = dx * dx + dy * dy;
+        if (d2 &lt; r2 &amp;&amp; d2 &gt; 1e-6) { const d = Math.sqrt(d2), s = (pk.r - d) / d * 0.5; px[i] += dx * s; py[i] += dy * s; }
+      }
+    }
+
+    // 7. walls, then velocity from displacement
+    const m = 0.3 * h;
+    for (let i = 0; i &lt; n; i++) {
+      if (px[i] &lt; m) px[i] = m; else if (px[i] &gt; W - m) px[i] = W - m;
+      if (py[i] &lt; m) py[i] = m; else if (py[i] &gt; H - m) py[i] = H - m;
+      vx[i] = px[i] - qx[i]; vy[i] = py[i] - qy[i];
+    }
+  };
+
+  // Count connected pieces with at least minSize particles.
+  S.countBlobs = function (minSize) {
+    const n = S.n;
+    for (let i = 0; i &lt; n; i++) { uf[i] = i; ufSize[i] = 0; }
+    const find = (a) =&gt; { while (uf[a] !== a) { uf[a] = uf[uf[a]]; a = uf[a]; } return a; };
+    const h2 = h * h;
+    for (let p = 0; p &lt; S.np; p++) {
+      const i = pairI[p], j = pairJ[p];
+      const dx = px[j] - px[i], dy = py[j] - py[i];
+      if (dx * dx + dy * dy &gt;= h2) continue;
+      const a = find(i), b = find(j); if (a !== b) uf[a] = b;
+    }
+    for (let i = 0; i &lt; n; i++) ufSize[find(i)]++;
+    let c = 0;
+    for (let i = 0; i &lt; n; i++) if (ufSize[i] &gt;= minSize) c++;
+    return c;
+  };
+
+  return S;
+}
+// ===== SIM-END =====
+
+(() =&gt; {
+  const canvas = document.getElementById(&#x27;c&#x27;);
+  const ctx = canvas.getContext(&#x27;2d&#x27;);
+  let W = innerWidth, H = innerHeight, DPR = Math.min(devicePixelRatio || 1, 2);
+  const h = Math.max(14, Math.min(34, Math.min(W, H) / 32));
+  const sim = createSim(W, H, h);
+
+  // ---------- galaxy textures ----------
+  const TEX = 512, TMASK = TEX - 1;
+  const THEMES = [
+    { name: &#x27;Galaxy&#x27;,    stops: [&#x27;#0a0526&#x27;, &#x27;#2a1260&#x27;, &#x27;#5b23a8&#x27;, &#x27;#b23ab8&#x27;, &#x27;#ff7ccf&#x27;, &#x27;#ffe1f6&#x27;], accent: [80, 200, 255], rim: [255, 150, 255] },
+    { name: &#x27;Nebula&#x27;,    stops: [&#x27;#02101f&#x27;, &#x27;#073b52&#x27;, &#x27;#0f7d8c&#x27;, &#x27;#2fd0d6&#x27;, &#x27;#a8ff9a&#x27;, &#x27;#f2fff0&#x27;], accent: [190, 120, 255], rim: [140, 255, 230] },
+    { name: &#x27;Supernova&#x27;, stops: [&#x27;#140208&#x27;, &#x27;#4a0820&#x27;, &#x27;#a01a3a&#x27;, &#x27;#ff5a2a&#x27;, &#x27;#ffc24a&#x27;, &#x27;#fff6d8&#x27;], accent: [255, 80, 200], rim: [255, 200, 120] },
+    { name: &#x27;Aurora&#x27;,    stops: [&#x27;#040a1c&#x27;, &#x27;#132e6b&#x27;, &#x27;#1f6fb5&#x27;, &#x27;#28c48f&#x27;, &#x27;#c6ff6a&#x27;, &#x27;#f8fff2&#x27;], accent: [255, 110, 210], rim: [160, 255, 200] },
+  ];
+  let themeIdx = 0, tex = null, rimCol = THEMES[0].rim;
+
+  function hexRGB(s) { const v = parseInt(s.slice(1), 16); return [v &gt;&gt; 16, (v &gt;&gt; 8) &amp; 255, v &amp; 255]; }
+
+  function makeTexture(theme) {
+    let seed = (Math.random() * 1e9) | 0;
+    const rnd = () =&gt; { seed = (seed * 1664525 + 1013904223) | 0; return ((seed &gt;&gt;&gt; 0) / 4294967296); };
+    // tileable value-noise fbm
+    function layer(period) { const g = new Float32Array(period * period); for (let i = 0; i &lt; g.length; i++) g[i] = rnd(); return { p: period, g }; }
+    function fbmMaker(base) {
+      const ls = [base, base * 2, base * 4, base * 8, base * 16].map(layer);
+      return (x, y) =&gt; {
+        let s = 0, amp = 0.5, tot = 0;
+        for (const L of ls) {
+          const fx = x / TEX * L.p, fy = y / TEX * L.p;
+          const x0 = Math.floor(fx), y0 = Math.floor(fy);
+          let tx = fx - x0, ty = fy - y0; tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+          const p = L.p, xa = ((x0 % p) + p) % p, ya = ((y0 % p) + p) % p, xb = (xa + 1) % p, yb = (ya + 1) % p;
+          const a = L.g[ya * p + xa], b = L.g[ya * p + xb], c = L.g[yb * p + xa], d = L.g[yb * p + xb];
+          s += amp * (a + (b - a) * tx + (c - a + (a - b - c + d) * tx) * ty);
+          tot += amp; amp *= 0.5;
+        }
+        return s / tot;
+      };
+    }
+    const nA = fbmMaker(3), nB = fbmMaker(3), nC = fbmMaker(4), nD = fbmMaker(5);
+    const stops = theme.stops.map(hexRGB), acc = theme.accent;
+    const out = new Float32Array(TEX * TEX * 3);
+    for (let y = 0; y &lt; TEX; y++) for (let x = 0; x &lt; TEX; x++) {
+      const wx = x + 160 * (nB(x, y) - 0.5), wy = y + 160 * (nC(x, y) - 0.5);
+      let t = nA(wx, wy);
+      t = Math.min(1, Math.max(0, (t - 0.27) / 0.48));
+      t = t * t * (3 - 2 * t);
+      const f = t * (stops.length - 1), k = Math.min(stops.length - 2, f | 0), u = f - k;
+      let r = stops[k][0] + (stops[k + 1][0] - stops[k][0]) * u;
+      let g = stops[k][1] + (stops[k + 1][1] - stops[k][1]) * u;
+      let b = stops[k][2] + (stops[k + 1][2] - stops[k][2]) * u;
+      let a = nD(wy, wx); a = Math.max(0, (a - 0.55) / 0.2); a = Math.min(1, a) * 0.55;
+      r += (acc[0] - r) * a; g += (acc[1] - g) * a; b += (acc[2] - b) * a;
+      const o = (y * TEX + x) * 3; out[o] = r; out[o + 1] = g; out[o + 2] = b;
+    }
+    // stars
+    function star(cx, cy, rad, br, tint) {
+      const R = Math.ceil(rad * 3);
+      for (let dy = -R; dy &lt;= R; dy++) for (let dx = -R; dx &lt;= R; dx++) {
+        const d2 = (dx * dx + dy * dy) / (rad * rad);
+        let w = Math.exp(-d2) * br;
+        if (rad &gt; 1.5) w += br * 0.5 * Math.exp(-Math.abs(dy) / 0.7 - Math.abs(dx) / (rad * 2.5)) * (dy === 0 ? 1 : 0.2)
+                         + br * 0.5 * Math.exp(-Math.abs(dx) / 0.7 - Math.abs(dy) / (rad * 2.5)) * (dx === 0 ? 1 : 0.2);
+        if (w &lt; 0.01) continue;
+        const o = ((((cy + dy) &amp; TMASK) * TEX) + ((cx + dx) &amp; TMASK)) * 3;
+        out[o] += w * tint[0]; out[o + 1] += w * tint[1]; out[o + 2] += w * tint[2];
+      }
+    }
+    for (let i = 0; i &lt; 1500; i++) {
+      const tint = rnd() &lt; 0.3 ? [180, 210, 255] : rnd() &lt; 0.5 ? [255, 230, 200] : [255, 255, 255];
+      star((rnd() * TEX) | 0, (rnd() * TEX) | 0, 0.5 + rnd() * 0.7, 0.25 + rnd() * 0.75, tint);
+    }
+    for (let i = 0; i &lt; 22; i++) star((rnd() * TEX) | 0, (rnd() * TEX) | 0, 1.6 + rnd() * 1.4, 0.8, [255, 245, 255]);
+    const t8 = new Uint8ClampedArray(out.length);
+    for (let i = 0; i &lt; out.length; i++) t8[i] = out[i];
+    return t8;
+  }
+
+  function setTheme(i) {
+    themeIdx = i % THEMES.length;
+    tex = makeTexture(THEMES[themeIdx]);
+    rimCol = THEMES[themeIdx].rim;
+  }
+
+  // ---------- background ----------
+  const bg = document.createElement(&#x27;canvas&#x27;), bctx = bg.getContext(&#x27;2d&#x27;);
+  function drawBackground() {
+    bg.width = Math.round(W * DPR); bg.height = Math.round(H * DPR);
+    bctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const gr = bctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.hypot(W, H) / 1.6);
+    gr.addColorStop(0, &#x27;#1a1040&#x27;); gr.addColorStop(0.6, &#x27;#0a0620&#x27;); gr.addColorStop(1, &#x27;#030209&#x27;);
+    bctx.fillStyle = gr; bctx.fillRect(0, 0, W, H);
+    const count = (W * H) / 2500;
+    for (let i = 0; i &lt; count; i++) {
+      const x = Math.random() * W, y = Math.random() * H, r = Math.random() * 1.1 + 0.2;
+      bctx.globalAlpha = 0.2 + Math.random() * 0.6;
+      bctx.fillStyle = Math.random() &lt; 0.3 ? &#x27;#bcd4ff&#x27; : &#x27;#ffffff&#x27;;
+      bctx.beginPath(); bctx.arc(x, y, r, 0, 7); bctx.fill();
+    }
+    bctx.globalAlpha = 1;
+  }
+
+  // ---------- slime field rendering ----------
+  const FS = 3;                         // CSS pixels per field cell
+  const KR = 1.1 * h, KR2 = KR * KR;    // splat radius
+  const T = 0.8, invT = 1 / T;          // surface threshold
+  const ZH = 0.35 * h;                  // fake dome height
+  const LX = -0.45, LY = -0.6, LZ = 0.66;
+  const hl = Math.hypot(LX, LY, LZ + 1), HX = LX / hl, HY = LY / hl, HZ = (LZ + 1) / hl;
+  let fw, fh, field, fu, fv, img;
+  const fcan = document.createElement(&#x27;canvas&#x27;), fctx = fcan.getContext(&#x27;2d&#x27;);
+
+  function setupField() {
+    fw = Math.ceil(W / FS) + 1; fh = Math.ceil(H / FS) + 1;
+    field = new Float32Array(fw * fh); fu = new Float32Array(fw * fh); fv = new Float32Array(fw * fh);
+    fcan.width = fw; fcan.height = fh;
+    img = fctx.createImageData(fw, fh);
+  }
+
+  function renderField(time) {
+    const n = sim.n, px = sim.px, py = sim.py, tu = sim.tu, tv = sim.tv;
+    field.fill(0); fu.fill(0); fv.fill(0);
+    const rc = KR / FS;
+    for (let i = 0; i &lt; n; i++) {
+      const cx = px[i] / FS - 0.5, cy = py[i] / FS - 0.5, u = tu[i], v = tv[i];
+      const x0 = Math.max(0, Math.ceil(cx - rc)), x1 = Math.min(fw - 1, Math.floor(cx + rc));
+      const y0 = Math.max(0, Math.ceil(cy - rc)), y1 = Math.min(fh - 1, Math.floor(cy + rc));
+      for (let y = y0; y &lt;= y1; y++) {
+        const dy = (y - cy) * FS, dy2 = dy * dy, row = y * fw;
+        for (let x = x0; x &lt;= x1; x++) {
+          const dx = (x - cx) * FS, d2 = dx * dx + dy2;
+          if (d2 &gt;= KR2) continue;
+          const t = 1 - d2 / KR2, w = t * t * t, k = row + x;
+          field[k] += w; fu[k] += w * u; fv[k] += w * v;
+        }
+      }
+    }
+    const data = img.data, tx = tex, rr = rimCol[0], rg = rimCol[1], rb = rimCol[2];
+    const driftU = time * 0.004, driftV = time * 0.0025;
+    const sCoef = ZH * invT / (2 * FS);
+    data.fill(0);
+    for (let y = 1; y &lt; fh - 1; y++) {
+      for (let x = 1; x &lt; fw - 1; x++) {
+        const k = y * fw + x, f = field[k];
+        if (f &lt; T * 0.72) continue;
+        let a = (f - T * 0.72) / (T * 0.4); if (a &gt; 1) a = 1;
+        const inv = 1 / f;
+        const ti = ((((fv[k] * inv + driftV) | 0) &amp; TMASK) * TEX + (((fu[k] * inv + driftU) | 0) &amp; TMASK)) * 3;
+        const fe = f &lt; T ? T : f;
+        const s = sCoef * Math.exp(-(fe - T) * invT * 0.9);
+        const nx = -(field[k + 1] - field[k - 1]) * s, ny = -(field[k + fw] - field[k - fw]) * s;
+        const nl = 1 / Math.sqrt(nx * nx + ny * ny + 1);
+        const ux = nx * nl, uy = ny * nl, uz = nl;
+        let dif = ux * LX + uy * LY + uz * LZ; if (dif &lt; 0) dif = 0;
+        let sp = ux * HX + uy * HY + uz * HZ; sp = sp &gt; 0 ? sp * sp : 0; sp *= sp; sp *= sp; sp *= sp; sp *= sp; // ^32
+        const rim = (1 - uz) * (1 - uz);
+        const lit = 0.5 + 0.7 * dif, spec = sp * 230;
+        const o = k * 4;
+        data[o]     = tx[ti] * lit + spec + rr * rim * 0.55;
+        data[o + 1] = tx[ti + 1] * lit + spec + rg * rim * 0.55;
+        data[o + 2] = tx[ti + 2] * lit + spec + rb * rim * 0.55;
+        data[o + 3] = a * 255;
+      }
+    }
+    fctx.putImageData(img, 0, 0);
+  }
+
+  // sparkle sprite
+  const spr = document.createElement(&#x27;canvas&#x27;); spr.width = spr.height = 64;
+  {
+    const s = spr.getContext(&#x27;2d&#x27;);
+    const g = s.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, &#x27;rgba(255,255,255,1)&#x27;); g.addColorStop(0.15, &#x27;rgba(255,240,255,.7)&#x27;); g.addColorStop(1, &#x27;rgba(255,200,255,0)&#x27;);
+    s.fillStyle = g; s.fillRect(0, 0, 64, 64);
+    s.globalCompositeOperation = &#x27;lighter&#x27;;
+    const l = s.createLinearGradient(0, 32, 64, 32);
+    l.addColorStop(0, &#x27;rgba(255,255,255,0)&#x27;); l.addColorStop(0.5, &#x27;rgba(255,255,255,1)&#x27;); l.addColorStop(1, &#x27;rgba(255,255,255,0)&#x27;);
+    s.fillStyle = l; s.fillRect(0, 31, 64, 2);
+    const l2 = s.createLinearGradient(32, 0, 32, 64);
+    l2.addColorStop(0, &#x27;rgba(255,255,255,0)&#x27;); l2.addColorStop(0.5, &#x27;rgba(255,255,255,1)&#x27;); l2.addColorStop(1, &#x27;rgba(255,255,255,0)&#x27;);
+    s.fillStyle = l2; s.fillRect(31, 0, 2, 64);
+  }
+
+  // ---------- sound ----------
+  let ac = null, soundOn = true, noiseBuf = null;
+  function audio() {
+    if (!soundOn) return null;
+    if (!ac) {
+      try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+      noiseBuf = ac.createBuffer(1, ac.sampleRate * 0.5, ac.sampleRate);
+      const d = noiseBuf.getChannelData(0); for (let i = 0; i &lt; d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (ac.state === &#x27;suspended&#x27;) ac.resume();
+    return ac;
+  }
+  function squelch(pitch = 1, vol = 0.5) {
+    const a = audio(); if (!a) return; const t = a.currentTime;
+    const src = a.createBufferSource(); src.buffer = noiseBuf;
+    const bp = a.createBiquadFilter(); bp.type = &#x27;bandpass&#x27;; bp.Q.value = 6;
+    bp.frequency.setValueAtTime(300 * pitch, t); bp.frequency.exponentialRampToValueAtTime(1400 * pitch, t + 0.16);
+    const g = a.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    src.connect(bp).connect(g).connect(a.destination); src.start(t, Math.random() * 0.2); src.stop(t + 0.25);
+  }
+  function tone(f0, f1, dur, vol, type = &#x27;sine&#x27;) {
+    const a = audio(); if (!a) return; const t = a.currentTime;
+    const o = a.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = a.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  const pop = () =&gt; { tone(900, 140, 0.12, 0.35); squelch(1.6, 0.25); };
+  const blorp = () =&gt; { tone(160, 520, 0.18, 0.3); squelch(0.7, 0.3); };
+
+  // ---------- state, input ----------
+  let xray = false, lastBlobs = 1, blobCheck = 0, lastInteract = performance.now(), hintShown = true;
+  const pointers = new Map();     // pointerId -&gt; &#x27;grab&#x27; | &#x27;poke&#x27;
+  const hint = document.getElementById(&#x27;hint&#x27;), blobsEl = document.getElementById(&#x27;blobs&#x27;);
+  const GRAB_R = 2.0 * h;
+
+  function newSlime() {
+    sim.clear();
+    sim.spawnBlob(W / 2, H / 2 + 10, 0.22 * Math.min(W, H), 1000 + Math.random() * 400);
+    document.getElementById(&#x27;nCount&#x27;).textContent = sim.n;
+    for (let i = 0; i &lt; 20; i++) sim.step();
+    lastBlobs = sim.countBlobs(6);
+  }
+
+  function resize() {
+    W = innerWidth; H = innerHeight; DPR = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+    sim.resize(W, H);
+    setupField(); drawBackground();
+  }
+
+  function pos(e) { return [e.clientX, e.clientY]; }
+  function interacted() {
+    lastInteract = performance.now();
+    if (hintShown) { hint.style.opacity = 0; hintShown = false; }
+  }
+
+  canvas.addEventListener(&#x27;contextmenu&#x27;, e =&gt; e.preventDefault());
+  canvas.addEventListener(&#x27;pointerdown&#x27;, e =&gt; {
+    e.preventDefault(); interacted();
+    const [x, y] = pos(e);
+    if (e.button === 2) {           // right click: toggle a pin
+      for (const [id, g] of sim.grabs) {
+        if (g.pin &amp;&amp; Math.hypot(g.x - x, g.y - y) &lt; GRAB_R) { sim.removeGrab(id); squelch(0.8, 0.3); return; }
+      }
+      if (sim.addGrab(&#x27;pin&#x27; + Math.random(), x, y, GRAB_R * 0.9, true)) squelch(1.2, 0.35);
+      return;
+    }
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    if (sim.addGrab(e.pointerId, x, y, GRAB_R, false)) { pointers.set(e.pointerId, &#x27;grab&#x27;); squelch(1, 0.5); }
+    else { pointers.set(e.pointerId, &#x27;poke&#x27;); sim.pokers.set(e.pointerId, { x, y, r: 1.6 * h }); }
+  });
+  canvas.addEventListener(&#x27;pointermove&#x27;, e =&gt; {
+    const kind = pointers.get(e.pointerId); if (!kind) return;
+    interacted();
+    const [x, y] = pos(e);
+    if (kind === &#x27;grab&#x27;) sim.moveGrab(e.pointerId, x, y);
+    else { const p = sim.pokers.get(e.pointerId); p.x = x; p.y = y; }
+  });
+  function up(e) {
+    const kind = pointers.get(e.pointerId); if (!kind) return;
+    pointers.delete(e.pointerId);
+    if (kind === &#x27;grab&#x27;) { sim.removeGrab(e.pointerId); squelch(0.75, 0.3); }
+    else sim.pokers.delete(e.pointerId);
+  }
+  canvas.addEventListener(&#x27;pointerup&#x27;, up);
+  canvas.addEventListener(&#x27;pointercancel&#x27;, up);
+
+  const bXray = document.getElementById(&#x27;bXray&#x27;), bSound = document.getElementById(&#x27;bSound&#x27;);
+  const actions = {
+    newSlime: () =&gt; { newSlime(); squelch(0.6, 0.4); },
+    squish: () =&gt; { sim.gather = 360; squelch(0.9, 0.4); },
+    theme: () =&gt; { setTheme(themeIdx + 1); },
+    xray: () =&gt; {
+      xray = !xray; bXray.classList.toggle(&#x27;on&#x27;, xray);
+      document.getElementById(&#x27;info&#x27;).style.display = xray ? &#x27;block&#x27; : &#x27;none&#x27;;
+    },
+    sound: () =&gt; { soundOn = !soundOn; bSound.textContent = soundOn ? &#x27;🔊 Sound&#x27; : &#x27;🔇 Sound&#x27;; bSound.classList.toggle(&#x27;on&#x27;, !soundOn); },
+    full: () =&gt; {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen?.();
+    },
+  };
+  const wire = (id, fn) =&gt; document.getElementById(id).addEventListener(&#x27;click&#x27;, e =&gt; { interacted(); fn(); e.currentTarget.blur(); });
+  wire(&#x27;bNew&#x27;, actions.newSlime); wire(&#x27;bSquish&#x27;, actions.squish); wire(&#x27;bTheme&#x27;, actions.theme);
+  wire(&#x27;bXray&#x27;, actions.xray); wire(&#x27;bSound&#x27;, actions.sound); wire(&#x27;bFull&#x27;, actions.full);
+  addEventListener(&#x27;keydown&#x27;, e =&gt; {
+    const k = e.key.toLowerCase();
+    const map = { r: &#x27;newSlime&#x27;, s: &#x27;squish&#x27;, c: &#x27;theme&#x27;, x: &#x27;xray&#x27;, m: &#x27;sound&#x27;, f: &#x27;full&#x27; };
+    if (map[k]) { interacted(); actions[map[k]](); }
+  });
+  addEventListener(&#x27;resize&#x27;, resize);
+
+  // ---------- main loop ----------
+  const STEP_MS = 1000 / 120;
+  let acc = 0, last = performance.now();
+
+  function frame(now) {
+    acc += Math.min(now - last, 50); last = now;
+    let steps = 0;
+    while (acc &gt;= STEP_MS &amp;&amp; steps &lt; 4) { sim.step(); acc -= STEP_MS; steps++; }
+    if (steps === 4) acc = 0;
+
+    if (++blobCheck &gt;= 8) {
+      blobCheck = 0;
+      const b = sim.countBlobs(6);
+      if (b &gt; lastBlobs) pop(); else if (b &lt; lastBlobs) blorp();
+      lastBlobs = b;
+      blobsEl.textContent = b === 1 ? &#x27;🪐 1 blob&#x27; : `🪐 ${b} blobs`;
+    }
+    if (!hintShown &amp;&amp; now - lastInteract &gt; 25000) { hint.style.opacity = 1; hintShown = true; }
+
+    const t = now / 1000;
+    renderField(now / 16);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.globalCompositeOperation = &#x27;source-over&#x27;; ctx.globalAlpha = 1;
+    ctx.drawImage(bg, 0, 0, W, H);
+    ctx.imageSmoothingEnabled = true;
+
+    // soft glow behind the slime
+    ctx.globalCompositeOperation = &#x27;lighter&#x27;;
+    ctx.globalAlpha = xray ? 0.1 : 0.35;
+    ctx.filter = &#x27;blur(18px)&#x27;;
+    ctx.drawImage(fcan, 0, 0, fw * FS, fh * FS);
+    ctx.filter = &#x27;none&#x27;;
+    ctx.globalCompositeOperation = &#x27;source-over&#x27;;
+    ctx.globalAlpha = xray ? 0.3 : 1;
+    ctx.drawImage(fcan, 0, 0, fw * FS, fh * FS);
+    ctx.globalAlpha = 1;
+
+    const n = sim.n, px = sim.px, py = sim.py;
+    if (xray) {
+      ctx.strokeStyle = &#x27;rgba(127,216,255,.45)&#x27;; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (const key of sim.springs.keys()) {
+        const i = key &gt;&gt;&gt; 12, j = key &amp; 4095;
+        ctx.moveTo(px[i], py[i]); ctx.lineTo(px[j], py[j]);
+      }
+      ctx.stroke();
+      ctx.fillStyle = &#x27;#ffe680&#x27;;
+      ctx.beginPath();
+      const r = Math.max(1.5, h * 0.09);
+      for (let i = 0; i &lt; n; i++) { ctx.moveTo(px[i] + r, py[i]); ctx.arc(px[i], py[i], r, 0, 6.2832); }
+      ctx.fill();
+    } else {
+      // twinkling sparkles riding inside the slime
+      ctx.globalCompositeOperation = &#x27;lighter&#x27;;
+      const sp = sim.spark;
+      for (let i = 0; i &lt; n; i++) {
+        if (!sp[i]) continue;
+        const fx = Math.min(fw - 1, Math.max(0, (px[i] / FS) | 0)), fy = Math.min(fh - 1, Math.max(0, (py[i] / FS) | 0));
+        if (field[fy * fw + fx] &lt; T * 1.6) continue;
+        let b = Math.sin(t * (1.2 + sp[i] * 0.3) + sp[i] * 7.3);
+        if (b &lt;= 0.2) continue;
+        b = (b - 0.2) / 0.8; b = b * b;
+        const s = 4 + b * h * 0.7;
+        ctx.globalAlpha = b * 0.9;
+        ctx.drawImage(spr, px[i] - s / 2, py[i] - s / 2, s, s);
+      }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = &#x27;source-over&#x27;;
+    }
+
+    // pins and fingers
+    for (const g of sim.grabs.values()) {
+      ctx.beginPath(); ctx.arc(g.x, g.y, g.pin ? h * 0.7 : h * 0.5, 0, 6.2832);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = g.pin ? &#x27;rgba(255,230,120,.9)&#x27; : &#x27;rgba(255,255,255,.35)&#x27;;
+      ctx.stroke();
+      if (g.pin) { ctx.fillStyle = &#x27;rgba(255,230,120,.9)&#x27;; ctx.beginPath(); ctx.arc(g.x, g.y, 4, 0, 6.2832); ctx.fill(); }
+    }
+    for (const p of sim.pokers.values()) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.8, 0, 6.2832);
+      ctx.strokeStyle = &#x27;rgba(255,255,255,.25)&#x27;; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  resize();
+  setTheme(0);
+  newSlime();
+  requestAnimationFrame(t =&gt; { last = t; frame(t); });
+})();
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre></details><p class="dim">Made with <a href="https://musharna.github.io/prompt-receipts/">receipt.py</a> 7.1. Home folders are shown as ~. Files written whole are shown as the run wrote them; files it edited or changed afterward, as they are on disk now.</p><script>if (window.top !== window.self) for (const x of document.querySelectorAll('.own')) x.hidden = true</script></main></body></html>
