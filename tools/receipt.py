@@ -524,6 +524,67 @@ def lines(path):
                 continue
 
 
+def claude_lines(path):
+    """a Claude Code session log one entry at a time, or the output of `claude -p --output-format stream-json
+    --verbose` read as one: the same replies and tool results, without the prompt, effort, hooks or memory files"""
+    it = lines(path)
+    first = next(it, None)
+    if first is None:
+        return
+    if not (first.get("type") == "system" and first.get("subtype") == "init" and "claude_code_version" in first):
+        yield first
+        yield from it
+        return
+    # claude -p stamps no prompt, so the run starts at its last event less the duration its result gives.
+    # Each message's usage is the one it started with (an output count of a few tokens): only the result has
+    # the output the run made, so what the messages don't show is added at the end, per model
+    last, took, said, made = "", None, {}, {}
+    for d in lines(path):
+        last = max(last, d.get("timestamp") or "")
+        if d.get("type") == "result":
+            took = d.get("duration_ms") or took
+            made = {re.sub(r"\[.*\]$", "", k): v.get("outputTokens") or 0 for k, v in (d.get("modelUsage") or {}).items()}
+        m = d.get("message") or {}
+        if d.get("type") == "assistant" and m.get("usage") and m.get("model"):
+            said[m.get("id")] = (m["model"], m["usage"].get("output_tokens") or 0)
+    start = iso(when(last).timestamp() * 1000 - took) if last and took else None
+    yield {"type": "stream-init", "cwd": first.get("cwd")}
+    yield {"type": "attachment", "attachment": {"type": "skill_listing", "skillCount": len(first.get("skills") or []),
+           "names": first.get("skills") or []}}  # fmt: skip
+    servers = [x.get("name") for x in first.get("mcp_servers") or [] if isinstance(x, dict) and x.get("name")]
+    if servers:
+        yield {"type": "attachment", "attachment": {"type": "mcp_instructions_delta", "addedNames": servers}}
+    base = {"version": first.get("claude_code_version"), "cwd": first.get("cwd"), "sessionId": first.get("session_id"),
+            "permissionMode": first.get("permissionMode")}  # fmt: skip
+    prompted = False
+    for d in it:
+        t = d.get("type")
+        if t in ("user", "assistant"):
+            e = dict(d, **base)
+            if d.get("parent_tool_use_id"):  # a subagent's message, inline here, in a file of its own in a session log
+                e["isSidechain"] = True
+            if d.get("thinking_duration_ms"):
+                e["thinkingDurationMs"] = d["thinking_duration_ms"]
+            if d.get("tool_use_result") is not None:
+                e["toolUseResult"] = d["tool_use_result"]
+            if t == "user" and claude_prompt(e) is not None:
+                prompted = True  # sent with --input-format stream-json and --replay-user-messages, it is here
+            elif t == "assistant" and not prompted and not e.get("isSidechain"):
+                prompted = True
+                yield dict(base, type="user", timestamp=start or e.get("timestamp"), promptNotSaved=True,
+                           message={"role": "user", "content": ""})  # fmt: skip
+            yield e
+        elif t == "result":  # its totals are the run's so far, like a session log's cost-state
+            for model, n in sorted(made.items()):
+                more = n - sum(x for mm, x in said.values() if mm == model)
+                if more > 0:
+                    yield dict(base, type="assistant", timestamp=last, message={"id": f"output:{model}", "model": model,
+                               "usage": {"output_tokens": more}})  # fmt: skip
+            made = {}
+            yield {"type": "cost-state", "startTime": first.get("session_id"), "totalCostUSD": d.get("total_cost_usd"),
+                   "modelUsage": d.get("modelUsage") or {}, "totalAPIDuration": d.get("duration_api_ms")}  # fmt: skip
+
+
 def when(ts):
     return datetime.datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone()
 
@@ -634,8 +695,22 @@ def files_part(r, paths, deleted=0, texts=None):
         collections.Counter(os.path.splitext(n)[1].lower() or "no type" for n in names_)
     )
     r["file_names"] = sorted(set(names_))
+    if texts and r.get("ended"):  # a file the run changed again after writing it is measured as the run left it
+        texts = {p: None if t is not None and changed_by_run(p, t, r["ended"]) else t for p, t in texts.items()}
     r.update(output_shape(paths, texts or {}))
     r["_written"] = (list(paths), texts or {})  # for --page and --bundle only
+
+
+def changed_by_run(path, written, ended):
+    """a file the log says was written whole that differs on disk, last changed before the run ended: the run
+    changed it again (with a shell command, say), so the copy on disk is what it made"""
+    try:
+        if os.path.getmtime(path) > when(ended).timestamp() + 2:
+            return False
+        with open(path, "rb") as fh:
+            return fh.read() != written.encode("utf-8", "surrogatepass")
+    except OSError:
+        return False
 
 
 PAGE_TYPES = (".html", ".htm")
@@ -817,7 +892,7 @@ def first_prompt_of(tool, key):
         for text in oc_prompts(key):
             return text.strip().replace("\n", " ")
         return ""
-    for d in gemini_messages(key) if tool == "gemini" else lines(key):
+    for d in gemini_messages(key) if tool == "gemini" else claude_lines(key) if tool == "claude" else lines(key):
         t = {"codex": codex_prompt, "qwen": qwen_prompt, "gemini": gemini_prompt, "copilot": copilot_prompt}.get(
             tool, claude_prompt
         )(d)
@@ -887,7 +962,9 @@ def claude_text(d):
 
 
 def claude_prompt(d):
-    """-> your prompt text if this entry is one, else None"""
+    """-> your prompt text if this entry is one, else None ("" for a prompt the log counts but doesn't hold)"""
+    if d.get("promptNotSaved"):
+        return ""
     text = claude_text(d)
     if (
         text
@@ -957,7 +1034,7 @@ EDIT_TOOLS = {
 
 def claude_window(path, part):
     marks = (
-        [d.get("timestamp") or "" for d in lines(path) if claude_prompt(d) is not None]
+        [d.get("timestamp") or "" for d in claude_lines(path) if claude_prompt(d) is not None]
         if part
         else []
     )
@@ -977,13 +1054,15 @@ def claude(path, part=None):
     edits, failed, errors, interrupted, wrote = {}, set(), 0, 0, {}
     # every model call, main conversation and subagents, priced one by one; Claude Code writes a running total
     # per process, and a resumed session starts a new one, so the totals are kept per process and added up
-    procs, calls, thinking, key = {}, {}, {}, None
-    for i, d in enumerate(lines(path)):
+    procs, calls, thinking, key, stream, unsaved = {}, {}, {}, None, False, 0
+    for i, d in enumerate(claude_lines(path)):
         t, ts = d.get("type"), d.get("timestamp") or ""
         inside = within(ts, win)
         key = key or d.get("sessionId")
         # what was loaded: whole session, whatever part the receipt covers
-        if t == "cost-state":
+        if t == "stream-init":
+            stream = True
+        elif t == "cost-state":
             procs[d.get("startTime")] = d
         elif t == "attachment":
             a = d.get("attachment") or {}
@@ -1039,7 +1118,12 @@ def claude(path, part=None):
         text = claude_prompt(d)
         if text is not None:
             prompts += 1
-            first_prompt = first_prompt or text
+            unsaved += not text
+            first_prompt = first_prompt or text or None
+        elif t == "assistant" and d.get("isSidechain"):  # files subagents wrote count too
+            for b in (d.get("message") or {}).get("content") or []:
+                if isinstance(b, dict) and b.get("type") == "tool_use":
+                    claude_edit(b, edits, wrote)
         elif t == "user" and not d.get("isSidechain"):
             if (claude_text(d) or "").startswith("[Request interrupted"):
                 interrupted += 1
@@ -1165,10 +1249,11 @@ def claude(path, part=None):
             r["cost_note"] += f", added up over the {len(procs)} times it was opened"
         priced(r, bill, own)
         r["model_time_ms"] = sum(p.get("totalAPIDuration") or 0 for p in procs.values())
-        r["lines_changed"] = [
-            sum(p.get("totalLinesAdded") or 0 for p in procs.values()),
-            sum(p.get("totalLinesRemoved") or 0 for p in procs.values()),
-        ]
+        if any("totalLinesAdded" in p for p in procs.values()):  # claude -p's output doesn't count them
+            r["lines_changed"] = [
+                sum(p.get("totalLinesAdded") or 0 for p in procs.values()),
+                sum(p.get("totalLinesRemoved") or 0 for p in procs.values()),
+            ]
         r["tokens_in"] = sum(
             v["inputTokens"] + v["cacheReadInputTokens"] + v["cacheCreationInputTokens"]
             for v in mu.values()
@@ -1236,6 +1321,11 @@ def claude(path, part=None):
         f"{name} ({kind.lower()})" for name, kind in memory.items() if name
     )
     r["first_prompt"] = first_prompt
+    if unsaved:
+        r["prompts_unsaved"] = unsaved
+    if stream:  # claude -p's output says what was loaded at the start, but not instruction files or hook runs
+        r["log_name"] = "claude -p output"
+        r["hooks"], r["memory"] = None, None
     return r
 
 
@@ -1758,7 +1848,7 @@ def models_of(t):
 def claude_turns(path):
     """-> one row per prompt: when, how long, its calls priced (subagents' too), tool calls, files, last reply"""
     rows, failed = [], set()
-    for i, d in enumerate(lines(path)):
+    for i, d in enumerate(claude_lines(path)):
         t, ts = d.get("type"), d.get("timestamp") or ""
         text = claude_prompt(d)
         if text is not None:
@@ -1780,6 +1870,9 @@ def claude_turns(path):
                 if not d.get("isSidechain"):
                     cur["model"] = cur["model"] or m["model"]
             if d.get("isSidechain"):
+                for b in m.get("content") or []:
+                    if isinstance(b, dict) and b.get("type") == "tool_use":
+                        claude_edit(b, cur["edits"])
                 continue
             for b in m.get("content") or []:
                 if not isinstance(b, dict):
@@ -2678,7 +2771,8 @@ def output_page(r, s, rows, files, a, hide, extra=""):
     if rows:
         out.append("<h2>Prompts and replies</h2>")
         for n, t in enumerate(rows, 1):
-            out.append(f'<h3>Prompt {n}</h3><pre class="said">{e(scrub(t["prompt"], a.redact))}</pre>')
+            out.append(f'<h3>Prompt {n}</h3><pre class="said">{e(scrub(t["prompt"], a.redact))}</pre>' if t["prompt"] else
+                       f'<h3>Prompt {n}</h3><p class="dim">Not in the log: claude -p doesn\'t write the prompt it was given.</p>')  # fmt: skip
             if t.get("reply"):
                 reply = scrub(t["reply"], a.redact, "the model's reply", "--page")
                 out.append(f'<h3>Reply</h3><pre class="said">{e(reply)}</pre>')
@@ -2789,7 +2883,9 @@ def output_subject(path, written, ended, names, n):
         later = os.path.getmtime(path) > when(ended).timestamp() + 2
     except OSError:
         pass
-    if written is not None:
+    if written is not None and disk is not None and not later and disk != sha(written):
+        digest, how, same = disk, "on disk; the run changed it after writing it", True
+    elif written is not None:
         digest, how = sha(written), "as written"
         if disk is None:
             how += "; not on disk now"
@@ -2816,8 +2912,8 @@ def output_subject(path, written, ended, names, n):
 def record_claude(path, part, names, counts):
     win, _ = claude_window(path, part)
     prompts, system, instructions, defs, seen, env = [], {}, {}, {}, [], {}
-    uses, edits, failed = {}, {}, set()
-    for d in lines(path):
+    uses, edits, failed, unsaved = {}, {}, set(), 0
+    for d in claude_lines(path):
         t, ts = d.get("type"), d.get("timestamp") or ""
         inside = within(ts, win)
         if (
@@ -2852,8 +2948,10 @@ def record_claude(path, part, names, counts):
         if not inside:
             continue
         text = claude_prompt(d)
-        if text is not None:
+        if text:
             prompts.append(sha(text))
+        elif text is not None:
+            unsaved += 1
         elif t == "assistant":
             for b in (d.get("message") or {}).get("content") or []:
                 if isinstance(b, dict) and b.get("type") == "tool_use":
@@ -2935,6 +3033,8 @@ def record_claude(path, part, names, counts):
         "Claude Code logs the definitions of deferred tools only, not of its built-in ones",
         "what subagents read isn't included, only the files they wrote",
     ]
+    if unsaved:
+        limits.append("claude -p's output doesn't hold the prompt, so there is no fingerprint of it")
     return rec, writes, limits
 
 
@@ -4516,7 +4616,7 @@ def text(r, hide, with_prompt, width=80):
     if "hooks" not in hide:
         h = r.get("hooks")
         if h is None:
-            out.append(f"hooks    not in {r['tool'] or 'these'} logs")
+            out.append(f"hooks    not in {r.get('log_name') or (r['tool'] or 'these') + ' logs'}")
         else:
             # Claude Code logs a hook run only when the hook says something, so the count is a floor
             line = (
@@ -4530,7 +4630,7 @@ def text(r, hide, with_prompt, width=80):
     if "memory" not in hide:
         m = r.get("memory")
         m = (
-            f"not in {r['tool'] or 'these'} logs"
+            f"not in {r.get('log_name') or (r['tool'] or 'these') + ' logs'}"
             if m is None
             else (f"{m} file{'s' if m != 1 else ''}" if m else "none loaded")
             if isinstance(m, int)
@@ -4561,6 +4661,8 @@ def text(r, hide, with_prompt, width=80):
             )
     elif with_prompt and r.get("first_prompt") and not r.get("prompt_texts"):
         out.append(labelled("prompt   ", r["first_prompt"], width))
+    elif with_prompt and r.get("prompts_unsaved") and not r.get("prompt_texts"):
+        out.append(f"prompt   not in {r.get('log_name') or 'the log'}")
     if r.get("reply"):
         out.append(labelled("reply    ", r["reply"], width))
     if r.get("recipe"):
@@ -5119,6 +5221,8 @@ def main():
     if a.rename:
         rename(r, a.rename)
     renames = dict(p.split("=", 1) for p in a.rename)
+    if a.recipe and any(not t["prompt"] for t in rows):
+        sys.exit("receipt: --recipe needs the prompts, and this log doesn't hold them (claude -p doesn't write them)")
     if a.recipe:
         prompts = [
             scrub(t["prompt"], a.redact, "your prompt", "--recipe") for t in rows

@@ -4,6 +4,7 @@ Each test gets its own home folder with Claude Code, Codex and OpenCode logs in 
 the machine running the tests is read. python -m unittest discover -s tests"""
 
 import base64
+import datetime
 import hashlib
 import json
 import os
@@ -1786,6 +1787,130 @@ class OutputPage(Base):
         self.assertIn("needs an https:// address", p.stderr)
         self.assertFalse(os.path.exists(out))
         self.ok("--page", out, "--output-url", "http://localhost:8000/page.html")  # testing on your own machine
+
+
+
+class StreamJson(Base):
+    """claude -p --output-format stream-json --verbose: read like a session log, without a prompt, hooks or memory"""
+
+    COST = 8 * 4e-6 + 2200 * 0.2e-6 + 200 * 8e-6 + 4006 * 20e-6  # input, cache read, 1-hour cache write, output
+
+    def save(self, sub=True):
+        def msg(i, at, content, u, parent=None):
+            usage = {"input_tokens": u[0], "cache_read_input_tokens": u[1], "cache_creation_input_tokens": u[2],
+                     "cache_creation": {"ephemeral_1h_input_tokens": u[2], "ephemeral_5m_input_tokens": 0},
+                     "output_tokens": u[3]}  # fmt: skip
+            return {"type": "assistant", "timestamp": at, "session_id": "s1", "parent_tool_use_id": parent,
+                    "message": {"id": i, "model": "claude-opus-5-5", "role": "assistant", "content": content,
+                                "usage": usage}}  # fmt: skip
+
+        page = os.path.join(self.proj, "index.html")
+        es = [
+            {"type": "system", "subtype": "init", "cwd": self.proj, "session_id": "s1", "model": "claude-opus-5-5",
+             "permissionMode": "bypassPermissions", "claude_code_version": "2.1.300", "skills": ["a", "b"],
+             "mcp_servers": [{"name": "docs", "status": "connected"}], "plugins": []},
+            # each message's usage is the one it started with: an output count of a few tokens
+            msg("m1", ts(2), [{"type": "tool_use", "id": "w", "name": "Write",
+                               "input": {"file_path": page, "content": "<h1>hi</h1>"}}], (5, 1000, 200, 2)),
+            {"type": "user", "timestamp": ts(2), "session_id": "s1", "parent_tool_use_id": None,
+             "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "w", "content": "ok"}]},
+             "tool_use_result": {"type": "create", "filePath": page}},
+            msg("m2", ts(4), [{"type": "text", "text": "Done: open index.html"}], (3, 1200, 0, 3)),
+            {"type": "result", "subtype": "success", "duration_ms": 300000, "duration_api_ms": 120000,
+             "total_cost_usd": self.COST, "num_turns": 3, "session_id": "s1",
+             "modelUsage": {"claude-opus-5-5": {"inputTokens": 8, "outputTokens": 4006, "cacheReadInputTokens": 2200,
+                                                "cacheCreationInputTokens": 200, "webSearchRequests": 0,
+                                                "costUSD": self.COST}}},
+        ]  # fmt: skip
+        if sub:  # a subagent's message comes inline, marked with the tool call that started it
+            es.insert(3, msg("m-sub", ts(3), [{"type": "tool_use", "id": "s", "name": "Write", "input": {
+                "file_path": os.path.join(self.proj, "sub.css"), "content": "b{}"}}], (0, 0, 0, 1), parent="t1"))
+        out = os.path.join(self.home, "run.jsonl")
+        with open(out, "w", encoding="utf-8") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in es))
+        return out
+
+    def test_a_receipt_from_claude_p_output(self):
+        out = self.ok(self.save()).stdout
+        self.assertIn(" · Claude Code 2.1.300 · ", out)
+        self.assertIn("time     5 min (model working 2 min) · 1 prompt from me", out)  # from the run's duration
+        self.assertIn("cost     $0.08 (Claude Code's own total at API prices; the lines below add up to it)", out)
+        self.assertIn("out 4k", out)  # the result's output, not the messages' starting counts
+        self.assertIn("files    2 files written or edited (.css, .html)", out)  # the subagent's file too
+        self.assertIn("skills none (of 2 available) · MCP none (of 1 connected)", out)
+        self.assertIn("hooks    not in claude -p output", out)
+        self.assertIn("memory   not in claude -p output", out)
+        self.assertIn("settings bypassPermissions", out)
+        turns = self.ok(self.save(), "--turns").stdout
+        self.assertRegex(turns, r"turns    1  .* · 5 min · \$0\.08 · ")
+
+    def test_the_prompt_isnt_in_it(self):
+        path = self.save()
+        self.assertIn("prompt   not in claude -p output", self.ok(path, "--prompt").stdout)
+        p = self.run_receipt(path, "--recipe")
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("this log doesn't hold them", p.stderr)
+        page = os.path.join(self.home, "page.html")
+        self.ok(path, "--page", page)
+        with open(page, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("Not in the log: claude -p doesn't write the prompt", text)
+        self.assertIn("Done: open index.html", text)
+        rec = os.path.join(self.home, "rec.json")
+        self.ok(path, "--record", rec)
+        with open(rec, encoding="utf-8") as f:
+            pred = json.load(f)["predicate"]
+        self.assertEqual(pred["prompts"], [])
+        self.assertIn("claude -p's output doesn't hold the prompt", json.dumps(pred))
+
+    def test_a_session_log_is_read_as_before(self):  # the same messages with a prompt and timestamps on every entry
+        self.claude_log()
+        out = self.ok().stdout
+        self.assertIn("hooks    none logged", out)
+        self.assertIn("memory   none loaded", out)
+        self.assertIn("2 prompts from me", out)
+
+
+class ChangedByRun(Base):
+    """a file the run wrote whole, then changed with a shell command: what it made is the copy on disk"""
+
+    def log(self, app):
+        es = [
+            {"type": "user", "timestamp": ts(0), "cwd": self.proj, "version": "2.1.300", "sessionId": "c1",
+             "message": {"role": "user", "content": "make app.js"}},
+            {"type": "assistant", "timestamp": ts(1), "message": {"id": "m1", "model": "claude-opus-5-5",
+             "usage": {"input_tokens": 10, "output_tokens": 5}, "content": [
+                 {"type": "tool_use", "id": "w", "name": "Write", "input": {"file_path": app, "content": "a"}},
+                 {"type": "tool_use", "id": "b", "name": "Bash", "input": {"command": "sed -i 's/a/a\\nb/' app.js"}}]}},
+            {"type": "assistant", "timestamp": ts(2), "message": {"id": "m2", "model": "claude-opus-5-5",
+             "usage": {"input_tokens": 10, "output_tokens": 5}, "content": [{"type": "text", "text": "made"}]}},
+        ]  # fmt: skip
+        folder = os.path.join(self.claude_dir, "projects", slug(self.proj))
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, "c1.jsonl"), "w", encoding="utf-8") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in es))
+
+    def check(self, changed_at):
+        app = os.path.join(self.proj, "app.js")
+        with open(app, "wb") as f:
+            f.write(b"a\nb\n")
+        os.utime(app, (changed_at, changed_at))
+        self.log(app)
+        rec = os.path.join(self.home, "rec.json")
+        out = self.ok("--record", rec).stdout
+        return out, self.run_receipt("--verify", rec, app)
+
+    def test_changed_during_the_run(self):
+        out, p = self.check(datetime.datetime(2026, 10, 9, 14, 1, 30, tzinfo=datetime.timezone.utc).timestamp())
+        self.assertIn("files    1 file written or edited (.js) · 2 lines, 4 bytes", out)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("came out of the run: file1.js (on disk; the run changed it after writing it)", p.stdout)
+
+    def test_changed_after_the_run(self):  # someone else's change: the run made what the log holds
+        out, p = self.check(datetime.datetime(2026, 10, 9, 15, 0, tzinfo=datetime.timezone.utc).timestamp())
+        self.assertIn("files    1 file written or edited (.js) · 1 line, 1 byte", out)
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("NOT in this record", p.stdout)
 
 
 if __name__ == "__main__":
