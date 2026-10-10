@@ -3767,7 +3767,8 @@ DROP = {
         "web_page",
         "files_gone",
     ],
-    "output": ["output_lines", "output_bytes", "web_page", "files_gone", "replies", "reply_words"],
+    "output": ["output_lines", "output_bytes", "web_page", "files_gone", "replies", "reply_words", "output_url",
+               "output_sha256"],
     "addons": [
         "skills_used",
         "skills_available",
@@ -4470,6 +4471,8 @@ def text(r, hide, with_prompt, width=80):
         if r.get("files_note"):
             line += f" · {r['files_note']}"
         out.append(line)
+    if r.get("output_url") and "output" not in hide:  # the site's receipt page fetches it and checks this
+        out.append(f"page     {r['output_url']} · sha256 {r['output_sha256'][:16]}")
     if r.get("replies") is not None and "output" not in hide:
         n, w = r["replies"], r["reply_words"]
         out.append(f"replies  {n} {'reply' if n == 1 else 'replies'}, {w:,} word{'' if w == 1 else 's'}")
@@ -4804,6 +4807,7 @@ def main():
     ap.add_argument("--opencode", action="store_true")
     ap.add_argument("--qwen", action="store_true")
     ap.add_argument("--page", metavar="FILE.html")
+    ap.add_argument("--output-url", metavar="URL")
     ap.add_argument("--gemini", action="store_true")
     ap.add_argument("--copilot", action="store_true")
     ap.add_argument("--list", action="store_true")
@@ -4900,6 +4904,10 @@ def main():
         a.json = True
     if a.out and a.out.lower().endswith(".md"):
         a.md = True
+    if a.output_url and not a.page:
+        sys.exit("receipt: --output-url fingerprints the page you put there, so add --page FILE.html and upload that file")
+    if a.output_url and not re.match(r"https://|http://(localhost|127\.0\.0\.1)[:/]", a.output_url):
+        sys.exit("receipt: --output-url needs an https:// address, so anyone opening the receipt can fetch it")
     if a.png and not a.out:
         sys.exit("receipt: a picture needs a file: --out receipt.png")
     if sum(map(bool, (a.png, a.json, a.md))) > 1:
@@ -5138,9 +5146,15 @@ def main():
     if a.page:
         pp = os.path.expanduser(a.page)
         page = output_page(r, text(r, hide, a.prompt), rows, page_files(paths, texts, a.file_names), a, hide)
-        with open(pp, "w", encoding="utf-8") as fh:  # written only once it's whole: a stop leaves no half page
+        page = page.encode("utf-8")  # bytes, so Windows doesn't turn its line ends into others the hash didn't see
+        with open(pp, "wb") as fh:  # written only once it's whole: a stop leaves no half page
             fh.write(page)
         print(f"receipt: page saved to {pp}; open it in a browser", file=sys.stderr)
+        if a.output_url:  # the page holds the receipt, so the receipt can hold the page's fingerprint only after
+            r["output_url"], r["output_sha256"] = a.output_url, sha(page)
+            s = text(r, hide, a.prompt, width=PNG_COLS - 9) if a.png else text(r, hide, a.prompt)
+            print(f"receipt: put {pp} at {a.output_url} as it is: one changed byte and the receipt won't vouch for it",
+                  file=sys.stderr)  # fmt: skip
     payload = None
     if a.json or a.bundle:
         for part in hide:

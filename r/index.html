@@ -3,7 +3,7 @@
 <title>A prompt receipt</title>
 <meta name="robots" content="noindex">
 <meta name="referrer" content="no-referrer">
-<meta name="description" content="A receipt for one Claude Code, Codex or OpenCode run, made with receipt.py.">
+<meta name="description" content="A receipt for one AI coding run, made with receipt.py.">
 <meta property="og:title" content="A prompt receipt"><meta property="og:description" content="What one AI coding run cost, how long it took and what it did, made with receipt.py.">
 <meta property="og:image" content="https://musharna.github.io/prompt-receipts/og.png">
 <style>
@@ -16,11 +16,18 @@ main{max-width:860px;margin:auto;padding:16px}
 .err{background:#f6d5d5;padding:10px 14px;border-radius:6px}
 .btn{font:inherit;font-size:.92em;padding:.35em .9em;border:1px solid #333;border-radius:6px;background:#fff;color:#222;cursor:pointer}
 footer{color:#555;font-size:.88em;margin:24px 0}
+#made{width:100%;height:80vh;border:1px solid #bbb;border-radius:4px;background:#fff}
+.ok{background:#dcefd9;padding:10px 14px;border-radius:6px}
 </style></head><body>
 <main>
 <h1>A prompt receipt</h1>
 <div class="paper"><pre id="receipt">Opening the receipt…</pre></div>
 <p><button class="btn" id="copy" hidden>Copy the receipt</button></p>
+<section id="output" hidden>
+<h2>What the run made</h2>
+<p id="check" class="dim"></p>
+<iframe id="made" sandbox="allow-scripts" title="what the run made" hidden></iframe>
+</section>
 <p class="dim">This receipt came inside the link: the part after # never leaves your browser, so it was not sent
 to this site and nothing is stored. It shows what receipt.py printed on the sender's computer. A link can be
 edited, so it's a report, not proof; a signed record checked with <code>receipt.py --verify</code> is the
@@ -51,9 +58,42 @@ async function show() {
     const copy = document.getElementById('copy');
     copy.hidden = false;
     copy.onclick = () => navigator.clipboard.writeText(text).then(() => copy.textContent = 'Copied');
+    checkPage(text);
   } catch (e) {
     fail(e.name === 'InvalidCharacterError' ? 'it is not in the expected form' : 'it does not unpack');
   }
+}
+// a receipt made with --output-url names a page and the start of its SHA-256; fetch it, and show it only if it matches
+async function checkPage(text) {
+  const m = text.match(/^page {5}(https:\/\/\S+|http:\/\/(?:localhost|127\.0\.0\.1)[:\/]\S*) · sha256 ([0-9a-f]{16})$/m);
+  const box = document.getElementById('output'), say = document.getElementById('check'), frame = document.getElementById('made');
+  if (!m) { box.hidden = true; return; }
+  const url = m[1], want = m[2];
+  box.hidden = false;
+  frame.hidden = true;
+  const a = document.createElement('a');
+  a.href = url; a.textContent = url; a.rel = 'noopener noreferrer';
+  say.className = 'dim';
+  say.replaceChildren('Checking the page at ', a, ' against this receipt…');
+  let buf;
+  try {
+    const r = await fetch(url, {credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store'});
+    if (!r.ok) throw new Error(r.status);
+    buf = await r.arrayBuffer();
+  } catch (e) {
+    say.replaceChildren('Couldn’t fetch ', a, ' to check it (it may be gone, or its site may not let other sites read it). If you open it, it’s unchecked.');
+    return;
+  }
+  const got = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', buf)), b => b.toString(16).padStart(2, '0')).join('');
+  if (!got.startsWith(want)) {
+    say.className = 'err';
+    say.replaceChildren('The page at ', a, ' isn’t the one this receipt fingerprinted (sha256 ' + got.slice(0, 16) + ', not ' + want + '), so it isn’t shown here.');
+    return;
+  }
+  say.className = 'ok';
+  say.replaceChildren('This is the page the receipt fingerprinted (sha256 ' + want + '…), from ', a, '. It runs in a sandboxed frame that can’t reach this page.');
+  frame.srcdoc = new TextDecoder().decode(buf);  // the checked bytes, in a frame with no access to this page
+  frame.hidden = false;
 }
 show();
 window.addEventListener('hashchange', show);

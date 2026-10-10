@@ -1762,6 +1762,31 @@ class OutputPage(Base):
         self.assertNotIn("<h2>Files</h2>", page)
         self.assertIn("Made it.", page)
 
+    def test_output_url_fingerprints_the_page_as_written(self):
+        out = self.site_log()
+        p = self.ok("--page", out, "--output-url", "https://me.github.io/run/page.html")
+        with open(out, "rb") as f:
+            want = hashlib.sha256(f.read()).hexdigest()  # the file's own bytes, line ends and all
+        self.assertIn(f"page     https://me.github.io/run/page.html · sha256 {want[:16]}\n", p.stdout)
+        self.assertIn("one changed byte", p.stderr)
+        r = json.loads(self.ok("--page", out, "--output-url", "https://me.github.io/run/page.html", "--json").stdout)
+        self.assertEqual(r["output_sha256"], want)
+        hid = self.ok("--page", out, "--output-url", "https://me.github.io/run/page.html", "--hide", "output").stdout
+        self.assertNotIn("sha256", hid)
+        self.assertIn("files    4 files written or edited", hid)
+        self.assertNotIn("page     ", self.ok("--page", out).stdout)
+
+    def test_output_url_needs_a_page_and_https(self):
+        out = self.site_log()
+        p = self.run_receipt("--output-url", "https://me.github.io/page.html")
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("add --page FILE.html", p.stderr)
+        p = self.run_receipt("--page", out, "--output-url", "http://me.example/page.html")
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("needs an https:// address", p.stderr)
+        self.assertFalse(os.path.exists(out))
+        self.ok("--page", out, "--output-url", "http://localhost:8000/page.html")  # testing on your own machine
+
 
 if __name__ == "__main__":
     unittest.main()
