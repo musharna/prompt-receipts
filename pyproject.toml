@@ -5,13 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "prompt-receipts"
 dynamic = ["version"]
-description = "Receipts for AI coding runs: what a Claude Code, Codex or OpenCode session cost, took and did"
+description = "Receipts for AI coding runs: what a Claude Code, Codex, OpenCode, Qwen Code, Gemini CLI or Copilot CLI session cost, took and did"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.9"
 authors = [{ name = "Jaret Arnold" }]
-keywords = ["claude-code", "codex", "opencode", "llm-cost", "ai-coding"]
+keywords = ["claude-code", "codex", "opencode", "qwen-code", "gemini-cli", "copilot-cli", "llm-cost", "ai-coding"]
 classifiers = [
     "Environment :: Console",
     "Programming Language :: Python :: 3",

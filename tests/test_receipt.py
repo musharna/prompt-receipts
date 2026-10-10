@@ -1445,7 +1445,182 @@ class Qwen(Base):
         p = self.run_receipt("--qwen", "--record", os.path.join(self.home, "r.json"))
         self.assertIn("don't cover Qwen Code sessions yet", p.stderr)
         p = self.run_receipt("--qwen", "--codex")
-        self.assertIn("pick one of --codex, --opencode and --qwen", p.stderr)
+        self.assertIn("pick one of --codex, --opencode, --qwen, --gemini and --copilot", p.stderr)
+
+
+class Gemini(Base):
+    """Gemini CLI: one JSONL per session, each message written again as it changes; a subagent's in its own file"""
+
+    def setUp(self):
+        super().setUp()
+        self.ghome = os.path.join(self.home, "gemini-home")
+        self.env["GEMINI_CLI_HOME"] = self.ghome
+        self.tmpdir = os.path.join(self.ghome, ".gemini", "tmp")
+
+    def gemini_log(self):
+        folder = os.path.join(self.tmpdir, "proj")
+        os.makedirs(os.path.join(folder, "chats", "g-1"), exist_ok=True)
+        with open(os.path.join(folder, ".project_root"), "w", encoding="utf-8") as f:
+            f.write(self.proj)
+
+        def msg(id_, m, kind, **kw):
+            return {"id": id_, "timestamp": ts(m), "type": kind, **kw}
+
+        def tok(i, c, o, th=0):
+            return {"input": i, "output": o, "cached": c, "thoughts": th, "tool": 0, "total": i + o + th}
+
+        def call(n, args, status):
+            return {"id": n + status, "name": n, "args": args, "status": status, "timestamp": ts(2)}
+
+        calls = [call("write_file", {"file_path": "hello.txt", "content": "hi"}, "success"),
+                 call("run_shell_command", {"command": "ls"}, "success"),
+                 call("write_file", {"file_path": "nope.txt", "content": "x"}, "error")]  # fmt: skip
+        es = [
+            {"sessionId": "g-1", "projectHash": "x", "startTime": ts(0), "lastUpdated": ts(0), "kind": "main"},
+            {"$set": {"messages": [msg("ctx", 0, "user", content=[{"text": "<session_context>\nsetup"}])]}},
+            msg("u1", 0, "user", content=[{"text": "make hello.txt"}]),
+            msg("g1", 1, "gemini", content="", model="gemini-2.5-flash", tokens=tok(10000, 0, 20, 40)),
+            {"$set": {"lastUpdated": ts(1)}},
+            # the same reply again, now with its tool calls: read once
+            msg("g1", 1, "gemini", content="", model="gemini-2.5-flash", tokens=tok(10000, 0, 20, 40), toolCalls=calls),
+            msg("r1", 2, "user", content=[{"functionResponse": {"id": "c1", "name": "write_file", "response": {}}}]),
+            msg("g2", 3, "gemini", content="made hello.txt", model="gemini-2.5-flash", tokens=tok(11000, 9000, 21)),
+            {},
+            msg("u2", 5, "user", content=[{"text": "stop"}]),
+            msg("g3", 6, "gemini", content="", model="gemini-2.5-flash", tokens=tok(12000, 9000, 5),
+                toolCalls=[call("run_shell_command", {"command": "sleep 9"}, "cancelled")]),
+        ]  # fmt: skip
+        path = os.path.join(folder, "chats", "session-2026-10-09T14-00-g-1.jsonl")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in es))
+        sub = [{"sessionId": "s-1", "projectHash": "x", "startTime": ts(3), "kind": "subagent"},
+               msg("s1", 3, "gemini", content="found it", model="gemini-2.5-flash", tokens=tok(3000, 0, 100))]  # fmt: skip
+        with open(os.path.join(folder, "chats", "g-1", "s-1.jsonl"), "w", encoding="utf-8") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in sub))
+        return path
+
+    def test_receipt(self):
+        self.gemini_log()
+        out = self.ok("--gemini").stdout
+        self.assertIn("Receipt v6.0 · Gemini CLI · ", out)  # no version is logged
+        self.assertIn("2 prompts from me", out)  # its opening message and the tool results aren't prompts
+        # each reply once, and the subagent's: 36k in (18k cached); out counts the 40 tokens of reasoning
+        self.assertIn("tokens   in 36k (18k cached) · out 186", out)
+        self.assertIn("work     4 tool calls, 2 shell commands · web 0 · 1 failed call · interrupted 1×", out)
+        self.assertIn("files    1 file written or edited (.txt)", out)
+        r = json.loads(self.ok("--gemini", "--json").stdout)
+        # 18k uncached at $0.30/M, 18k cached at $0.03/M, 186 out at $2.50/M
+        self.assertAlmostEqual(r["cost_usd"], 0.0054 + 0.00054 + 0.000465, places=6)
+
+    def test_turns_recipe_and_path(self):
+        path = self.gemini_log()
+        out = self.ok(path, "--turns", "--recipe").stdout  # found as Gemini CLI from where it lives
+        self.assertRegex(out, r"turns    1  \d+:\d\d [AP]M · 3 min · <?\$0\.01 · 3 tool calls, 1 shell command · 1 file")
+        self.assertIn("the turns add up to the cost above", out)
+        self.assertIn("rerun    gemini -m gemini-2.5-flash -p 'make hello.txt'", out)
+        self.assertIn("gemini --resume latest -m gemini-2.5-flash -p stop", out)
+        self.assertRegex(self.ok("--gemini", "--totals").stdout, r"\ntotal +<?\$0\.01 +1 +2 ")
+
+    def test_older_whole_json_file_in_a_hash_folder(self):
+        folder = os.path.join(self.tmpdir, hashlib.sha256(self.proj.encode()).hexdigest(), "chats")
+        os.makedirs(folder)
+        doc = {"sessionId": "old-1", "projectHash": hashlib.sha256(self.proj.encode()).hexdigest(), "startTime": ts(0),
+               "messages": [{"id": "c", "timestamp": ts(0), "type": "user", "content": "<session_context>\nsetup"},
+                            {"id": "u", "timestamp": ts(0), "type": "user", "content": "an old prompt"},
+                            {"id": "g", "timestamp": ts(1), "type": "gemini", "content": "ok", "model": "gemini-2.5-flash",
+                             "tokens": {"input": 500, "output": 7, "cached": 0, "thoughts": 0, "tool": 0, "total": 507}}]}  # fmt: skip
+        with open(os.path.join(folder, "session-old.json"), "w", encoding="utf-8") as f:
+            json.dump(doc, f)
+        self.assertIn("an old prompt", self.ok("--gemini", "--list").stdout)  # matched to this folder by the hash
+        out = self.ok("--gemini").stdout
+        self.assertIn("tokens   in 500 (0 cached) · out 7", out)
+        self.assertIn("1 prompt from me", out)  # its opening message isn't one
+
+
+class Copilot(Base):
+    """GitHub Copilot CLI: one events.jsonl per session, with a usage record for every API call"""
+
+    def setUp(self):
+        super().setUp()
+        self.chome = os.path.join(self.home, "copilot-home")
+        self.env["COPILOT_HOME"] = self.chome
+
+    def copilot_log(self, sid="c-1", byok=False):
+        def ev(kind, m, **data):
+            return {"type": kind, "id": f"{kind}{m}", "parentId": None, "timestamp": ts(m), "data": data}
+
+        def use(m, i, read, write, out, ms, effort, nano):
+            u = {"model": "claude-opus-4.7", "inputTokens": i, "cacheReadTokens": read, "cacheWriteTokens": write,
+                 "outputTokens": out, "reasoningTokens": out // 2, "duration": ms, "reasoningEffort": effort,
+                 "isByok": byok, "aiCreditsStatus": "unavailable" if byok else "complete"}  # fmt: skip
+            if not byok:
+                u["copilotUsage"] = {"totalNanoAiu": nano}
+            return ev("session.usage_record", m, usage=u)
+
+        def req(cid, n, **args):
+            return {"toolCallId": cid, "name": n, "arguments": args}
+
+        hello = os.path.join(self.proj, "hello.txt")
+        es = [
+            ev("session.start", 0, sessionId=sid, copilotVersion="1.0.95", selectedModel="claude-opus-4.7",
+               reasoningEffort="high", context={"cwd": self.proj}),
+            ev("user.message", 0, content="make hello.txt"),
+            ev("user.message", 0, content="a skill's own text", source="skill-pdf"),
+            ev("assistant.message", 1, content="", toolRequests=[
+                req("t1", "create", path=hello, file_text="hi"), req("t2", "bash", command="ls"),
+                req("t3", "edit", path=os.path.join(self.proj, "x.py"), old_str="a", new_str="b"),
+                dict(req("t4", "search_code", q="x"), mcpServerName="github")]),
+            use(1, 10000, 0, 8000, 100, 3000, "high", 2 * 10**9),
+            ev("tool.execution_complete", 2, toolCallId="t1", success=True),
+            ev("tool.execution_complete", 2, toolCallId="t2", success=True),
+            ev("tool.execution_complete", 2, toolCallId="t3", success=False, error={"message": "no such file"}),
+            ev("tool.execution_complete", 2, toolCallId="t4", success=True),
+            ev("assistant.message", 3, content="made it", toolRequests=[]),
+            use(3, 12000, 8000, 0, 20, 1000, "high", 10**9),
+            # running totals for the session: not added again
+            ev("session.shutdown", 4, modelMetrics={"claude-opus-4.7": {"usage": {"inputTokens": 999999}}}),
+            ev("session.resume", 5, reasoningEffort="xhigh", context={"cwd": self.proj}),
+            ev("user.message", 5, content="now delete it"),
+            ev("abort", 6, reason="user"),
+            ev("assistant.message", 6, content="", toolRequests=[req("t5", "bash", command="rm hello.txt")]),
+            use(6, 5000, 4000, 0, 10, 500, "xhigh", 0),
+            ev("tool.execution_complete", 7, toolCallId="t5", success=True, fileEdits=[{"path": hello, "kind": "delete"}]),
+        ]  # fmt: skip
+        folder = os.path.join(self.chome, "session-state", sid)
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, "events.jsonl")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in es))
+        return path
+
+    def test_receipt(self):
+        self.copilot_log()
+        out = self.ok("--copilot").stdout
+        self.assertIn("Receipt v6.0 · Copilot CLI 1.0.95", out)
+        self.assertIn("model    claude-opus-4.7 · effort high → xhigh", out)
+        self.assertIn("2 prompts from me", out)  # the skill's message isn't one
+        # the three calls only: the input counts include cache reads and writes, the output the reasoning
+        self.assertIn("tokens   in 27k (12k cached) · out 130", out)
+        self.assertIn("work     5 tool calls, 2 shell commands · web 0 · 1 failed call · interrupted 1×", out)
+        self.assertIn("billing  GitHub Copilot: 3.00 AI credits by the log, $0.03 at $0.01 a credit", out)
+        r = json.loads(self.ok("--copilot", "--json").stdout)
+        # priced as claude-opus-4-7: 7k uncached at $5/M, 12k read at $0.50/M, 8k written at $6.25/M, 130 out at $25/M
+        self.assertAlmostEqual(r["cost_usd"], 0.035 + 0.006 + 0.05 + 0.00325, places=6)
+        self.assertEqual((r["files_written"], r["files_deleted"]), (1, 1))  # x.py's edit failed
+        self.assertEqual(r["mcp_used"], {"github": 1})
+        self.assertEqual(r["model_time_ms"], 4500)
+
+    def test_own_key(self):
+        self.copilot_log(byok=True)
+        self.assertIn("billing  your own API key: charged per token", self.ok("--copilot").stdout)
+
+    def test_turns_recipe_and_path(self):
+        path = self.copilot_log()
+        out = self.ok(path, "--turns", "--recipe").stdout
+        self.assertRegex(out, r"turns    1  \d+:\d\d [AP]M · 3 min · \$0\.09 · 4 tool calls, 1 shell command · 1 file")
+        self.assertIn("rerun    copilot --model claude-opus-4.7 --reasoning-effort high -p 'make hello.txt'", out)
+        self.assertIn("copilot --continue --model claude-opus-4.7 --reasoning-effort xhigh -p 'now delete it'", out)
+        self.assertIn("make hello.txt", self.ok("--copilot", "--list").stdout.split("\n")[0])
 
 
 if __name__ == "__main__":

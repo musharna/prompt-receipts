@@ -1,9 +1,11 @@
-"""Make a receipt for your own Claude Code, Codex or OpenCode run: what ran, how long, what it cost, what was switched on.
+"""Make a receipt for your own AI coding run (Claude Code, Codex, OpenCode, Qwen Code, Gemini CLI or Copilot CLI):
+what ran, how long, what it cost, what was switched on.
 
 usage: python3 receipt.py [SESSION] [options]
 
   no SESSION       the newest Claude Code session for the current folder
-  --codex          use Codex sessions instead; --opencode for OpenCode, --qwen for Qwen Code
+  --codex          use Codex sessions instead; --opencode for OpenCode, --qwen for Qwen Code, --gemini for
+                   Gemini CLI, --copilot for GitHub Copilot CLI
   --list           list this folder's recent sessions; then --pick N to choose one
   --all            with --list or --pick: sessions from every folder, not just this one
   --last N         only your last N prompts
@@ -92,7 +94,8 @@ FORM = (
     "https://docs.google.com/forms/d/e/1FAIpQLSfo7LHk0Ljj2NES_qAX3-OMIbxbql9fhCsSNSzVLF_bEXoXNA/viewform"
     "?usp=pp_url&entry.349092046=tool&entry.1393206370="
 )
-TOOLS = {"claude": "Claude Code", "codex": "Codex CLI", "opencode": "OpenCode", "qwen": "Qwen Code"}
+TOOLS = {"claude": "Claude Code", "codex": "Codex CLI", "opencode": "OpenCode", "qwen": "Qwen Code", "gemini": "Gemini CLI",
+         "copilot": "Copilot CLI"}
 LOCAL = {"ollama", "lmstudio", "oss", "llama.cpp", "llamacpp", "local", "vllm"}
 PLANS = {
     "claude_max": "Max plan",
@@ -410,8 +413,10 @@ def price_table(litellm):
 def rates_for(model):
     """-> a PRICES row for a model as a log names it (claude-opus-5-5[1m], anthropic/claude-…, …-20251001), else None"""
     name = re.sub(r"\[.*\]$", "", model or "").split("/")[-1].lower()
+    name = re.sub(r"-1m(-internal)?$", "", name)  # Copilot CLI's name for the long-context version
     for n in (
         name,
+        re.sub(r"(?<=\d)\.(?=\d)", "-", name),  # Copilot CLI's claude-opus-4.7 is claude-opus-4-7
         re.sub(r"-\d{8}$", "", name),
         re.sub(r"-\d{4}-\d{2}-\d{2}$", "", name),
     ):
@@ -709,6 +714,14 @@ def sessions(tool, everywhere=False):
         fs = glob.glob(os.path.join(qwen_dir(), "projects", "*", "chats", "*.jsonl"))
         fs.sort(key=os.path.getmtime, reverse=True)
         return fs if everywhere else [f for f in fs if same_folder(qwen_cwd(f))]
+    if tool == "gemini":
+        fs = glob.glob(os.path.join(gemini_dir(), "tmp", "*", "chats", "session-*.json*"))
+        fs.sort(key=os.path.getmtime, reverse=True)
+        return fs if everywhere else [f for f in fs if gemini_here(f)]
+    if tool == "copilot":
+        fs = glob.glob(os.path.join(copilot_dir(), "session-state", "*", "events.jsonl"))
+        fs.sort(key=os.path.getmtime, reverse=True)
+        return fs if everywhere else [f for f in fs if same_folder(copilot_cwd(f))]
     fs = glob.glob(os.path.join(claude_dir(), "projects", "*", "*.jsonl"))
     if not everywhere:
         slugs = {slug(h) for h in heres()}
@@ -723,13 +736,15 @@ def where(tool):
         "codex": tilde(os.path.join(codex_dir(), "sessions")) + " (matched on folder)",
         "opencode": tilde(opencode_db()) + " (matched on folder)",
         "qwen": tilde(os.path.join(qwen_dir(), "projects")) + " (matched on folder)",
+        "gemini": tilde(os.path.join(gemini_dir(), "tmp")) + " (matched on folder)",
+        "copilot": tilde(os.path.join(copilot_dir(), "session-state")) + " (matched on folder)",
     }[tool]
 
 
 def folder_of(tool, key):
     if tool == "opencode":
         return next((d for i, d, _ in oc_rows() if i == key), "")
-    return {"codex": codex_cwd, "qwen": qwen_cwd}.get(tool, claude_cwd)(key)
+    return {"codex": codex_cwd, "qwen": qwen_cwd, "gemini": gemini_cwd, "copilot": copilot_cwd}.get(tool, claude_cwd)(key)
 
 
 def changed(tool, key):
@@ -744,8 +759,10 @@ def first_prompt_of(tool, key):
         for text in oc_prompts(key):
             return text.strip().replace("\n", " ")
         return ""
-    for d in lines(key):
-        t = {"codex": codex_prompt, "qwen": qwen_prompt}.get(tool, claude_prompt)(d)
+    for d in gemini_messages(key) if tool == "gemini" else lines(key):
+        t = {"codex": codex_prompt, "qwen": qwen_prompt, "gemini": gemini_prompt, "copilot": copilot_prompt}.get(
+            tool, claude_prompt
+        )(d)
         if t is not None:
             return t.strip().replace("\n", " ")
     return ""
@@ -760,7 +777,7 @@ def elsewhere(tool):
             slug(h) for h in heres()
         }
         n = sum(1 for f in fs if os.path.basename(os.path.dirname(f)) in others)
-    elif tool in ("codex", "qwen"):
+    elif tool != "opencode":
         cwds = [folder_of(tool, f) for f in sessions(tool, True)]
         others = {c for c in cwds if not same_folder(c)}
         n = sum(1 for c in cwds if c in others)
@@ -2090,6 +2107,401 @@ def qwen_turns(path):
     return done_turns(rows)
 
 
+# ---------- Gemini CLI ----------
+
+# Gemini CLI keeps one JSONL file per session in ~/.gemini/tmp/<folder>/chats/ (one whole JSON file in older
+# versions). A message is written again each time it changes, since its tokens and tool calls come later, so the
+# last copy of each id is the one to read. Each reply is one API call: its prompt count includes the cached tokens,
+# and reasoning is counted apart from the output. A subagent's calls are in chats/<session id>/.
+GEMINI_SHELL = ("run_shell_command",)
+GEMINI_WRITES = ("write_file", "replace")
+
+
+def gemini_dir():
+    return os.path.join(os.path.expanduser(os.environ.get("GEMINI_CLI_HOME") or home()), ".gemini")
+
+
+def gemini_doc(path):
+    """an older whole-JSON session file, else {}"""
+    try:
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return d if isinstance(d, dict) else {}
+
+
+def gemini_head(path):
+    """-> the session's header: sessionId, projectHash, startTime"""
+    if path.endswith(".json"):
+        return gemini_doc(path)
+    return next((d for d in lines(path) if isinstance(d, dict)), {})
+
+
+def gemini_messages(path):
+    """-> the session's messages in order, each as last written ($set, $patch and $rewindTo lines are skipped)"""
+    if path.endswith(".json"):
+        return [m for m in gemini_doc(path).get("messages") or [] if isinstance(m, dict)]
+    last = {}
+    for d in lines(path):
+        if isinstance(d, dict) and d.get("id") and d.get("type"):
+            last[d["id"]] = d  # a dict keeps the place of the first copy
+    return list(last.values())
+
+
+def gemini_text(parts):
+    if isinstance(parts, (str, dict)):
+        parts = [parts]
+    return "\n".join(
+        x if isinstance(x, str) else x["text"]
+        for x in parts or []
+        if isinstance(x, str) or (isinstance(x, dict) and isinstance(x.get("text"), str) and not x.get("thought"))
+    )
+
+
+def gemini_prompt(d):
+    """-> your prompt text if this message is one, else None; tool results are logged as user messages too"""
+    if d.get("type") != "user":
+        return None
+    text = gemini_text(d.get("displayContent") or d.get("content"))
+    if text.lstrip().startswith("<session_context>"):  # Gemini CLI's own opening message
+        return None
+    return text if text.strip() else None
+
+
+def gemini_cwd(path):
+    folder = os.path.dirname(os.path.dirname(path))
+    try:
+        with open(os.path.join(folder, ".project_root"), encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        pass
+    names = gemini_doc(os.path.join(gemini_dir(), "projects.json")).get("projects")
+    return next((p for p, s in (names or {}).items() if s == os.path.basename(folder)), "")
+
+
+def gemini_here(path):
+    """was this session run in this folder? Older folders are named by a hash, which the header also holds"""
+    return same_folder(gemini_cwd(path)) or gemini_head(path).get("projectHash") in {sha(h) for h in heres()}
+
+
+def gemini_calls(path):
+    """-> [(message number, time, model, tokens)] for every reply, a subagent's too (placed by its time)"""
+    main = gemini_messages(path)
+    times = [m.get("timestamp") or "" for m in main]
+    out = [(i, m.get("timestamp") or "", m.get("model"), m["tokens"]) for i, m in enumerate(main)
+           if m.get("type") == "gemini" and isinstance(m.get("tokens"), dict)]  # fmt: skip
+    sid = gemini_head(path).get("sessionId")
+    for f in sorted(glob.glob(os.path.join(os.path.dirname(path), sid, "*.json*"))) if sid else []:
+        for m in gemini_messages(f):
+            if m.get("type") == "gemini" and isinstance(m.get("tokens"), dict):
+                ts = m.get("timestamp") or ""
+                out.append((max(bisect.bisect_right(times, ts) - 1, 0), ts, m.get("model"), m["tokens"]))
+    return out
+
+
+def gemini_call(bill, model, t):
+    # the prompt count includes the cached tokens; reasoning and the tool-use prompt are counted apart
+    cached = t.get("cached") or 0
+    tin = (t.get("input") or 0) + (t.get("tool") or 0)
+    out = (t.get("output") or 0) + (t.get("thoughts") or 0)
+    bill.add(model, [max(tin - cached, 0), cached, 0, 0, out])
+    return tin, cached, out
+
+
+def gemini_tool_calls(d):
+    return [c for c in d.get("toolCalls") or [] if isinstance(c, dict)] if d.get("type") == "gemini" else []
+
+
+def gemini(path, part=None):
+    msgs = gemini_messages(path)
+    marks = [i for i, d in enumerate(msgs) if gemini_prompt(d) is not None] if part else []
+    sel, name = pick(len(marks), part)
+    win = bounds(marks, sel)
+    r = {"tool": "Gemini CLI", "part": name}
+    models, stamps, cwd = [], [], gemini_cwd(path)
+    prompts, first_prompt = 0, None
+    calls, mcp = collections.Counter(), collections.Counter()
+    errors, interrupted, written = 0, 0, set()
+    for i, d in enumerate(msgs):
+        if not within(i, win):
+            continue
+        if d.get("timestamp"):
+            stamps.append(d["timestamp"])
+        text = gemini_prompt(d)
+        if text is not None:
+            prompts += 1
+            first_prompt = first_prompt or text
+        tcs = gemini_tool_calls(d)
+        for c in tcs:
+            n, args = c.get("name") or "?", c.get("args") or {}
+            calls[n] += 1
+            if n.startswith("mcp_"):  # mcp_<server>_<tool>; a server with _ in its name is cut short
+                mcp[n[4:].split("_")[0]] += 1
+            if c.get("status") == "error":
+                errors += 1
+            elif c.get("status") == "success" and n in GEMINI_WRITES and args.get("file_path"):
+                written.add(os.path.join(cwd, args["file_path"]))
+        interrupted += any(c.get("status") == "cancelled" for c in tcs)
+    if not stamps:
+        sys.exit(f"receipt: {path} has no timestamped messages; is it a Gemini CLI session log?")
+    bill, tin, tcached, tout = Bill(), 0, 0, 0
+    for i, ts, model, t in gemini_calls(path):
+        if within(i, win):
+            a, c, o = gemini_call(bill, model, t)
+            tin, tcached, tout = tin + a, tcached + c, tout + o
+            models.append(model)
+            stamps.append(ts or stamps[-1])
+    r["version"] = ""  # Gemini CLI doesn't log its version
+    r["models"] = list(dict.fromkeys(m for m in models if m))
+    r["effort"] = "not in Gemini CLI logs"
+    r["permissions"] = "not in Gemini CLI logs"
+    r["started"], r["ended"] = min(stamps), max(stamps)
+    r["prompts"] = prompts
+    r["model_time_ms"] = None
+    r["session_key"] = gemini_head(path).get("sessionId") or os.path.basename(path)
+    if bill.lines:
+        r["cost_usd"] = round(bill.total(), 6)
+        r["cost_note"] = "worked out from the logged calls at API list prices; Gemini CLI logs no price"
+        priced(r, bill)
+    else:
+        r["cost_note"] = "Gemini CLI logs no price" + (
+            f", and the price table has none for {', '.join(bill.unpriced)}" if bill.unpriced else ""
+        )
+    r["billing"] = (
+        "not in Gemini CLI logs: a Google account's free allowance isn't charged; "
+        "a Gemini API key or Vertex AI is charged per token"
+    )
+    r["tokens_in"], r["tokens_cached"], r["tokens_out"] = tin, tcached, tout
+    r["tool_calls"] = sum(calls.values())
+    r["shell_commands"] = sum(calls.get(n, 0) for n in GEMINI_SHELL)
+    r["web"] = sum(v for n, v in calls.items() if n in ("web_fetch", "google_web_search"))
+    r["tool_errors"] = errors
+    r["interrupted"] = interrupted
+    files_part(r, sorted(written))
+    r["skills_used"] = {}
+    r["mcp_used"] = dict(mcp)
+    r["hooks"] = None
+    r["memory"] = None
+    r["first_prompt"] = first_prompt
+    return r
+
+
+def gemini_turns(path):
+    msgs, cwd = gemini_messages(path), gemini_cwd(path)
+    by_msg = collections.defaultdict(list)
+    for c in gemini_calls(path):
+        by_msg[c[0]].append(c)
+    rows = []
+    for i, d in enumerate(msgs):
+        ts = d.get("timestamp") or ""
+        text = gemini_prompt(d)
+        if text is not None:
+            rows.append(new_turn(ts, text))
+        if not rows:
+            continue
+        cur = rows[-1]
+        for _, cts, model, t in by_msg.get(i, []):
+            gemini_call(cur["bill"], model, t)
+            cur["model"] = cur["model"] or model
+            cur["end"] = max(cur["end"], cts)
+        if d.get("type") == "gemini":
+            cur["end"] = max(cur["end"], ts)
+            said = gemini_text(d.get("content"))
+            if said.strip():
+                cur["texts"][i], cur["reply_of"] = [said], i
+        for c in gemini_tool_calls(d):
+            n, args = c.get("name") or "?", c.get("args") or {}
+            cur["tools"] += 1
+            cur["shell"] += n in GEMINI_SHELL
+            cur["end"] = max(cur["end"], c.get("timestamp") or "")
+            if c.get("status") == "success" and n in GEMINI_WRITES and args.get("file_path"):
+                cur["files"].add(os.path.join(cwd, args["file_path"]))
+    return done_turns(rows)
+
+
+# ---------- GitHub Copilot CLI ----------
+
+# Copilot CLI keeps each session's events in ~/.copilot/session-state/<session id>/events.jsonl. Every API call
+# leaves a session.usage_record: its input count includes cache reads and writes, its output count includes the
+# reasoning, and on GitHub's billing it holds the AI credits the call used (1 credit = $0.01). session.shutdown
+# holds running totals for the whole session, so it isn't added again.
+COPILOT_SHELL = ("bash", "powershell", "local_shell")
+COPILOT_WRITES = ("create", "edit", "str_replace", "str_replace_editor")
+
+
+def copilot_dir():
+    return os.path.expanduser(os.environ.get("COPILOT_HOME") or os.path.join(home(), ".copilot"))
+
+
+def copilot_prompt(d):
+    """-> your prompt text if this event is one, else None (a skill's or another agent's message has a source)"""
+    if d.get("type") != "user.message":
+        return None
+    x = d.get("data") or {}
+    if x.get("isAutopilotContinuation") or str(x.get("source") or "").startswith(("skill-", "agent-")):
+        return None
+    text = x.get("content")
+    return text if isinstance(text, str) and text.strip() else None
+
+
+def copilot_cwd(path):
+    for i, d in enumerate(lines(path)):
+        if d.get("type") in ("session.start", "session.resume"):
+            return ((d.get("data") or {}).get("context") or {}).get("cwd") or ""
+        if i > 50:
+            break
+    return ""
+
+
+def copilot_calls(path):
+    """-> [(line number, time, usage)] for every API call the session made"""
+    return [(i, d.get("timestamp") or "", (d.get("data") or {}).get("usage") or {})
+            for i, d in enumerate(lines(path)) if d.get("type") == "session.usage_record"]  # fmt: skip
+
+
+def copilot_call(bill, u):
+    read, write, tin = u.get("cacheReadTokens") or 0, u.get("cacheWriteTokens") or 0, u.get("inputTokens") or 0
+    out = u.get("outputTokens") or 0  # the reasoning is inside it
+    bill.add(u.get("model"), [max(tin - read - write, 0), read, write, 0, out])
+    return tin, read, out
+
+
+def copilot_billing(byok, nano, status):
+    if nano:
+        part = " (some calls have no figure)" if status == "partial" else ""
+        return f"GitHub Copilot: {nano / 1e9:,.2f} AI credits by the log, ${nano / 1e11:,.2f} at $0.01 a credit{part}"
+    if byok:
+        return "your own API key: charged per token by that service, whose prices can differ from the list prices above"
+    return "GitHub Copilot plan; the log has no AI-credit figure for these calls"
+
+
+def copilot(path, part=None):
+    marks = [i for i, d in enumerate(lines(path)) if copilot_prompt(d) is not None] if part else []
+    sel, name = pick(len(marks), part)
+    win = bounds(marks, sel)
+    r = {"tool": "Copilot CLI", "part": name}
+    versions, models, efforts, stamps = [], [], [], []
+    prompts, first_prompt, key = 0, None, None
+    calls, mcp = collections.Counter(), collections.Counter()
+    errors, interrupted, written, deleted, pending = 0, 0, set(), set(), {}
+    bill, tin, tcached, tout, busy, nano, byok, status = Bill(), 0, 0, 0, 0, 0, False, None
+    for i, d in enumerate(lines(path)):
+        t, x = d.get("type"), d.get("data") or {}
+        if t == "session.start":
+            key = x.get("sessionId")
+            versions.append(x.get("copilotVersion"))
+        if t in ("session.start", "session.resume", "session.model_change") and within(i, win):
+            efforts.append(x.get("reasoningEffort"))
+        if not within(i, win):
+            continue
+        if d.get("timestamp"):
+            stamps.append(d["timestamp"])
+        text = copilot_prompt(d)
+        if text is not None:
+            prompts += 1
+            first_prompt = first_prompt or text
+        elif t == "assistant.message":
+            for c in x.get("toolRequests") or []:
+                n = c.get("name") or "?"
+                calls[n] += 1
+                if c.get("mcpServerName"):
+                    mcp[c["mcpServerName"]] += 1
+                if n in COPILOT_WRITES and (c.get("arguments") or {}).get("path"):
+                    pending[c.get("toolCallId")] = c["arguments"]["path"]
+        elif t == "tool.execution_complete":
+            if not x.get("success"):
+                errors += 1
+            elif x.get("fileEdits"):
+                for e in x["fileEdits"]:
+                    (deleted if e.get("kind") == "delete" else written).add(e.get("path"))
+            elif x.get("toolCallId") in pending:
+                written.add(pending[x["toolCallId"]])
+        elif t == "abort":
+            interrupted += 1
+        elif t == "session.usage_record":
+            u = x.get("usage") or {}
+            a, c, o = copilot_call(bill, u)
+            tin, tcached, tout, busy = tin + a, tcached + c, tout + o, busy + (u.get("duration") or 0)
+            models.append(u.get("model"))
+            efforts.append(u.get("reasoningEffort"))
+            nano += (u.get("copilotUsage") or {}).get("totalNanoAiu") or 0
+            byok = byok or bool(u.get("isByok"))
+            status = "partial" if status == "partial" or u.get("aiCreditsStatus") == "partial" else status
+    if not stamps:
+        sys.exit(f"receipt: {path} has no timestamped events; is it a Copilot CLI session log?")
+    r["version"] = span(versions)
+    r["models"] = list(dict.fromkeys(m for m in models if m))
+    r["effort"] = span(efforts) if any(efforts) else "not recorded"
+    r["permissions"] = "not in Copilot CLI logs"
+    r["started"], r["ended"] = min(stamps), max(stamps)
+    r["prompts"] = prompts
+    r["model_time_ms"] = busy or None
+    r["session_key"] = key or os.path.basename(os.path.dirname(path))
+    if bill.lines:
+        r["cost_usd"] = round(bill.total(), 6)
+        r["cost_note"] = "worked out from the logged calls at API list prices"
+        priced(r, bill)
+    else:
+        r["cost_note"] = "no list price" + (
+            f": the price table has none for {', '.join(bill.unpriced)}" if bill.unpriced else ""
+        )
+    r["billing"] = copilot_billing(byok, nano, status)
+    r["tokens_in"], r["tokens_cached"], r["tokens_out"] = tin, tcached, tout
+    r["tool_calls"] = sum(calls.values())
+    r["shell_commands"] = sum(calls.get(n, 0) for n in COPILOT_SHELL)
+    r["web"] = sum(v for n, v in calls.items() if n.startswith("web_") or n.endswith("web_search"))
+    r["tool_errors"] = errors
+    r["interrupted"] = interrupted
+    files_part(r, sorted(p for p in written if p), len(deleted))
+    r["skills_used"] = {}
+    r["mcp_used"] = dict(mcp)
+    r["hooks"] = None
+    r["memory"] = None
+    r["first_prompt"] = first_prompt
+    return r
+
+
+def copilot_turns(path):
+    rows, pending = [], {}
+    for i, d in enumerate(lines(path)):
+        t, x, ts = d.get("type"), d.get("data") or {}, d.get("timestamp") or ""
+        text = copilot_prompt(d)
+        if text is not None:
+            rows.append(new_turn(ts, text))
+            continue
+        if not rows:
+            continue
+        cur = rows[-1]
+        if t == "session.usage_record":
+            u = x.get("usage") or {}
+            copilot_call(cur["bill"], u)
+            cur["model"] = cur["model"] or u.get("model")
+            cur["effort"] = cur["effort"] or u.get("reasoningEffort")
+            cur["end"] = max(cur["end"], ts)
+        elif t == "assistant.message":
+            cur["end"] = max(cur["end"], ts)
+            said = x.get("content")
+            if isinstance(said, str) and said.strip() and not x.get("parentToolCallId"):
+                cur["texts"][i], cur["reply_of"] = [said], i
+            for c in x.get("toolRequests") or []:
+                n = c.get("name") or "?"
+                cur["tools"] += 1
+                cur["shell"] += n in COPILOT_SHELL
+                if n in COPILOT_WRITES and (c.get("arguments") or {}).get("path"):
+                    pending[c.get("toolCallId")] = c["arguments"]["path"]
+        elif t == "tool.execution_complete":
+            cur["end"] = max(cur["end"], ts)
+            if x.get("success"):
+                edits = [e.get("path") for e in x.get("fileEdits") or [] if e.get("kind") != "delete"]
+                cur["files"].update(p for p in edits or [pending.get(x.get("toolCallId"))] if p)
+    return done_turns(rows)
+
+
+TURNS = {"claude": claude_turns, "codex": codex_turns, "opencode": opencode_turns, "qwen": qwen_turns,
+         "gemini": gemini_turns, "copilot": copilot_turns}  # fmt: skip
+
+
 # ---------- a record of what went in and came out ----------
 
 # an in-toto Statement (in-toto.io/Statement/v1): the files the run wrote are its subjects, and the predicate
@@ -3412,7 +3824,7 @@ NO_CALL = "(no model call)"  # a prompt stopped before the model answered, or a 
 
 def totals(tool, keys, by, since, until):
     """-> {bucket: sums} over every prompt in these sessions sent between since and until (local dates)"""
-    turns_of = {"claude": claude_turns, "codex": codex_turns, "opencode": opencode_turns, "qwen": qwen_turns}[tool]
+    turns_of = TURNS[tool]
     out, priced = {}, True
     for key in keys:
         folder = base_name(folder_of(tool, key)) or "?"
@@ -3633,7 +4045,7 @@ def item_lines(r, width=80):
 def text(r, hide, with_prompt, width=80):
     head = f"Receipt v{VERSION} · {r['tool']}"
     if "version" not in hide:
-        head = f"{head} {r['version']}".replace("·  ", "· ")
+        head = f"{head} {r['version']}".replace("·  ", "· ").rstrip()
     elif not r["tool"]:  # several tools added up, and their versions hidden
         head += " several tools"
     if "date" not in hide and r.get("started"):
@@ -4060,6 +4472,8 @@ def main():
     ap.add_argument("--codex", action="store_true")
     ap.add_argument("--opencode", action="store_true")
     ap.add_argument("--qwen", action="store_true")
+    ap.add_argument("--gemini", action="store_true")
+    ap.add_argument("--copilot", action="store_true")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--pick", type=int)
@@ -4139,8 +4553,10 @@ def main():
     part = ("last", a.last) if a.last else turn_range(a.turns)
     if a.last and part and a.turns not in (None, "all"):
         sys.exit("receipt: pick one of --last N and --turns A-B")
-    if sum(map(bool, (a.codex, a.opencode, a.qwen))) > 1:
-        sys.exit("receipt: pick one of --codex, --opencode and --qwen")
+    picked = [t for t in TOOLS if t != "claude" and getattr(a, t)]
+    if len(picked) > 1:
+        flags = [f"--{t}" for t in TOOLS if t != "claude"]
+        sys.exit(f"receipt: pick one of {', '.join(flags[:-1])} and {flags[-1]}")
     if a.redact and not (a.prompt or a.reply or a.outcome or a.recipe):
         sys.exit(
             "receipt: --redact changes text the receipt shows, so it needs --prompt, --reply, --recipe or --outcome"
@@ -4187,7 +4603,7 @@ def main():
         sys.exit(
             "receipt: --sign signs what is saved, so add --out FILE, --record FILE or both"
         )
-    tool = "codex" if a.codex else "opencode" if a.opencode else "qwen" if a.qwen else "claude"
+    tool = picked[0] if picked else "claude"
 
     if a.statusline:
         if any(v not in (None, False, [], "") for k, v in vars(a).items() if k != "statusline"):
@@ -4272,12 +4688,17 @@ def main():
             tool = "claude"
         elif a.session:
             path = a.session
-            if not (a.codex or a.opencode or a.qwen):
+            if not picked:
                 where_ = os.path.abspath(path).replace(os.sep, "/")
+                under = lambda d, name: where_.startswith(d.replace(os.sep, "/") + "/") or f"/{name}/" in where_  # noqa: E731
                 if a.session.startswith("ses_") and not os.path.exists(a.session):
                     tool = "opencode"
-                elif where_.startswith(qwen_dir().replace(os.sep, "/") + "/") or "/.qwen/" in where_:
+                elif under(qwen_dir(), ".qwen"):
                     tool = "qwen"
+                elif under(gemini_dir(), ".gemini"):
+                    tool = "gemini"
+                elif under(copilot_dir(), ".copilot"):
+                    tool = "copilot"
                 elif (
                     os.path.basename(path).startswith("rollout-")
                     or os.path.abspath(path).startswith(codex_dir() + os.sep)
@@ -4315,7 +4736,9 @@ def main():
                 sys.exit(
                     f"receipt: --pick {n}, but {scope} has {found} sessions (see --list)"
                 )
-        r = {"opencode": opencode, "codex": codex, "qwen": qwen, "claude": claude}[tool](path, part)
+        r = {"opencode": opencode, "codex": codex, "qwen": qwen, "gemini": gemini, "copilot": copilot, "claude": claude}[
+            tool
+        ](path, part)
         r["receipt_version"] = VERSION
         r["duration_ms"] = round(
             (when(r["ended"]) - when(r["started"])).total_seconds() * 1000
@@ -4336,12 +4759,7 @@ def main():
             or a.record
             or a.bundle
         ):
-            rows = {
-                "claude": claude_turns,
-                "codex": codex_turns,
-                "opencode": opencode_turns,
-                "qwen": qwen_turns,
-            }[tool](path)
+            rows = TURNS[tool](path)
             sel, _ = pick(len(rows), part)
             rows = rows[sel[0] : sel[1]] if sel else rows
         add_turns(r, rows, a, hide)
@@ -4519,6 +4937,12 @@ def recipe(r, rows, prompts, hide, renames):
             tail = f" -m {q(model)}" if model else ""
             tail += f" --approval-mode {q(mode.group(1))}" if mode and mode.group(1) != "default" else ""
             cmds.append(f"qwen{' --continue' if i else ''}{tail} {q(p)}")
+        elif r["tool"] == "Gemini CLI":
+            tail = f" -m {q(model)}" if model else ""
+            cmds.append(f"gemini{' --resume latest' if i else ''}{tail} -p {q(p)}")
+        elif r["tool"] == "Copilot CLI":
+            tail = (f" --model {q(model)}" if model else "") + (f" --reasoning-effort {effort}" if effort else "")
+            cmds.append(f"copilot{' --continue' if i else ''}{tail} -p {q(p)}")
     return cmds
 
 
