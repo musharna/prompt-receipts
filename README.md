@@ -147,11 +147,22 @@ Every receipt says how much the run wrote: `files    3 files written or edited (
 | Option | What it does |
 |---|---|
 | `--page FILE.html` | Save one page with the receipt, every prompt and the model's full replies, and each file the run wrote. A web page the run made runs inside it, in a sandboxed frame, with the .js, .css and pictures it uses from the run put inside, so the one file works anywhere. Text files are shown as the run wrote them, or as they are on disk now when only edited. With `--redact`, emails and keys are replaced instead of stopping |
-| `--output-url URL` | With `--page`: say where you'll put the page (an `https://` address, such as a GitHub Pages site). The receipt gets a `page` line with the address and the start of the page's SHA-256. When someone opens the receipt's `--link`, the site fetches the page, checks it, and shows it only if it matches byte for byte. Upload the file unchanged; the site where it lives must let other sites read it, as GitHub Pages and raw.githubusercontent.com do |
+| `--output-url URL` | With `--page`: say where you'll put the page (an `https://` address, such as a GitHub Pages site). The receipt gets a `page` line with the address and the start of the page's SHA-256. When someone opens the receipt's `--link`, the site fetches the page, checks it, and shows it only if it matches byte for byte. Upload the file unchanged; the site where it lives must let other sites read it, as GitHub Pages, raw.githubusercontent.com and gists do |
 
 ```sh
 python3 receipt.py --page run.html --output-url https://you.github.io/runs/run.html --link
 ```
+
+No site of your own? A public GitHub gist works, and `--page` prints these steps:
+
+```sh
+receipt --page run.html                            # make the page
+gh gist create --public run.html                   # put it in a gist
+gh api gists/ID --jq '.files[].raw_url'            # ID ends the gist's address
+receipt --page run.html --output-url RAW_ADDRESS --link
+```
+
+Making the page again gives the same bytes, so the uploaded copy matches; if it doesn't (the run went on, or you hid something else), `receipt.py` says so and you upload the new one. The raw address names that version of the gist, so a later edit to the gist can't change what the receipt points at.
 
 ### More than one run
 

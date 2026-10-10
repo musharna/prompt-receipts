@@ -1,5 +1,11 @@
 # Changelog
 
+## receipt.py 7.2 (2026-10-10)
+
+- `--page` says how to share the page without a site of your own: put it in a public GitHub gist and make the receipt again with `--output-url` and the gist file's raw address. The receipt site checks gists like any other address.
+- With `--output-url`, if a page was already saved at that path and the new one differs, it says so, since a copy uploaded before won't match the receipt.
+- The receipt site wraps long addresses in its notes instead of running past the box.
+
 ## receipt.py 7.1 (2026-10-10)
 
 - Reads the output of `claude -p --output-format stream-json --verbose` saved to a file, like a session log: cost and output tokens from its result, time from its duration, subagents' files included. The prompt, effort, hooks and memory files aren't in that output, and the receipt says so.
