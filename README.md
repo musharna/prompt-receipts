@@ -4,29 +4,7 @@
 
 Prompts for making things with Claude Code and Codex, each shown with a receipt: what it cost, how long it took and what was switched on. Plus a script that prints the same receipt for your own runs in Claude Code, Codex or OpenCode.
 
-**[Browse the prompts](https://musharna.github.io/prompt-receipts/)** · **[Make a receipt for your own run](#make-a-receipt-for-your-own-run)**
-
-[![One prompt, run once on each model: Opus, Sonnet and Haiku 5.5 in Claude Code, and GPT-5.6 Sol, Terra and Luna in Codex](og.png)](https://musharna.github.io/prompt-receipts/)
-
-## Make a receipt for your own run
-
-In the folder where you ran Claude Code:
-
-```
-curl -sO https://musharna.github.io/prompt-receipts/tools/receipt.py && python3 receipt.py
-```
-
-On Windows, in PowerShell:
-
-```
-curl.exe -sO https://musharna.github.io/prompt-receipts/tools/receipt.py; py receipt.py
-```
-
-Add `--codex` for a Codex session or `--opencode` for OpenCode. Run it somewhere else and it tells you where your sessions are; `--list --all` lists them from every folder. It reads the logs these tools already keep, so it works on runs you've already finished. It needs only Python 3 and never prints paths, your email, account ids or file contents; only `--bundle` packs the files a run wrote, and only when you ask.
-
-Here is one prompt from the site, run once on plain Opus 5.5, and its receipt:
-
-<a href="https://musharna.github.io/prompt-receipts/play/1bfe1ef0-9a8/index.html"><img src="m/1bfe1ef0-9a8_opus_0.webp" width="420" alt="A round green blob mascot, with smaller versions in four moods: idle, happy, sleepy and surprised"></a>
+**[Browse the prompts](https://musharna.github.io/prompt-receipts/)** · **[Make a receipt for your own run](#make-a-receipt-for-your-own-run)** · [What's new](CHANGELOG.md)
 
 ```
 $ python3 receipt.py --prompt
@@ -55,17 +33,56 @@ prompt   A mascot for my habit-tracker app: a round blob that breathes, blinks a
          surprised.
 ```
 
-[Play with it](https://musharna.github.io/prompt-receipts/play/1bfe1ef0-9a8/index.html) or [see the other models' versions](https://musharna.github.io/prompt-receipts/#1bfe1ef0-9a8).
+<a href="https://musharna.github.io/prompt-receipts/play/1bfe1ef0-9a8/index.html"><img src="m/1bfe1ef0-9a8_opus_0.webp" width="300" align="right" alt="A round green blob mascot, with smaller versions in four moods: idle, happy, sleepy and surprised"></a>
 
-Add `--turns --recipe` and it ends with a line per prompt and the command that sends it again:
+That's plain Opus 5.5 making [this blob mascot](https://musharna.github.io/prompt-receipts/play/1bfe1ef0-9a8/index.html) from one of the site's prompts. See [the other models' versions](https://musharna.github.io/prompt-receipts/#1bfe1ef0-9a8), or [this receipt on the site](https://musharna.github.io/prompt-receipts/r/#r1.ZVNBbtswELzrFXsIEBu1FUmOZCfNpUh7KBCjQdEPUNLKYk2RgkjF8Uv6lN7bj3VIOY3b6GCLS452ODP7lSuWvaOnPE7o10-6V2Ksme4NfrI4jbObzJcL-lI5ypKsWNDmNi3ocUufPn7zW9rElBerdHm92ayjDkBFeKrwoaXpR7vMl7k_yU1jBkcd13LsIic79gfpmjqpaTYhD2bYS72binOPSqkfTAeKDf4AjipjXQBeJPFmRbMzypeWzEGTM04oEo4-PH4GWlZs35NrmZTUbKlkZQ4k6prGHmdJunlEL89_vF83iKTuR0dvnnRDv3_QxXWcJFdbrO_AK0nPgZWo0HxgUZ8Vs_VqH4BJnE1A_5rkb4GHQTqmWUrtPFRXJ-DmpWP4xvocaEb3lmuWT7gsOQfmacTPbhAWS9dKHeTPgidQ_yCk8wWjwd8NEvLdpWSjSVVAvMRKwpFTpecBWKWk8T7sWVuaXVxt54vJvwdc5eFhS0meFgVnC7r5m6yo9DD0oq14pl4JfUuCGgUfG-YFguaoasWw4zp0GUak5mjGgURVmVE79KvFcR6d2nrDaJUUe5oFrYOYdcgU5PFqRD5tk4crgI3CGaXsAnG3LSssTdcJXdugBJcURmQK0bt8taZlEjVSBR0g2fTq3XKsyQyEoDuQncWt69SC4u92HiF2S-PZ2T2ua3ErDW9NQ-k1iSchlSgVB5Lb-8fX3QRctObKnW7Qq3En9QmOtR1LsWPtLCVRa8w-UAqbyuygWNRxZ4bja1HUKFp23l2MxLEX1j7y0ElrYZ2N5EtWi01SFlmT87oAlZdZBIoHWK4xO6caskCdsBVswpxTd6RWlNItka1qD79E33tDB1hVU6lMibjB2xJzgdmE6iWUBXEI_hrlndztgqotJIXZ1MNcTGxMny9rWBEW3ujGB6Ezpra3JGuFvLRoeFyQVcz98d-v2tFzt1zHfwA), made with `--link`.
+
+<br clear="right">
+
+## Make a receipt for your own run
+
+In the folder where you ran Claude Code:
 
 ```
-turns    1  8:16 PM · 4 min · $0.83 · 13 tool calls, 6 shell commands · 2 files
-rerun    claude -p 'A mascot for my habit-tracker app: a round blob that breathes, blinks and giggles when you poke it. I'"'"'d like it in four moods: idle, happy, sleepy and surprised.' --model claude-opus-5-5 --effort medium --permission-mode bypassPermissions
-         (the same prompts and settings; no seed or temperature can be set, so not the same output)
+curl -sO https://musharna.github.io/prompt-receipts/tools/receipt.py && python3 receipt.py
 ```
 
-Add `--link` and it prints [a link that shows the receipt on the site](https://musharna.github.io/prompt-receipts/r/#r1.ZVNBbtswELzrFXsIEBu1FUmOZCfNpUh7KBCjQdEPUNLKYk2RgkjF8Uv6lN7bj3VIOY3b6GCLS452ODP7lSuWvaOnPE7o10-6V2Ksme4NfrI4jbObzJcL-lI5ypKsWNDmNi3ocUufPn7zW9rElBerdHm92ayjDkBFeKrwoaXpR7vMl7k_yU1jBkcd13LsIic79gfpmjqpaTYhD2bYS72binOPSqkfTAeKDf4AjipjXQBeJPFmRbMzypeWzEGTM04oEo4-PH4GWlZs35NrmZTUbKlkZQ4k6prGHmdJunlEL89_vF83iKTuR0dvnnRDv3_QxXWcJFdbrO_AK0nPgZWo0HxgUZ8Vs_VqH4BJnE1A_5rkb4GHQTqmWUrtPFRXJ-DmpWP4xvocaEb3lmuWT7gsOQfmacTPbhAWS9dKHeTPgidQ_yCk8wWjwd8NEvLdpWSjSVVAvMRKwpFTpecBWKWk8T7sWVuaXVxt54vJvwdc5eFhS0meFgVnC7r5m6yo9DD0oq14pl4JfUuCGgUfG-YFguaoasWw4zp0GUak5mjGgURVmVE79KvFcR6d2nrDaJUUe5oFrYOYdcgU5PFqRD5tk4crgI3CGaXsAnG3LSssTdcJXdugBJcURmQK0bt8taZlEjVSBR0g2fTq3XKsyQyEoDuQncWt69SC4u92HiF2S-PZ2T2ua3ErDW9NQ-k1iSchlSgVB5Lb-8fX3QRctObKnW7Qq3En9QmOtR1LsWPtLCVRa8w-UAqbyuygWNRxZ4bja1HUKFp23l2MxLEX1j7y0ElrYZ2N5EtWi01SFlmT87oAlZdZBIoHWK4xO6caskCdsBVswpxTd6RWlNItka1qD79E33tDB1hVU6lMibjB2xJzgdmE6iWUBXEI_hrlndztgqotJIXZ1MNcTGxMny9rWBEW3ujGB6Ezpra3JGuFvLRoeFyQVcz98d-v2tFzt1zHfwA), with nothing uploaded.
+On Windows, in PowerShell:
+
+```
+curl.exe -sO https://musharna.github.io/prompt-receipts/tools/receipt.py; py receipt.py
+```
+
+It needs only Python 3.9 or later. It reads the logs these tools already keep, so it works on runs you've already finished:
+
+| Tool | Add | Logs it reads |
+|---|---|---|
+| Claude Code | nothing | `~/.claude/projects/`, or under `$CLAUDE_CONFIG_DIR` |
+| Codex | `--codex` | `~/.codex/sessions/`, or under `$CODEX_HOME` |
+| OpenCode | `--opencode` | `~/.local/share/opencode/opencode.db`, or under `$XDG_DATA_HOME` |
+
+Run it somewhere else and it tells you where your sessions are; `--list --all` lists them from every folder.
+
+### Common uses
+
+```
+python3 receipt.py --list                  # this folder's recent sessions, numbered
+python3 receipt.py --pick 2 --prompt       # a receipt for one of them, with your prompts
+python3 receipt.py --hide cost --link      # leave out the cost and print a link to share
+python3 receipt.py --turns --recipe        # a line per prompt, and the commands to rerun them
+python3 receipt.py --out receipt.png       # a picture, for posting where text gets mangled
+
+python3 receipt.py --json --prompt-id --out opus.json      # save one receipt per model,
+python3 receipt.py --compare opus.json sonnet.json         # then set them side by side
+```
+
+### What it shares
+
+- `receipt.py` itself never connects to the internet. It reads local files and prints text.
+- It never prints paths, your email, account ids or file contents. Your prompts and the model's reply appear only when you ask (`--prompt`, `--reply`, `--recipe`), and it stops if one holds an email address or a key.
+- `--link` puts the receipt after the `#` in the link, which browsers never send, so nothing is uploaded.
+- `--bundle` packs the files a run wrote, and only when you ask.
+- Read the receipt before you share it. Prompts, tool names and times can say more than you mean to.
 
 ### Choosing what it covers
 
@@ -79,8 +96,6 @@ Add `--link` and it prints [a link that shows the receipt on the site](https://m
 | `SESSION.jsonl` or `ses_…` | Make a receipt for a log file, or an OpenCode session id, directly |
 
 ### Leaving things out
-
-Read the receipt before you share it. Prompts, tool names and times can say more than you mean to.
 
 | Option | What it does |
 |---|---|
@@ -165,6 +180,8 @@ Keep `receipt.py` in your home folder for this, or change the path. Sessions wit
 - A receipt is text you can edit. It shows what someone reports, not proof, unless it's signed by a key you trust.
 
 ## The prompts
+
+[![One prompt, run once on each model: Opus, Sonnet and Haiku 5.5 in Claude Code, and GPT-5.6 Sol, Terra and Luna in Codex](og.png)](https://musharna.github.io/prompt-receipts/)
 
 Each prompt on [the site](https://musharna.github.io/prompt-receipts/) was run once on plain Claude Code (Opus, Sonnet and Haiku 5.5) and on GPT-5.6 Sol, Terra and Luna in Codex, all at medium effort, plus GPT-6-Astra, Codex's default model. Every run shows what came out, what it cost and how long it took.
 
