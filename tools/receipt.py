@@ -93,7 +93,7 @@ import urllib.parse
 import zipfile
 import zlib
 
-VERSION = "7.1"
+VERSION = "7.2"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 SITE = "https://musharna.github.io/prompt-receipts/"
 LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters
@@ -5262,9 +5262,22 @@ def main():
         pp = os.path.expanduser(a.page)
         page = output_page(r, text(r, hide, a.prompt), rows, page_files(paths, texts, a.file_names), a, hide)
         page = page.encode("utf-8")  # bytes, so Windows doesn't turn its line ends into others the hash didn't see
+        before = None
+        if a.output_url and os.path.isfile(pp):  # the gist route uploads the page, then makes it again with its address
+            with open(pp, "rb") as fh:
+                before = fh.read()
         with open(pp, "wb") as fh:  # written only once it's whole: a stop leaves no half page
             fh.write(page)
         print(f"receipt: page saved to {pp}; open it in a browser", file=sys.stderr)
+        if before is not None and before != page:
+            print(f"receipt: {pp} isn't the same as the copy that was there before; if you uploaded that one, "
+                  "upload this one in its place, or the site won't show it", file=sys.stderr)  # fmt: skip
+        if not a.output_url:
+            print("receipt: to show it with the receipt without a site of your own, put it in a public gist, "
+                  "then make the receipt again with the gist file's raw address:\n"
+                  f"  gh gist create --public {pp}\n"
+                  "  gh api gists/ID --jq '.files[].raw_url'      (ID ends the address it printed)\n"
+                  f"  receipt … --page {pp} --output-url RAW_ADDRESS --link", file=sys.stderr)  # fmt: skip
         if a.output_url:  # the page holds the receipt, so the receipt can hold the page's fingerprint only after
             r["output_url"], r["output_sha256"] = a.output_url, sha(page)
             s = text(r, hide, a.prompt, width=PNG_COLS - 9) if a.png else text(r, hide, a.prompt)
