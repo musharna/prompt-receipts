@@ -1623,5 +1623,57 @@ class Copilot(Base):
         self.assertIn("make hello.txt", self.ok("--copilot", "--list").stdout.split("\n")[0])
 
 
+class OutputShape(Base):
+    """how much a run wrote, without its text: lines, size, a web page, and how long its replies were"""
+
+    def test_measured_from_the_text_the_log_holds(self):
+        self.claude_log(subagent=True, said="all done now")  # index.html "x" and style.css "b{}", neither on disk
+        out = self.ok().stdout
+        self.assertIn("files    2 files written or edited (.css, .html) · 2 lines, 4 bytes · a web page", out)
+        self.assertIn("replies  1 reply, 3 words", out)
+
+    def test_an_edited_file_is_measured_as_it_is_now(self):
+        app, gone = os.path.join(self.proj, "app.js"), os.path.join(self.proj, "gone.js")
+        with open(app, "w", encoding="utf-8") as f:
+            f.write("a\nb\nc\n")
+
+        def use(i, name, **inp):
+            return {"type": "tool_use", "id": i, "name": name, "input": inp}
+
+        es = [
+            {"type": "user", "timestamp": ts(0), "cwd": self.proj, "version": "2.1.300", "sessionId": "e1",
+             "message": {"role": "user", "content": "fix app.js"}},
+            {"type": "assistant", "timestamp": ts(1), "message": {"id": "m1", "model": "claude-opus-5-5",
+             "usage": {"input_tokens": 10, "output_tokens": 5}, "content": [
+                 use("w", "Write", file_path=app, content="x"),  # written, then edited: the text is out of date
+                 use("e", "Edit", file_path=app, old_string="x", new_string="a\nb\nc"),
+                 use("g", "Edit", file_path=gone, old_string="1", new_string="2")]}},
+            {"type": "assistant", "timestamp": ts(2), "message": {"id": "m2", "model": "claude-opus-5-5",
+             "usage": {"input_tokens": 10, "output_tokens": 5}, "content": [{"type": "text", "text": "fixed"}]}},
+        ]  # fmt: skip
+        folder = os.path.join(self.claude_dir, "projects", slug(self.proj))
+        os.makedirs(folder)
+        with open(os.path.join(folder, "e1.jsonl"), "w", encoding="utf-8") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in es))
+        out = self.ok().stdout
+        self.assertIn("files    2 files written or edited (.js ×2) · 3 lines, 6 bytes · 1 not on disk now", out)
+        self.assertNotIn("a web page", out)
+
+    def test_hide_output(self):
+        self.claude_log()
+        out = self.ok("--hide", "output").stdout
+        self.assertIn("files    1 file written or edited (.html)\n", out)
+        self.assertNotIn("replies", out)
+        r = json.loads(self.ok("--hide", "output", "--json").stdout)
+        self.assertFalse({"output_lines", "output_bytes", "web_page", "replies", "reply_words"} & set(r))
+        r = json.loads(self.ok("--json").stdout)
+        self.assertEqual((r["output_lines"], r["output_bytes"], r["web_page"], r["replies"]), (1, 1, True, 1))
+
+    def test_other_tools(self):
+        self.qhome = self.env["QWEN_HOME"] = os.path.join(self.home, "qwen-home")
+        Qwen.qwen_log(self)  # hello.txt "hi", written by write_file
+        self.assertIn("(.txt) · 1 line, 2 bytes", self.ok("--qwen").stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

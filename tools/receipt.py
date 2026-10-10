@@ -115,6 +115,7 @@ PARTS = [
     "tokens",
     "work",
     "files",
+    "output",
     "addons",
     "hooks",
     "memory",
@@ -617,7 +618,8 @@ def base_name(p):
     return re.split(r"[\\/]", p.rstrip("\\/"))[-1]
 
 
-def files_part(r, paths, deleted=0):
+def files_part(r, paths, deleted=0, texts=None):
+    """paths: the files the run wrote; texts: {path: the whole text a write put there, or None after an edit}"""
     names_ = [base_name(p) for p in paths]
     r["files_written"] = len(paths)
     r["files_deleted"] = deleted
@@ -625,6 +627,54 @@ def files_part(r, paths, deleted=0):
         collections.Counter(os.path.splitext(n)[1].lower() or "no type" for n in names_)
     )
     r["file_names"] = sorted(set(names_))
+    r.update(output_shape(paths, texts or {}))
+
+
+PAGE_TYPES = (".html", ".htm")
+SHAPE_MAX = 50 * 2**20  # a file this big is measured by its size alone
+
+
+def file_body(path, text):
+    """-> the file's bytes as the run left it: the text the log holds, else the file as it is now; None if gone"""
+    if text is not None:
+        return text.encode("utf-8", "surrogatepass")
+    try:
+        if os.path.getsize(path) > SHAPE_MAX:
+            return b"\0" * os.path.getsize(path)  # counted as bytes, not lines
+        with open(path, "rb") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def is_text(body):
+    return b"\0" not in body[:8192]
+
+
+def output_shape(paths, texts):
+    """-> how much the run wrote: lines (text files), bytes, whether one is a web page, how many are gone"""
+    n_lines, size, gone = 0, 0, 0
+    for p in paths:
+        body = file_body(p, texts.get(p))
+        if body is None:
+            gone += 1
+            continue
+        size += len(body)
+        if is_text(body):
+            n_lines += body.count(b"\n") + (1 if body and not body.endswith(b"\n") else 0)
+    out = {"output_lines": n_lines, "output_bytes": size,
+           "web_page": any(base_name(p).lower().endswith(PAGE_TYPES) for p in paths)}  # fmt: skip
+    if gone:
+        out["files_gone"] = gone
+    return out
+
+
+def size_text(n):
+    if n < 1024:
+        return many(n, "byte")
+    if n < 2**20:
+        return f"{max(round(n / 1024), 1):,} KB"
+    return f"{n / 2**20:,.1f} MB"
 
 
 # ---------- where each tool keeps its logs ----------
@@ -916,7 +966,7 @@ def claude(path, part=None):
     invoked_before, invoked_after = set(), set()
     skill_count, prompts, first_prompt, cost = None, 0, None, None
     usage_by_msg, server_web, context_hooks = {}, 0, 0
-    edits, failed, errors, interrupted = {}, set(), 0, 0
+    edits, failed, errors, interrupted, wrote = {}, set(), 0, 0, {}
     # every model call, main conversation and subagents, priced one by one; Claude Code writes a running total
     # per process, and a resumed session starts a new one, so the totals are kept per process and added up
     procs, calls, thinking, key = {}, {}, {}, None
@@ -1016,7 +1066,7 @@ def claude(path, part=None):
                     mcp[n.split("__")[1]] += 1
                     mcp_servers.add(n.split("__")[1])
                 elif n in EDIT_TOOLS and inp.get(EDIT_TOOLS[n]):
-                    edits[b.get("id")] = inp[EDIT_TOOLS[n]]
+                    claude_edit(b, edits, wrote)
     if not stamps:
         sys.exit(
             f"receipt: {path} has no timestamped entries; is it a Claude Code session log?"
@@ -1064,7 +1114,7 @@ def claude(path, part=None):
                 if d.get("type") == "assistant":
                     for b in m.get("content") or []:
                         if isinstance(b, dict) and b.get("type") == "tool_use":
-                            claude_edit(b, edits)
+                            claude_edit(b, edits, wrote)
                 elif d.get("type") == "user":
                     claude_failed(d, failed)
     bill = claude_bill(calls.values())
@@ -1148,7 +1198,11 @@ def claude(path, part=None):
     r["web"] = tools.get("WebSearch", 0) + tools.get("WebFetch", 0) + server_web
     r["tool_errors"] = errors
     r["interrupted"] = interrupted
-    files_part(r, sorted({p for i, p in edits.items() if i not in failed}))
+    texts = {}
+    for i, p in edits.items():  # a later Write's text replaces an earlier one; an Edit leaves none
+        if i not in failed:
+            texts[p] = wrote.get(i)
+    files_part(r, sorted(texts), texts=texts)
     r["skills_used"] = dict(skills)
     r["skills_available"] = skill_count
     r["mcp_used"] = dict(mcp)
@@ -1289,7 +1343,7 @@ def codex(path, part=None):
     )
     prompts, first_prompt, agents_md, web, images, busy = 0, None, False, 0, 0, 0
     errors, interrupted, call_names = 0, 0, {}
-    written, deleted, patched_by_event, patch_inputs = set(), set(), False, []
+    written, deleted, patched_by_event, patch_inputs, texts = set(), set(), False, [], {}
     # Codex's running total restarts with each process (every `codex exec resume`), so add up each
     # model call's own usage instead; the same event is often logged twice, so skip unchanged totals
     usage, last_total = collections.Counter(), None
@@ -1355,6 +1409,7 @@ def codex(path, part=None):
                     for f, ch in p["changes"].items():
                         kind = (ch or {}).get("type") if isinstance(ch, dict) else None
                         (deleted if kind == "delete" else written).add(f)
+                        texts[f] = ch.get("content") if kind == "add" and isinstance(ch.get("content"), str) else None
         elif t == "response_item":
             pt = p.get("type")
             text = codex_prompt(d)
@@ -1439,7 +1494,7 @@ def codex(path, part=None):
     r["images_made"] = images
     r["tool_errors"] = errors
     r["interrupted"] = interrupted
-    files_part(r, sorted(written - deleted), len(deleted))
+    files_part(r, sorted(written - deleted), len(deleted), texts)
     r["skills_used"] = dict(skills)
     r["mcp_used"] = dict(mcp)
     r["hooks"] = None  # Codex session logs don't record hook runs
@@ -1498,7 +1553,7 @@ def opencode(sid, part=None):
     tools, skills, mcp, agents = (collections.Counter() for _ in range(4))
     cost, tin, tcached, tout, busy = 0.0, 0, 0, 0, 0
     bill = Bill()
-    errors, model_errors, interrupted, written = 0, 0, 0, set()
+    errors, model_errors, interrupted, written, texts = 0, 0, 0, set(), {}
     # subagents run in child sessions: their cost and tokens count, as in Claude Code's totals
     children = []
     for c, kind in oc().execute(
@@ -1568,6 +1623,7 @@ def opencode(sid, part=None):
         p = json.loads(pdata)
         if p.get("type") == "patch":
             written |= set(p.get("files") or [])
+            texts.update(dict.fromkeys(p.get("files") or []))
         if p.get("type") != "tool":
             continue
         n, st = p.get("tool", "?"), p.get("state") or {}
@@ -1577,6 +1633,7 @@ def opencode(sid, part=None):
             errors += 1
         elif n in ("write", "edit", "multiedit") and inp.get("filePath"):
             written.add(inp["filePath"])
+            texts[inp["filePath"]] = inp.get("content") if n == "write" and isinstance(inp.get("content"), str) else None
         if n == "skill":
             skills[inp.get("name") or "?"] += 1
         elif n not in OC_BUILTIN and "_" in n:  # MCP tools are named server_tool
@@ -1621,7 +1678,7 @@ def opencode(sid, part=None):
     r["tool_errors"] = errors
     r["interrupted"] = interrupted
     r["model_errors"] = model_errors
-    files_part(r, sorted(written))
+    files_part(r, sorted(written), texts=texts)
     r["skills_used"] = dict(skills)
     r["mcp_used"] = dict(mcp)
     r["subagents"] = dict(agents)
@@ -1760,10 +1817,12 @@ def worked(d):
     )
 
 
-def claude_edit(b, edits):
+def claude_edit(b, edits, wrote=None):
     inp, n = b.get("input") or {}, b.get("name")
     if n in EDIT_TOOLS and inp.get(EDIT_TOOLS[n]):
         edits[b.get("id")] = inp[EDIT_TOOLS[n]]
+        if wrote is not None and n == "Write" and isinstance(inp.get("content"), str):
+            wrote[b.get("id")] = inp["content"]
 
 
 def claude_failed(d, failed):
@@ -1998,7 +2057,7 @@ def qwen(path, part=None):
     versions, models, modes, auths, stamps = [], [], [], [], []
     prompts, first_prompt, key = 0, None, None
     calls, mcp = collections.Counter(), collections.Counter()
-    errors, interrupted, written, pending = 0, 0, set(), {}
+    errors, interrupted, written, pending, texts = 0, 0, set(), {}, {}
     for i, d in enumerate(lines(path)):
         key = key or d.get("sessionId")
         if not within(i, win):
@@ -2020,13 +2079,16 @@ def qwen(path, part=None):
                 if n.startswith("mcp__") or "__" in n:
                     mcp[n] += 1
                 if n in QWEN_WRITES and args.get(QWEN_WRITES[n]):
-                    pending[cid] = args[QWEN_WRITES[n]]
+                    whole = args.get("content") if n == "write_file" and isinstance(args.get("content"), str) else None
+                    pending[cid] = (args[QWEN_WRITES[n]], whole)
         elif t == "tool_result":
             res = d.get("toolCallResult") or {}
             if res.get("status") == "error" or res.get("error"):
                 errors += 1
             elif res.get("callId") in pending:
-                written.add(pending[res["callId"]])
+                f, whole = pending[res["callId"]]
+                written.add(f)
+                texts[f] = whole
         elif t == "system" and d.get("subtype") == "turn_result":
             interrupted += (d.get("systemPayload") or {}).get("state") == "cancelled"
     if not stamps:
@@ -2061,7 +2123,7 @@ def qwen(path, part=None):
     r["web"] = sum(v for n, v in calls.items() if n.startswith("web_") or n.endswith("web_search"))
     r["tool_errors"] = errors
     r["interrupted"] = interrupted
-    files_part(r, sorted(written))
+    files_part(r, sorted(written), texts=texts)
     r["skills_used"] = {}
     r["mcp_used"] = dict(mcp)
     r["hooks"] = None
@@ -2222,7 +2284,7 @@ def gemini(path, part=None):
     models, stamps, cwd = [], [], gemini_cwd(path)
     prompts, first_prompt = 0, None
     calls, mcp = collections.Counter(), collections.Counter()
-    errors, interrupted, written = 0, 0, set()
+    errors, interrupted, written, texts = 0, 0, set(), {}
     for i, d in enumerate(msgs):
         if not within(i, win):
             continue
@@ -2241,7 +2303,9 @@ def gemini(path, part=None):
             if c.get("status") == "error":
                 errors += 1
             elif c.get("status") == "success" and n in GEMINI_WRITES and args.get("file_path"):
-                written.add(os.path.join(cwd, args["file_path"]))
+                f = os.path.join(cwd, args["file_path"])
+                written.add(f)
+                texts[f] = args.get("content") if n == "write_file" and isinstance(args.get("content"), str) else None
         interrupted += any(c.get("status") == "cancelled" for c in tcs)
     if not stamps:
         sys.exit(f"receipt: {path} has no timestamped messages; is it a Gemini CLI session log?")
@@ -2278,7 +2342,7 @@ def gemini(path, part=None):
     r["web"] = sum(v for n, v in calls.items() if n in ("web_fetch", "google_web_search"))
     r["tool_errors"] = errors
     r["interrupted"] = interrupted
-    files_part(r, sorted(written))
+    files_part(r, sorted(written), texts=texts)
     r["skills_used"] = {}
     r["mcp_used"] = dict(mcp)
     r["hooks"] = None
@@ -2384,7 +2448,7 @@ def copilot(path, part=None):
     versions, models, efforts, stamps = [], [], [], []
     prompts, first_prompt, key = 0, None, None
     calls, mcp = collections.Counter(), collections.Counter()
-    errors, interrupted, written, deleted, pending = 0, 0, set(), set(), {}
+    errors, interrupted, written, deleted, pending, texts = 0, 0, set(), set(), {}, {}
     bill, tin, tcached, tout, busy, nano, byok, status = Bill(), 0, 0, 0, 0, 0, False, None
     for i, d in enumerate(lines(path)):
         t, x = d.get("type"), d.get("data") or {}
@@ -2407,16 +2471,22 @@ def copilot(path, part=None):
                 calls[n] += 1
                 if c.get("mcpServerName"):
                     mcp[c["mcpServerName"]] += 1
-                if n in COPILOT_WRITES and (c.get("arguments") or {}).get("path"):
-                    pending[c.get("toolCallId")] = c["arguments"]["path"]
+                args = c.get("arguments") or {}
+                if n in COPILOT_WRITES and args.get("path"):
+                    whole = args.get("file_text") if n == "create" and isinstance(args.get("file_text"), str) else None
+                    pending[c.get("toolCallId")] = (args["path"], whole)
         elif t == "tool.execution_complete":
             if not x.get("success"):
                 errors += 1
             elif x.get("fileEdits"):
+                f, whole = pending.get(x.get("toolCallId"), (None, None))
                 for e in x["fileEdits"]:
                     (deleted if e.get("kind") == "delete" else written).add(e.get("path"))
+                    texts[e.get("path")] = whole if e.get("path") == f else None
             elif x.get("toolCallId") in pending:
-                written.add(pending[x["toolCallId"]])
+                f, whole = pending[x["toolCallId"]]
+                written.add(f)
+                texts[f] = whole
         elif t == "abort":
             interrupted += 1
         elif t == "session.usage_record":
@@ -2453,7 +2523,7 @@ def copilot(path, part=None):
     r["web"] = sum(v for n, v in calls.items() if n.startswith("web_") or n.endswith("web_search"))
     r["tool_errors"] = errors
     r["interrupted"] = interrupted
-    files_part(r, sorted(p for p in written if p), len(deleted))
+    files_part(r, sorted(p for p in written if p), len(deleted), texts)
     r["skills_used"] = {}
     r["mcp_used"] = dict(mcp)
     r["hooks"] = None
@@ -3448,7 +3518,12 @@ DROP = {
         "file_types",
         "file_names",
         "files_note",
+        "output_lines",
+        "output_bytes",
+        "web_page",
+        "files_gone",
     ],
+    "output": ["output_lines", "output_bytes", "web_page", "files_gone", "replies", "reply_words"],
     "addons": [
         "skills_used",
         "skills_available",
@@ -3536,7 +3611,7 @@ def combine(rs):
     for k in (
         "prompts", "duration_ms", "model_time_ms", "tool_calls", "shell_commands", "web",
         "images_made", "tool_errors", "interrupted", "model_errors", "hooks_added_context",
-        "files_written", "files_deleted",
+        "files_written", "files_deleted", "output_lines", "output_bytes", "files_gone", "replies", "reply_words",
     ):  # fmt: skip
         if any(x.get(k) is not None for x in rs):
             r[k] = sum(x.get(k) or 0 for x in rs)
@@ -4137,11 +4212,23 @@ def text(r, hide, with_prompt, width=80):
         line = f"files    {many(n, 'file')} written or edited" + (
             f" ({what})" if n else ""
         )
+        if r.get("output_bytes") and "output" not in hide:
+            n_lines = r.get("output_lines")
+            line += " · " + (f"{n_lines:,} line{'' if n_lines == 1 else 's'}, " if n_lines else "") + size_text(
+                r["output_bytes"]
+            )
+        if r.get("web_page") and "output" not in hide:
+            line += " · a web page"
+        if r.get("files_gone") and "output" not in hide:
+            line += f" · {r['files_gone']} not on disk now"
         if r.get("files_deleted"):
             line += f" · {r['files_deleted']} deleted"
         if r.get("files_note"):
             line += f" · {r['files_note']}"
         out.append(line)
+    if r.get("replies") is not None and "output" not in hide:
+        n, w = r["replies"], r["reply_words"]
+        out.append(f"replies  {n} {'reply' if n == 1 else 'replies'}, {w:,} word{'' if w == 1 else 's'}")
     if "addons" not in hide:
         sk = f"skills {names(r.get('skills_used'))}"
         if r.get("skills_available") is not None:
@@ -4752,7 +4839,8 @@ def main():
         check(r)
         rows = []
         if (
-            a.turns is not None
+            "output" not in hide
+            or a.turns is not None
             or a.prompt
             or a.reply
             or a.recipe
@@ -4762,6 +4850,9 @@ def main():
             rows = TURNS[tool](path)
             sel, _ = pick(len(rows), part)
             rows = rows[sel[0] : sel[1]] if sel else rows
+        if "output" not in hide:  # the replies the run gave: how many, how long; their text stays off
+            said = [t["reply"] for t in rows if t.get("reply")]
+            r["replies"], r["reply_words"] = len(said), sum(len(x.split()) for x in said)
         add_turns(r, rows, a, hide)
     if a.rename:
         rename(r, a.rename)
