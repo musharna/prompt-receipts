@@ -32,7 +32,10 @@ usage: python3 receipt.py [SESSION] [options]
   output:
   --md, --json     wrap it for GitHub or Discord, or print it as JSON (hidden parts stay out)
   --out PATH       save it to a file (.txt, .md, .json or .png) or into a folder
-  --png            with --out: draw it as a picture, for posting where text gets mangled
+  --png            with --out: draw it as a picture, for posting where text gets mangled: what was asked
+                   for, what it made, what it took and the total
+  --picture F.png  with --png: put a picture of what the run made on it (with --shot: a screenshot of the
+                   page it made)
   --link           also print a link that shows the receipt on the site; the receipt is inside the link, so
                    nothing is uploaded
   --report         also print a link to the Prompt Receipts form with this receipt filled in
@@ -50,7 +53,7 @@ usage: python3 receipt.py [SESSION] [options]
   --verify FILE    check a signature, or with a record: say which of the other files given came in or out of it
   --signers FILE   with --verify: an allowed_signers file, to check whose key it was
   --bundle F.zip   save one zip (an RO-Crate) with the receipt, the record and the files the run wrote
-  --shot           with --bundle: add a screenshot of the page the run made (needs Chrome, Edge or Chromium)
+  --shot           with --bundle or --png: add a screenshot of the page the run made (needs Chrome, Edge or Chromium)
 
   showing what the run made:
   --page F.html    save one page with the receipt, every prompt and full reply, the files the run wrote, and
@@ -93,7 +96,7 @@ import urllib.parse
 import zipfile
 import zlib
 
-VERSION = "7.2"
+VERSION = "7.3"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 SITE = "https://musharna.github.io/prompt-receipts/"
 LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters
@@ -3268,7 +3271,7 @@ def make_record(r, tool, key, part, names, counts, hide, renames, turns=()):
         for n, (p, w) in enumerate(writes.items(), 1)
     ]
     subjects = [s for s, _ in made if s]
-    r["_outputs"] = [b for _, b in made if b]  # the files themselves, for --bundle only
+    r["_outputs"] = [b for _, b in made if b]  # the files themselves, for --bundle and --shot
     pred = {
         "receipt_no": r["receipt_no"],
         "receipt_version": VERSION,
@@ -3403,22 +3406,31 @@ def shot(outputs, tmp):
     url = f"http://127.0.0.1:{srv.server_address[1]}/" + urllib.parse.quote(
         rel.replace(os.sep, "/")
     )
+    # --timeout stops a page still loading after 10 s, then the picture is taken. Not --virtual-time-budget:
+    # on a page that draws 3D in a loop, without a GPU, using up that budget took over 90 s, or never ended
     cmd = [b, "--headless", "--disable-gpu", "--hide-scrollbars", f"--screenshot={png}",
-           "--window-size=1280,800", "--virtual-time-budget=5000", url]  # fmt: skip
+           "--window-size=1280,800", "--timeout=10000", url]  # fmt: skip
+    # what the browser says goes to a file, not a pipe: the helper processes it starts (a GPU process for a
+    # WebGL page) keep a pipe open after the browser itself is done, so waiting for the pipe to close never ends
+    said_path = os.path.join(tmp, "browser.txt")
     try:
-        try:
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                                 start_new_session=os.name != "nt")  # fmt: skip
-        except OSError as e:
-            sys.exit(f"receipt: --shot couldn't start {b}: {e}")
-        try:
-            said = "".join(p.communicate(timeout=60))
-        except subprocess.TimeoutExpired:
-            kill_tree(p)
-            sys.exit(f"receipt: --shot: {b} took over 60 s and was stopped")
+        with open(said_path, "w", encoding="utf-8") as said_fh:
+            try:
+                p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=said_fh,
+                                     start_new_session=os.name != "nt")  # fmt: skip
+            except OSError as e:
+                sys.exit(f"receipt: --shot couldn't start {b}: {e}")
+            try:
+                p.wait(timeout=60)
+            except subprocess.TimeoutExpired:
+                kill_tree(p)
+                sys.exit(f"receipt: --shot: {b} took over 60 s and was stopped")
+            kill_tree(p)  # the helpers it leaves behind
     finally:
         srv.shutdown()
         srv.server_close()
+    with open(said_path, encoding="utf-8", errors="replace") as fh:
+        said = fh.read()
     if not os.path.exists(png):
         sys.exit(f"receipt: --shot: {b} made no picture ({said.strip()[-300:]})")
     with open(png, "rb") as fh:
@@ -4795,16 +4807,25 @@ def glyph(ch):
     return glyph(plain) if plain else glyph("?")
 
 
-def png(rows, scale=2):
-    """rows: [(text, ink)] with ink 1 = dark, 3 = faint -> PNG bytes; paper strip with torn ends"""
+def png(rows, scale=2, pic=None):
+    """rows: [(text, ink)] with ink 1 = dark, 3 = faint -> PNG bytes; paper strip with torn ends.
+    pic: (width, height, RGB rows) of a picture, drawn framed where a (None, 0) row is"""
     cw, lh, pad, tooth = 8 * scale, 12 * scale, 20 * scale, 5 * scale
-    cols = max(len(t) for t, _ in rows)
+    cols = max(len(t) for t, _ in rows if t is not None)
     w = cols * cw + 2 * pad
-    h = len(rows) * lh + 2 * pad + 2 * tooth
+    margin = 4 * scale
+    if pic:
+        pic = shrink(*pic, w - 2 * pad - 4)
+    heights = [lh if t is not None else pic[1] + 2 * margin for t, _ in rows]
+    h = sum(heights) + 2 * pad + 2 * tooth
     img = [bytearray(w) for _ in range(h)]
     cache = {}
-    for i, (line, ink) in enumerate(rows):
-        y0 = tooth + pad + i * lh
+    y0, at = tooth + pad, None
+    for (line, ink), height in zip(rows, heights):
+        y, y0 = y0, y0 + height
+        if line is None:
+            at = y + margin
+            continue
         for gy in range(8):
             row = bytearray()
             for ch in line:
@@ -4818,13 +4839,25 @@ def png(rows, scale=2):
                     )
                 row += cache[key]
             for sy in range(scale):
-                img[y0 + gy * scale + sy][pad : pad + len(row)] = row
+                img[y + gy * scale + sy][pad : pad + len(row)] = row
     for x in range(w):  # torn paper at both ends: a zigzag of background
         d = abs(x % (2 * tooth) - tooth)
         for y in range(d):
             img[y][x] = 2
             img[h - 1 - y][x] = 2
-    raw = b"".join(b"\x00" + bytes(r) for r in img)
+    palette = bytes([251, 248, 240, 38, 34, 30, 44, 49, 61, 100, 93, 85])
+    if pic:  # a picture needs every colour, so the strip becomes RGB, with the picture in a thin dark frame
+        pw, ph, prows = pic
+        x0 = (w - pw) // 2
+        for y in range(at - 2, at + ph + 2):
+            img[y][x0 - 2 : x0 + pw + 2] = b"\x01" * (pw + 4)
+        rgb = [palette[i * 3 : i * 3 + 3] for i in range(4)]
+        lines = [bytearray(b"".join(rgb[i] for i in r)) for r in img]
+        for y, prow in enumerate(prows):
+            lines[at + y][x0 * 3 : (x0 + pw) * 3] = prow
+        raw = b"".join(b"\x00" + bytes(r) for r in lines)
+    else:
+        raw = b"".join(b"\x00" + bytes(r) for r in img)
 
     def chunk(kind, data):
         return (
@@ -4834,7 +4867,13 @@ def png(rows, scale=2):
             + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
         )
 
-    palette = bytes([251, 248, 240, 38, 34, 30, 44, 49, 61, 100, 93, 85])
+    if pic:
+        return (
+            b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9))
+            + chunk(b"IEND", b"")
+        )
     return (
         b"\x89PNG\r\n\x1a\n"
         + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 3, 0, 0, 0))
@@ -4842,6 +4881,97 @@ def png(rows, scale=2):
         + chunk(b"IDAT", zlib.compress(raw, 9))
         + chunk(b"IEND", b"")
     )
+
+
+def pixels(data, what):
+    """PNG bytes -> (width, height, RGB rows), see-through parts laid on the receipt's paper. Reads the PNGs
+    browsers and most programs save (8 bits a channel, not interlaced); stops with a message on others"""
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        sys.exit(f"receipt: {what} isn't a PNG; save it as one (a screenshot tool's PNG works)")
+    pos, idat, plte, trns = 8, [], b"", b""
+    w = h = depth = kind = lace = None
+    while pos + 8 <= len(data):
+        n, tag = struct.unpack(">I4s", data[pos : pos + 8])
+        body = data[pos + 8 : pos + 8 + n]
+        if tag == b"IHDR":
+            w, h, depth, kind, _, _, lace = struct.unpack(">IIBBBBB", body)
+        elif tag == b"PLTE":
+            plte = body
+        elif tag == b"tRNS":
+            trns = body
+        elif tag == b"IDAT":
+            idat.append(body)
+        elif tag == b"IEND":
+            break
+        pos += 12 + n
+    if depth != 8 or lace or kind not in (0, 2, 3, 4, 6):
+        sys.exit(f"receipt: {what} is a kind of PNG receipt.py can't read (it reads 8 bits a channel, not "
+                 "interlaced); save it again as an ordinary PNG")  # fmt: skip
+    try:
+        raw = zlib.decompress(b"".join(idat))
+    except zlib.error as e:
+        sys.exit(f"receipt: {what} is damaged ({e})")
+    bpp = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[kind]
+    stride = w * bpp
+    if len(raw) < h * (stride + 1):
+        sys.exit(f"receipt: {what} is cut short")
+    paper = (251, 248, 240)
+    prev, rows = bytearray(stride), []
+    for y in range(h):
+        f, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1 : (y + 1) * (stride + 1)])
+        if f == 1:
+            for i in range(bpp, stride):
+                line[i] = (line[i] + line[i - bpp]) & 255
+        elif f == 2:
+            line = bytearray((a + b) & 255 for a, b in zip(line, prev))
+        elif f == 3:
+            for i in range(stride):
+                line[i] = (line[i] + ((line[i - bpp] if i >= bpp else 0) + prev[i]) // 2) & 255
+        elif f == 4:
+            for i in range(stride):
+                a = line[i - bpp] if i >= bpp else 0
+                b, c = prev[i], prev[i - bpp] if i >= bpp else 0
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                line[i] = (line[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        elif f:
+            sys.exit(f"receipt: {what} is damaged (row filter {f})")
+        prev = line
+        if kind == 2:
+            rows.append(bytes(line))
+            continue
+        out = bytearray()
+        for x in range(w):
+            if kind == 3:
+                i = line[x]
+                px = plte[i * 3 : i * 3 + 3] or b"\0\0\0"
+                alpha = trns[i] if i < len(trns) else 255
+            elif kind in (0, 4):
+                px, alpha = bytes([line[x * bpp]] * 3), (line[x * bpp + 1] if kind == 4 else 255)
+            else:
+                px, alpha = line[x * 4 : x * 4 + 3], line[x * 4 + 3]
+            out += bytes((v * alpha + q * (255 - alpha)) // 255 for v, q in zip(px, paper))
+        rows.append(bytes(out))
+    return w, h, rows
+
+
+def shrink(w, h, rows, most):
+    """make a picture at most `most` pixels wide, each new pixel the average of the ones it covers"""
+    if w <= most:
+        return w, h, rows
+    nw, nh = most, max(1, round(h * most / w))
+    xs = [(x * w // nw, max(x * w // nw + 1, (x + 1) * w // nw)) for x in range(nw)]
+    out = []
+    for y in range(nh):
+        y_a, y_b = y * h // nh, max(y * h // nh + 1, (y + 1) * h // nh)
+        acc = [0] * (w * 3)
+        for row in rows[y_a:y_b]:
+            acc = [s + v for s, v in zip(acc, row)]
+        line = bytearray()
+        for x_a, x_b in xs:
+            n = (x_b - x_a) * (y_b - y_a)
+            line += bytes(sum(acc[x_a * 3 + c : x_b * 3 : 3]) // n for c in range(3))
+        out.append(bytes(line))
+    return nw, nh, out
 
 
 PNG_COLS = 62  # narrow enough to stay legible when a feed shrinks the picture to a phone's width
@@ -4870,25 +5000,65 @@ def fold(value, n):
     return out + [cur]
 
 
-def picture(s, table=False):
-    """a receipt's lines wrap under their label (s is made at PNG_COLS); a comparison table keeps its columns"""
+def picture(s, table=False, pic=None, total=None):
+    """a receipt's lines wrap under their label (s is made at PNG_COLS); a comparison table keeps its columns.
+    A receipt reads like one from a shop: what was asked for, what it made (with a picture of it if given),
+    what it took, and the total"""
     head, *body = s.split("\n")
-    heads = fold(head, max([PNG_COLS] + [len(b) for b in body if table]))
-    if not table:
-        body = [
-            (label if i == 0 else " " * 9) + piece
-            for line in body
-            for label, value in [(line[:9], line[9:])]
-            for i, piece in enumerate(fold(value, PNG_COLS - 9))
-        ]
-    cols = max(len(x) for x in body + heads)
-    rows = [(x, 1) for x in heads] + [("-" * cols, 3)]
-    rows += [(x, 1) for x in body]
+    foot = f"made with receipt.py {VERSION} · musharna.github.io/prompt-receipts"
+    if table:
+        heads = fold(head, max([PNG_COLS] + [len(b) for b in body]))
+        cols = max(len(x) for x in body + heads)
+        rows = [(x, 1) for x in heads] + [("-" * cols, 3)] + [(x, 1) for x in body]
+        return png(rows + [("-" * cols, 3), (foot, 3)])
+    entries = []  # (label, value lines): a line that starts with 9 spaces goes on with the one above
+    for line in body:
+        if entries and line[:9] == " " * 9:
+            entries[-1][1].append(line[9:])
+        else:
+            entries.append((line[:9], [line[9:]]))
+    asked = [e for e in entries if e[0].strip() in ("prompt", "prompts")]
+    made = [e for e in entries if e[0].strip() in ("files", "page")]
+    took = [e for e in entries if e not in asked and e not in made]
+    rule = ("-", 3)  # drawn as wide as the widest line
+    rows = [(x, 1) for x in fold(head, PNG_COLS)] + [rule]
+    for label, values in asked:
+        rows.append(("ASKED FOR", 3))
+        if label.strip() == "prompt":  # one prompt: the whole width
+            rows += [(x, 1) for x in textwrap.wrap(" ".join(v.strip() for v in values), PNG_COLS,
+                                                   break_long_words=False, break_on_hyphens=False)]  # fmt: skip
+        else:  # numbered prompts keep their numbers
+            rows += [(v, 1) for v in values]
+        rows.append(("", 1))
+    if made or pic:
+        rows.append(("MADE", 3))
+        if pic:
+            rows.append((None, 0))
+        for label, values in made:
+            rows += [(x, 1 if label.strip() == "files" else 3) for x in fold(" ".join(v.strip() for v in values), PNG_COLS)]
+        rows.append(rule)
+    if asked or made or pic:
+        rows.append(("IT TOOK", 3))
     rows += [
-        ("-" * cols, 3),
-        (f"made with receipt.py {VERSION} · musharna.github.io/prompt-receipts", 3),
+        ((label if i == 0 else " " * 9) + piece, 1)
+        for label, values in took
+        for j, value in enumerate(values)
+        for i, piece in enumerate(fold(value, PNG_COLS - 9), j)
     ]
-    return png(rows)
+    if total:
+        rows += [rule, (total, 1)]
+    rows += [rule, (foot, 3)]
+    # the width is known only once every line is in; then the rules span it and the total sits at its right edge
+    cols = max(len(t) if isinstance(t, str) else len(t[0]) + len(t[1]) + 1 for t, _ in rows if t not in (None, "-"))
+
+    def drawn(t):
+        if t == "-":
+            return "-" * cols
+        if isinstance(t, tuple):
+            return t[0] + " " * (cols - len(t[0]) - len(t[1])) + t[1]
+        return t
+
+    return png([(drawn(t), ink) for t, ink in rows], pic=pic)
 
 
 # ---------- main ----------
@@ -4954,6 +5124,7 @@ def main():
     ap.add_argument("--link", action="store_true")
     ap.add_argument("--bundle", metavar="FILE.zip")
     ap.add_argument("--shot", action="store_true")
+    ap.add_argument("--picture", metavar="FILE.png")
     ap.add_argument("--statusline", action="store_true")
     ap.add_argument("--totals", nargs="?", const="day", choices=BY)
     ap.add_argument("--since", metavar="DATE")
@@ -5043,8 +5214,21 @@ def main():
         or a.recipe
     ):
         sys.exit("receipt: --combine and --compare read JSON receipts, not sessions")
-    if a.shot and not a.bundle:
-        sys.exit("receipt: --shot goes into a --bundle, so add --bundle FILE.zip")
+    if a.shot and not (a.bundle or a.png):
+        sys.exit("receipt: --shot goes into a --bundle or onto a picture of the receipt, so add --bundle FILE.zip "
+                 "or --out receipt.png")  # fmt: skip
+    if a.picture and not a.png:
+        sys.exit("receipt: --picture goes on a picture of the receipt, so add --out receipt.png")
+    if a.picture and (many_in or a.list or a.totals):
+        sys.exit("receipt: --picture goes on one session's receipt, so it can't go with --combine, --compare, "
+                 "--list or --totals")  # fmt: skip
+    pic = None
+    if a.picture:  # read it now, so a file it can't use stops it before anything is made
+        try:
+            with open(os.path.expanduser(a.picture), "rb") as fh:
+                pic = pixels(fh.read(), a.picture)
+        except OSError as e:
+            sys.exit(f"receipt: can't read --picture {a.picture} ({e.strerror})")
     if a.bundle and (many_in or a.list):
         sys.exit(
             "receipt: --bundle covers one session, so it can't go with --combine, --compare or --list"
@@ -5249,10 +5433,13 @@ def main():
             a.outcome.strip(), a.redact, "your --outcome note", "--outcome"
         )
     record = None
-    if a.record or a.bundle:
+    if a.record or a.bundle or (a.shot and a.png):  # the record step gathers the files a screenshot needs
         record = make_record(
             r, tool, path, part, a.file_names, a.counts, hide, renames, rows
         )
+        if not (a.record or a.bundle):  # made only to find the files: none is saved, so the receipt names none
+            record = None
+            r.pop("record", None)
     s = text(r, hide, a.prompt)
     if a.png:  # the picture is narrower, so its prompt wraps to fit
         s = text(r, hide, a.prompt, width=PNG_COLS - 9)
@@ -5303,7 +5490,13 @@ def main():
         )
         if not a.json:
             payload = None
-    saved = [emit(a, r, s, payload)]
+    if a.png and a.shot and not pic:  # a screenshot of the page the run made, on the receipt
+        tmp = tempfile.mkdtemp(prefix="receipt-")
+        try:
+            pic = pixels(shot(outputs, tmp), "the screenshot")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    saved = [emit(a, r, s, payload, pic=pic)]
     if a.record:
         rp = os.path.expanduser(a.record)
         with open(rp, "wb") as fh:
@@ -5457,9 +5650,12 @@ def nothing_found(tool, everywhere):
     sys.exit("\n  ".join([msg] + hints))
 
 
-def emit(a, r, s, payload, table=False):
+def emit(a, r, s, payload, table=False, pic=None):
     if a.png:
-        data, ext = picture(s, table), "png"
+        total = None
+        if not table and r.get("cost_usd") is not None and any(x.startswith("cost     $") for x in s.split("\n")):
+            total = ("TOTAL at API prices" if "API" in r.get("cost_note", "") else "TOTAL", money(r["cost_usd"]))
+        data, ext = picture(s, table, pic, total), "png"
     elif payload is not None:
         data, ext = payload, "json"
     else:

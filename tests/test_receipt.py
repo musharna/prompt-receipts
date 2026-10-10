@@ -6,6 +6,7 @@ the machine running the tests is read. python -m unittest discover -s tests"""
 import base64
 import datetime
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -17,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import time
 import unittest
 import zipfile
 import zlib
@@ -280,7 +282,7 @@ class Receipts(Base):
     def test_claude_code_receipt(self):
         self.claude_log()
         out = self.ok().stdout
-        self.assertIn("Receipt v7.2 · Claude Code 2.1.300", out)
+        self.assertIn("Receipt v7.3 · Claude Code 2.1.300", out)
         self.assertIn(
             "2 prompts from me", out
         )  # the "[Request interrupted" line isn't a prompt
@@ -335,7 +337,7 @@ class Receipts(Base):
     def test_opencode(self):
         self.opencode_db()
         out = self.ok("--opencode").stdout
-        self.assertIn("Receipt v7.2 · OpenCode 1.18.31", out)
+        self.assertIn("Receipt v7.3 · OpenCode 1.18.31", out)
         self.assertIn("qwen3:8b (ollama, on this computer)", out)
         self.assertIn("2 prompts from me", out)
         self.assertIn("1 failed call", out)
@@ -409,7 +411,7 @@ class Receipts(Base):
             "prompt_id",
         ):
             self.assertNotIn(k, r)
-        self.assertEqual(r["receipt_version"], "7.2")
+        self.assertEqual(r["receipt_version"], "7.3")
         self.assertEqual(r["tool_errors"], 1)
         names = json.loads(self.ok("--json", "--file-names").stdout)["file_names"]
         self.assertEqual(names, ["index.html"])
@@ -423,7 +425,7 @@ class Receipts(Base):
         self.assertIn("warning  found your prompts but no model reply", p.stdout)
 
     def test_version(self):
-        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.2")
+        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.3")
 
     # ---------- output ----------
 
@@ -456,7 +458,7 @@ class Receipts(Base):
         url = out.strip().split("\n")[-1]
         self.assertTrue(url.startswith("https://docs.google.com/forms/"), url)
         self.assertIn("entry.349092046=tool", url)
-        self.assertIn("entry.1393206370=Receipt%20v7.2", url)
+        self.assertIn("entry.1393206370=Receipt%20v7.3", url)
 
     def test_hook_saves_a_receipt(self):
         log = self.claude_log()
@@ -473,7 +475,7 @@ class Receipts(Base):
         saved = os.listdir(folder)
         self.assertEqual(len(saved), 1)
         with open(os.path.join(folder, saved[0]), encoding="utf-8") as f:
-            self.assertIn("Receipt v7.2 · Claude Code", f.read())
+            self.assertIn("Receipt v7.3 · Claude Code", f.read())
 
     def test_combine_and_compare(self):
         self.claude_log()
@@ -1225,7 +1227,7 @@ class Totals(Base):
 
     def test_by_day_in_this_folder(self):
         out = self.ok("--totals").stdout
-        self.assertIn("Totals v7.2 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
+        self.assertIn("Totals v7.3 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
         self.assertRegex(out, r"\nThu 1 Oct 2026 +\$4\.00 +1 +1 ")
         self.assertRegex(out, r"\nSat 3 Oct 2026 +\$2\.00 +1 +2 ")
         self.assertRegex(out, r"\ntotal +\$6\.00 +1 +3 ")
@@ -1412,7 +1414,7 @@ class Qwen(Base):
     def test_receipt(self):
         self.qwen_log()
         out = self.ok("--qwen").stdout
-        self.assertIn("Receipt v7.2 · Qwen Code 0.25.0", out)
+        self.assertIn("Receipt v7.3 · Qwen Code 0.25.0", out)
         self.assertIn("2 prompts from me", out)  # Qwen Code's own notice isn't a prompt
         # all three calls, the memory extractor's too: 46k in (20k cached), 320 out
         self.assertIn("tokens   in 46k (20k cached) · out 320", out)
@@ -1513,7 +1515,7 @@ class Gemini(Base):
     def test_receipt(self):
         self.gemini_log()
         out = self.ok("--gemini").stdout
-        self.assertIn("Receipt v7.2 · Gemini CLI · ", out)  # no version is logged
+        self.assertIn("Receipt v7.3 · Gemini CLI · ", out)  # no version is logged
         self.assertIn("2 prompts from me", out)  # its opening message and the tool results aren't prompts
         # each reply once, and the subagent's: 36k in (18k cached); out counts the 40 tokens of reasoning
         self.assertIn("tokens   in 36k (18k cached) · out 186", out)
@@ -1607,7 +1609,7 @@ class Copilot(Base):
     def test_receipt(self):
         self.copilot_log()
         out = self.ok("--copilot").stdout
-        self.assertIn("Receipt v7.2 · Copilot CLI 1.0.95", out)
+        self.assertIn("Receipt v7.3 · Copilot CLI 1.0.95", out)
         self.assertIn("model    claude-opus-4.7 · effort high → xhigh", out)
         self.assertIn("2 prompts from me", out)  # the skill's message isn't one
         # the three calls only: the input counts include cache reads and writes, the output the reasoning
@@ -1807,6 +1809,216 @@ class OutputPage(Base):
         self.assertFalse(os.path.exists(out))
         self.ok("--page", out, "--output-url", "http://localhost:8000/page.html")  # testing on your own machine
 
+
+
+def paeth(a, b, c):
+    p = a + b - c
+    pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+    return a if pa <= pb and pa <= pc else b if pb <= pc else c
+
+
+def png_file(path, w, h, rows, kind=6, depth=8):
+    """write a PNG the way other programs do: each row with one of the five filters, in turn"""
+    bpp = {2: 3, 6: 4}[kind]
+    raw, prev = b"", bytes(w * bpp)
+    for y, line in enumerate(rows):
+        f = y % 5
+        out = bytearray()
+        for i, x in enumerate(line):
+            a, b = (line[i - bpp] if i >= bpp else 0), prev[i]
+            c = prev[i - bpp] if i >= bpp else 0
+            out.append((x - [0, a, b, (a + b) // 2, paeth(a, b, c)][f]) & 255)
+        raw += bytes([f]) + bytes(out)
+        prev = line
+
+    def chunk(tag, data):
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    with open(path, "wb") as fh:
+        fh.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, depth, kind, 0, 0, 0))
+                 + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+
+def rgb_pixels(path):
+    """the receipt's own RGB PNG -> {(r, g, b): how many}"""
+    with open(path, "rb") as fh:
+        data = fh.read()
+    pos, idat, w, h, kind = 8, b"", 0, 0, None
+    while pos < len(data):
+        n, tag = struct.unpack(">I4s", data[pos : pos + 8])
+        body = data[pos + 8 : pos + 8 + n]
+        if tag == b"IHDR":
+            w, h, _, kind = struct.unpack(">IIBB", body[:10])
+        elif tag == b"IDAT":
+            idat += body
+        pos += 12 + n
+    assert kind == 2, kind
+    raw, seen = zlib.decompress(idat), {}
+    for y in range(h):
+        line = raw[y * (w * 3 + 1) : (y + 1) * (w * 3 + 1)]
+        assert line[0] == 0
+        for x in range(w):
+            px = tuple(line[1 + x * 3 : 4 + x * 3])
+            seen[px] = seen.get(px, 0) + 1
+    return seen
+
+
+class ShopReceipt(Base):
+    """--png reads like a receipt from a shop: what was asked for, what it made, what it took, the total"""
+
+    def module(self):
+        spec = importlib.util.spec_from_file_location("receipt_under_test", RECEIPT)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        drawn = []
+        mod.png = lambda rows, scale=2, pic=None: drawn.append((rows, pic)) or b""
+        return mod, drawn
+
+    def test_its_parts_come_in_order(self):
+        mod, drawn = self.module()
+        s = "\n".join([
+            "Receipt v7.3 · Claude Code 2.1.300 · 9 Oct 2026",
+            "model    claude-opus-5-5 · effort high",
+            "cost     $1.23 (Claude Code's own total at API prices)",
+            "files    1 file written or edited (index.html) · 12 lines, 1 KB · a web page",
+            "page     https://me.github.io/p.html · sha256 0123456789abcdef",
+            "settings default",
+            "prompt   Make a page for my habit tracker that shows a streak counter",
+            "         and a calendar of the days I kept it up",
+        ])  # fmt: skip
+        mod.picture(s, pic=(1, 1, [b"\xff\0\0"]), total=("TOTAL at API prices", "$1.23"))
+        rows, pic = drawn[0]
+        texts = [t for t, _ in rows]
+        at = {k: next(i for i, t in enumerate(texts) if (t is k if k is None else t is not None and t.startswith(k)))
+              for k in ("ASKED FOR", "Make a page", "MADE", None, "1 file written", "https://me.github.io",
+                        "IT TOOK", "model", "cost", "settings", "TOTAL", "made with")}  # fmt: skip
+        self.assertEqual(list(at), sorted(at, key=at.get))
+        first = texts[at["Make a page"]]
+        self.assertGreater(len(first), 53)  # the prompt spans the strip, without the label's indent
+        self.assertIn(("https://me.github.io/p.html · sha256 0123456789abcdef", 3), rows)  # faint, under MADE
+        self.assertFalse(any(t and t.startswith(("files", "page", "prompt")) for t in texts))
+        self.assertTrue(texts[at["TOTAL"]].endswith("$1.23"))
+        self.assertEqual(len(texts[at["TOTAL"]]), len(texts[at["TOTAL"] - 1]))  # as wide as the rule above it
+        self.assertEqual(pic, (1, 1, [b"\xff\0\0"]))
+        drawn.clear()
+        mod.picture("Receipt v7.3 · Claude Code\nmodel    m · effort high\nsettings default")
+        texts = [t for t, _ in drawn[0][0]]
+        for heading in ("ASKED FOR", "MADE", "IT TOOK", "TOTAL"):
+            self.assertNotIn(heading, texts)  # nothing asked for or shown: the plain receipt
+        self.assertIn("model    m · effort high", texts)
+
+    def test_a_picture_goes_on_it_as_it_is(self):
+        self.claude_log()
+        pic = os.path.join(self.home, "pic.png")
+        w, h = 40, 20  # left half red, right half see-through blue
+        png_file(pic, w, h, [bytes((255, 0, 0, 255) * 20 + (0, 0, 255, 0) * 20) for _ in range(h)])
+        out = os.path.join(self.home, "r.png")
+        self.ok("--out", out, "--picture", pic, "--prompt")
+        seen = rgb_pixels(out)
+        self.assertEqual(seen.get((255, 0, 0)), 20 * 20)  # every red pixel, none blurred: it fits, so it isn't resized
+        self.assertNotIn((0, 0, 255), seen)  # see-through parts show the paper
+        self.assertGreater(seen.get((251, 248, 240), 0), 400 * 20)
+        plain = os.path.join(self.home, "plain.png")
+        self.ok("--out", plain)
+        with open(plain, "rb") as fh:
+            self.assertEqual(fh.read()[25], 3)  # without a picture it stays a 4-colour PNG
+
+    def test_a_wide_picture_is_made_smaller(self):
+        self.claude_log()
+        pic = os.path.join(self.home, "wide.png")
+        png_file(pic, 3000, 30, [bytes((0, 128, 0) * 3000) for _ in range(30)], kind=2)
+        out = os.path.join(self.home, "r.png")
+        self.ok("--out", out, "--picture", pic)
+        seen = rgb_pixels(out)
+        green = seen.get((0, 128, 0), 0)
+        self.assertGreater(green, 0)
+        self.assertLess(green, 3000 * 30 // 2)  # scaled to the strip, not cut off at its edge
+
+    def test_pictures_it_cant_use(self):
+        self.claude_log()
+        p = self.run_receipt("--picture", "x.png")
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("--picture goes on a picture of the receipt", p.stderr)
+        gif = os.path.join(self.home, "a.gif")
+        with open(gif, "wb") as fh:
+            fh.write(b"GIF89a")
+        p = self.run_receipt("--out", "r.png", "--picture", gif)
+        self.assertIn("isn't a PNG", p.stderr)
+        deep = os.path.join(self.home, "deep.png")
+        png_file(deep, 2, 2, [bytes(8), bytes(8)], kind=6, depth=16)
+        p = self.run_receipt("--out", "r.png", "--picture", deep)
+        self.assertIn("a kind of PNG receipt.py can't read", p.stderr)
+        self.assertFalse(os.path.exists(os.path.join(self.proj, "r.png")))
+        p = self.run_receipt("--out", "r.png", "--picture", os.path.join(self.home, "none.png"))
+        self.assertIn("can't read --picture", p.stderr)
+
+    def test_a_screenshot_names_no_record_unless_one_is_saved(self):
+        if os.name == "nt":
+            self.skipTest("the stand-in browser is a shell script")
+        from unittest import mock
+
+        self.claude_log(rich=True)
+        green = os.path.join(self.home, "green.png")
+        png_file(green, 4, 4, [bytes((0, 200, 0) * 4) for _ in range(4)], kind=2)
+        fake = os.path.join(self.home, "fake-browser")
+        with open(fake, "w", encoding="utf-8") as f:
+            f.write(f"#!{sys.executable}\nimport shutil, sys\n"
+                    f"[shutil.copy({green!r}, a.split('=', 1)[1]) for a in sys.argv if a.startswith('--screenshot=')]\n")  # fmt: skip
+        os.chmod(fake, 0o755)
+        out = os.path.join(self.home, "r.png")
+
+        def lines(*more):  # run it in this process, keeping the lines it would draw
+            mod, drawn = self.module()
+            here = os.getcwd()
+            os.chdir(self.proj)
+            try:
+                with mock.patch.dict(os.environ, dict(self.env, RECEIPT_BROWSER=fake), clear=True), \
+                        mock.patch.object(sys, "argv", ["receipt", "--out", out, "--shot", *more]):
+                    mod.main()
+            finally:
+                os.chdir(here)
+            rows, pic = drawn[0]
+            self.assertEqual(pic[:2], (4, 4))
+            return [t for t, _ in rows if t]
+
+        self.assertFalse([t for t in lines() if t.startswith("record")])
+        rec = os.path.join(self.home, "rec.json")
+        self.assertTrue([t for t in lines("--record", rec) if t.startswith("record")])  # saved: then it's named
+
+    def test_shot_puts_the_page_on_it_and_doesnt_wait_on_the_browsers_helpers(self):
+        if os.name == "nt":
+            self.skipTest("the stand-in browser is a shell script")
+        self.claude_log(rich=True)
+        fake = os.path.join(self.home, "fake-browser")
+        pidfile = os.path.join(self.home, "helper.pid")
+        green = os.path.join(self.home, "green.png")
+        png_file(green, 10, 10, [bytes((0, 200, 0) * 10) for _ in range(10)], kind=2)
+        with open(fake, "w", encoding="utf-8") as f:  # leaves a helper holding its output open, as Chrome's GPU process does
+            f.write(f"#!{sys.executable}\n" + textwrap.dedent(f"""\
+                import shutil, subprocess, sys
+                helper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
+                open({pidfile!r}, "w").write(str(helper.pid))
+                for a in sys.argv:
+                    if a.startswith("--screenshot="):
+                        shutil.copy({green!r}, a.split("=", 1)[1])
+                """))  # fmt: skip
+        os.chmod(fake, 0o755)
+        out = os.path.join(self.home, "r.png")
+        t = time.time()
+        self.ok("--out", out, "--shot", env=dict(self.env, RECEIPT_BROWSER=fake))
+        self.assertLess(time.time() - t, 30)  # not the 60 s limit
+        self.assertEqual(rgb_pixels(out).get((0, 200, 0)), 100)
+        with open(pidfile, encoding="utf-8") as fh:
+            helper = int(fh.read())
+        for _ in range(50):  # stopped with the browser, not left running
+            try:
+                os.kill(helper, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.1)
+        else:
+            os.kill(helper, 9)
+            self.fail("the browser's helper was left running")
 
 
 class StreamJson(Base):
