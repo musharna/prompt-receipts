@@ -39,6 +39,10 @@ usage: python3 receipt.py [SESSION] [options]
   --picture FILE   with --png: put a picture of what the run made on it: a PNG as it is, a sound as its
                    spectrogram, a video as 4 of its frames (WAV and PNG need nothing; others need ffmpeg). With
                    --shot: a screenshot of the page it made, or with no page, its video or sound
+  --look LOOK      with --png: strip (the whole receipt, the default), card (cut down to 1080x1350 for a
+                   feed: the prompt, the picture, model, time, tool calls and the total) or print (the strip
+                   in a real font, drawn by Chrome, Edge or Chromium)
+  --theme THEME    with --png: paper (the default), night, terminal, blueprint or pink
   --link           also print a link that shows the receipt on the site; the receipt is inside the link, so
                    nothing is uploaded
   --report         also print a link to the Prompt Receipts form with this receipt filled in
@@ -85,6 +89,7 @@ import json
 import math
 import mimetypes
 import os
+import pathlib
 import re
 import shlex
 import shutil
@@ -103,7 +108,7 @@ import urllib.parse
 import zipfile
 import zlib
 
-VERSION = "7.6"
+VERSION = "7.7"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 SITE = "https://musharna.github.io/prompt-receipts/"
 LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters
@@ -3691,33 +3696,38 @@ def shot(outputs, tmp):
     url = f"http://127.0.0.1:{srv.server_address[1]}/" + urllib.parse.quote(
         rel.replace(os.sep, "/")
     )
-    # --timeout stops a page still loading after 10 s, then the picture is taken. Not --virtual-time-budget:
-    # on a page that draws 3D in a loop, without a GPU, using up that budget took over 90 s, or never ended
-    cmd = [b, "--headless", "--disable-gpu", "--hide-scrollbars", f"--screenshot={png}",
-           "--window-size=1280,800", "--timeout=10000", url]  # fmt: skip
-    # what the browser says goes to a file, not a pipe: the helper processes it starts (a GPU process for a
-    # WebGL page) keep a pipe open after the browser itself is done, so waiting for the pipe to close never ends
-    said_path = os.path.join(tmp, "browser.txt")
     try:
-        with open(said_path, "w", encoding="utf-8") as said_fh:
-            try:
-                p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=said_fh,
-                                     start_new_session=os.name != "nt")  # fmt: skip
-            except OSError as e:
-                sys.exit(f"receipt: --shot couldn't start {b}: {e}")
-            try:
-                p.wait(timeout=60)
-            except subprocess.TimeoutExpired:
-                kill_tree(p)
-                sys.exit(f"receipt: --shot: {b} took over 60 s and was stopped")
-            kill_tree(p)  # the helpers it leaves behind
+        return snap(b, url, png, tmp, "--shot")
     finally:
         srv.shutdown()
         srv.server_close()
+
+
+def snap(b, url, png, tmp, who, size="1280,800", more=()):
+    """-> a PNG of url, taken by browser b"""
+    # --timeout stops a page still loading after 10 s, then the picture is taken. Not --virtual-time-budget:
+    # on a page that draws 3D in a loop, without a GPU, using up that budget took over 90 s, or never ended
+    cmd = [b, "--headless", "--disable-gpu", "--hide-scrollbars", f"--screenshot={png}",
+           f"--window-size={size}", "--timeout=10000", *more, url]  # fmt: skip
+    # what the browser says goes to a file, not a pipe: the helper processes it starts (a GPU process for a
+    # WebGL page) keep a pipe open after the browser itself is done, so waiting for the pipe to close never ends
+    said_path = os.path.join(tmp, "browser.txt")
+    with open(said_path, "w", encoding="utf-8") as said_fh:
+        try:
+            p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=said_fh,
+                                 start_new_session=os.name != "nt")  # fmt: skip
+        except OSError as e:
+            sys.exit(f"receipt: {who} couldn't start {b}: {e}")
+        try:
+            p.wait(timeout=60)
+        except subprocess.TimeoutExpired:
+            kill_tree(p)
+            sys.exit(f"receipt: {who}: {b} took over 60 s and was stopped")
+        kill_tree(p)  # the helpers it leaves behind
     with open(said_path, encoding="utf-8", errors="replace") as fh:
         said = fh.read()
     if not os.path.exists(png):
-        sys.exit(f"receipt: --shot: {b} made no picture ({said.strip()[-300:]})")
+        sys.exit(f"receipt: {who}: {b} made no picture ({said.strip()[-300:]})")
     with open(png, "rb") as fh:
         return fh.read()
 
@@ -5099,6 +5109,7 @@ FONT = bytes.fromhex(
     "00003f190c263f00380c0c070c0c38001818180018181800070c0c380c0c07006e3b000000000000"
 )
 FONT_EXTRA = {
+    "'": bytes.fromhex("18180c0000000000"),  # font8x8's sits at its cell's left edge: "doesn't" read "doesn' t"
     "·": bytes.fromhex("0000001818000000"),
     "→": bytes.fromhex("0010307f7f301000"),
     "×": bytes.fromhex("00663c183c660000"),
@@ -5108,11 +5119,11 @@ SAME = {"—": "-", "–": "-", "‘": "'", "’": "'", "“": '"', "”": '"', 
 
 
 def glyph(ch):
+    if ch in FONT_EXTRA:
+        return FONT_EXTRA[ch]
     if " " <= ch <= "~":
         o = (ord(ch) - 32) * 8
         return FONT[o : o + 8]
-    if ch in FONT_EXTRA:
-        return FONT_EXTRA[ch]
     plain = (
         SAME.get(ch)
         or unicodedata.normalize("NFKD", ch).encode("ascii", "ignore").decode()[:1]
@@ -5120,80 +5131,154 @@ def glyph(ch):
     return glyph(plain) if plain else glyph("?")
 
 
-def png(rows, scale=2, pic=None):
-    """rows: [(text, ink)] with ink 1 = dark, 3 = faint -> PNG bytes; paper strip with torn ends.
-    pic: (width, height, RGB rows) of a picture, drawn framed where a (None, 0) row is"""
-    cw, lh, pad, tooth = 8 * scale, 12 * scale, 20 * scale, 5 * scale
-    cols = max(len(t) for t, _ in rows if t is not None)
-    w = cols * cw + 2 * pad
-    margin = 4 * scale
-    if pic:
-        pic = shrink(*pic, w - 2 * pad - 4)
-    heights = [lh if t is not None else pic[1] + 2 * margin for t, _ in rows]
-    h = sum(heights) + 2 * pad + 2 * tooth
-    img = [bytearray(w) for _ in range(h)]
-    cache = {}
-    y0, at = tooth + pad, None
-    for (line, ink), height in zip(rows, heights):
-        y, y0 = y0, y0 + height
-        if line is None:
-            at = y + margin
-            continue
-        for gy in range(8):
-            row = bytearray()
-            for ch in line:
-                key = (ch, gy, ink)
-                if key not in cache:
-                    bits = glyph(ch)[gy]
-                    cache[key] = bytes(
-                        ink if bits >> x & 1 else 0
-                        for x in range(8)
-                        for _ in range(scale)
-                    )
-                row += cache[key]
-            for sy in range(scale):
-                img[y + gy * scale + sy][pad : pad + len(row)] = row
-    for x in range(w):  # torn paper at both ends: a zigzag of background
+THEMES = {  # --theme: paper, ink, what shows past the torn ends, faint ink
+    "paper": ((251, 248, 240), (38, 34, 30), (44, 49, 61), (100, 93, 85)),
+    "night": ((30, 32, 40), (236, 232, 222), (96, 100, 114), (146, 148, 160)),
+    "terminal": ((10, 22, 12), (124, 252, 140), (80, 110, 84), (70, 150, 84)),
+    "blueprint": ((24, 66, 126), (238, 244, 255), (196, 210, 228), (150, 186, 232)),
+    "pink": ((255, 230, 238), (122, 22, 64), (64, 22, 42), (160, 80, 115)),
+}
+INKS = THEMES["paper"]  # main() sets it from --theme
+
+# Code 128: the bar and space widths of each value, in modules; set B starts with 104 and holds space to ~
+CODE128 = (
+    "212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 "
+    "113222 123122 123221 223211 221132 221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 "
+    "212123 212321 232121 111323 131123 131321 112313 132113 132311 211313 231113 231311 112133 112331 132131 "
+    "113123 113321 133121 313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 "
+    "314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 "
+    "241211 221114 413111 241112 134111 111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 "
+    "214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 114131 311141 411131 211412 211214 "
+    "211232"
+).split()
+
+
+def code128(t):
+    """-> the widths of a Code 128 barcode of t (set B: start, its characters, a check, stop), bar first"""
+    vals = [104] + [ord(c) - 32 for c in t]
+    check = (104 + sum(i * v for i, v in enumerate(vals[1:], 1))) % 103
+    return [int(d) for d in "".join(CODE128[v] for v in vals + [check]) + "2331112"]
+
+
+def letters(img, x, y, line, size, fg=1, bg=0, cache=None):
+    """draw line at (x, y) with each dot of the 8x8 font size pixels a side"""
+    cache = {} if cache is None else cache
+    for gy in range(8):
+        row = bytearray()
+        for ch in line:
+            key = (ch, gy, size, fg, bg)
+            if key not in cache:
+                bits = glyph(ch)[gy]
+                cache[key] = bytes(fg if bits >> gx & 1 else bg for gx in range(8) for _ in range(size))
+            row += cache[key]
+        for sy in range(size):
+            img[y + gy * size + sy][x : x + len(row)] = row
+
+
+def bars(img, y, t, unit, tall):
+    """a Code 128 barcode of t, centred, each module unit pixels wide; False if t can't be one"""
+    if not t or not all(" " <= c <= "~" for c in t):
+        return False
+    widths = code128(t)
+    x = (len(img[0]) - sum(widths) * unit) // 2
+    bar = 1
+    if dark_paper():  # scanners read dark bars on light: on dark paper, a plate of ink with paper-coloured bars
+        quiet = 10 * unit
+        for yy in range(y - 2 * unit, y + tall + 2 * unit):
+            img[yy][x - quiet : x + sum(widths) * unit + quiet] = b"\x01" * (sum(widths) * unit + 2 * quiet)
+        bar = 0
+    for i, n in enumerate(widths):
+        if i % 2 == 0:
+            for yy in range(y, y + tall):
+                img[yy][x : x + n * unit] = bytes([bar]) * (n * unit)
+        x += n * unit
+    return True
+
+
+def dark_paper():
+    """is --theme's paper darker than its ink?"""
+    return sum(INKS[0]) < sum(INKS[1])
+
+
+def torn(img, tooth):
+    """torn paper at both ends: a zigzag of what's behind it"""
+    h = len(img)
+    for x in range(len(img[0])):
         d = abs(x % (2 * tooth) - tooth)
         for y in range(d):
             img[y][x] = 2
             img[h - 1 - y][x] = 2
-    palette = bytes([251, 248, 240, 38, 34, 30, 44, 49, 61, 100, 93, 85])
-    if pic:  # a picture needs every colour, so the strip becomes RGB, with the picture in a thin dark frame
-        pw, ph, prows = pic
-        x0 = (w - pw) // 2
-        for y in range(at - 2, at + ph + 2):
-            img[y][x0 - 2 : x0 + pw + 2] = b"\x01" * (pw + 4)
-        rgb = [palette[i * 3 : i * 3 + 3] for i in range(4)]
-        lines = [bytearray(b"".join(rgb[i] for i in r)) for r in img]
-        for y, prow in enumerate(prows):
-            lines[at + y][x0 * 3 : (x0 + pw) * 3] = prow
-        raw = b"".join(b"\x00" + bytes(r) for r in lines)
-    else:
+
+
+def png_chunk(kind, data):
+    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+
+
+def encode(img, pics=()):
+    """rows of ink numbers (into INKS), with pictures (x, y, (width, height, RGB rows)) laid on them -> PNG bytes:
+    four colours, unless a picture needs every colour"""
+    w, h = len(img[0]), len(img)
+    palette = b"".join(bytes(c) for c in INKS)
+    if not pics:
         raw = b"".join(b"\x00" + bytes(r) for r in img)
+        return (b"\x89PNG\r\n\x1a\n" + png_chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 3, 0, 0, 0))
+                + png_chunk(b"PLTE", palette) + png_chunk(b"IDAT", zlib.compress(raw, 9)) + png_chunk(b"IEND", b""))  # fmt: skip
+    rgb = [palette[i * 3 : i * 3 + 3] for i in range(4)]
+    lines = [bytearray(b"".join(rgb[i] for i in r)) for r in img]
+    for x0, y0, (pw, ph, prows) in pics:
+        for y, prow in enumerate(prows):
+            lines[y0 + y][x0 * 3 : (x0 + pw) * 3] = prow
+    return rgb_png(w, h, lines)
 
-    def chunk(kind, data):
-        return (
-            struct.pack(">I", len(data))
-            + kind
-            + data
-            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
-        )
 
+def rgb_png(w, h, rows):
+    raw = b"".join(b"\x00" + bytes(r) for r in rows)
+    return (b"\x89PNG\r\n\x1a\n" + png_chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+            + png_chunk(b"IDAT", zlib.compress(raw, 9)) + png_chunk(b"IEND", b""))  # fmt: skip
+
+
+def with_alt(data, alt):
+    """put alt text into a PNG, as an iTXt Description before its pixels, for programs that read it out"""
+    pos = 8
+    while data[pos + 4 : pos + 8] not in (b"IDAT", b"IEND"):
+        pos += 12 + struct.unpack(">I", data[pos : pos + 4])[0]
+    return data[:pos] + png_chunk(b"iTXt", b"Description\0\0\0\0\0" + alt.encode("utf-8")) + data[pos:]
+
+
+def png(rows, scale=2, pic=None):
+    """rows: [(text, style)] -> PNG bytes; a paper strip with torn ends, in --theme's inks. Styles: 1 dark, 3 faint,
+    4 dark at twice the size, 5 paper-coloured on a dark tag, 6 a barcode of the text.
+    pic: (width, height, RGB rows) of a picture, drawn framed where a (None, 0) row is"""
+    cw, lh, pad, tooth = 8 * scale, 12 * scale, 20 * scale, 5 * scale
+    cols = max(len(t) * (2 if ink == 4 else 1) for t, ink in rows if t is not None and ink != 6)
+    w = cols * cw + 2 * pad
+    margin = 4 * scale
     if pic:
-        return (
-            b"\x89PNG\r\n\x1a\n"
-            + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress(raw, 9))
-            + chunk(b"IEND", b"")
-        )
-    return (
-        b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 3, 0, 0, 0))
-        + chunk(b"PLTE", palette)
-        + chunk(b"IDAT", zlib.compress(raw, 9))
-        + chunk(b"IEND", b"")
-    )
+        pic = shrink(*pic, w - 2 * pad - 4)
+    heights = [pic[1] + 3 * margin if t is None else 2 * lh if ink == 4 else 4 * lh if ink == 6 else lh
+               for t, ink in rows]  # fmt: skip
+    h = sum(heights) + 2 * pad + 2 * tooth
+    img = [bytearray(w) for _ in range(h)]
+    cache, pics = {}, []
+    y0 = tooth + pad
+    for (line, ink), height in zip(rows, heights):
+        y, y0 = y0, y0 + height
+        if line is None:
+            pw, ph, _ = pic
+            x0, at = (w - pw) // 2, y + margin
+            for yy in range(at - 2, at + ph + 2):  # a thin dark frame
+                img[yy][x0 - 2 : x0 + pw + 2] = b"\x01" * (pw + 4)
+            pics.append((x0, at, pic))
+        elif ink == 6:
+            bars(img, y + lh, line, scale, 2 * lh)
+        elif ink == 5:
+            for yy in range(y - scale * 2, y + scale * 10):
+                img[yy][pad - scale * 3 : pad + len(line) * cw + scale * 3] = b"\x01" * (len(line) * cw + scale * 6)
+            letters(img, pad, y, line, scale, 0, 1, cache)
+        else:
+            letters(img, pad, y, line, scale * (2 if ink == 4 else 1), 3 if ink == 3 else 1, 0, cache)
+    torn(img, tooth)
+    return encode(img, pics)
 
 
 def pixels(data, what):
@@ -5229,7 +5314,7 @@ def pixels(data, what):
     stride = w * bpp
     if len(raw) < h * (stride + 1):
         sys.exit(f"receipt: {what} is cut short")
-    paper = (251, 248, 240)
+    paper = INKS[0]
     prev, rows = bytearray(stride), []
     for y in range(h):
         f, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1 : (y + 1) * (stride + 1)])
@@ -5270,12 +5355,13 @@ def pixels(data, what):
     return w, h, rows
 
 
-def shrink(w, h, rows, most):
-    """make a picture fit a square `most` pixels a side (a tall one would make a receipt metres long), each
-    new pixel the average of the ones it covers"""
-    if w <= most and h <= most:
+def shrink(w, h, rows, most, most_tall=None):
+    """make a picture fit a square `most` pixels a side (a tall one would make a receipt metres long), or a box
+    most × most_tall, each new pixel the average of the ones it covers"""
+    most_tall = most if most_tall is None else most_tall
+    if w <= most and h <= most_tall:
         return w, h, rows
-    k = min(most / w, most / h)
+    k = min(most / w, most_tall / h)
     nw, nh = max(1, round(w * k)), max(1, round(h * k))
     xs = [(x * w // nw, max(x * w // nw + 1, (x + 1) * w // nw)) for x in range(nw)]
     out = []
@@ -5468,7 +5554,7 @@ def frames(path, what, n=4):
         shutil.rmtree(tmp, ignore_errors=True)
     if not got:
         sys.exit(f"receipt: ffmpeg found no frames in {what}")
-    tall, gap = min(g[1] for g in got), bytes((251, 248, 240)) * 8
+    tall, gap = min(g[1] for g in got), bytes(INKS[0]) * 8
     rows = [gap.join(g[2][y] for g in got) for y in range(tall)]
     long_ = f", {length_text(secs)} long" if secs else ""
     many_ = f"{len(got)} frames" if len(got) > 1 else "a frame"
@@ -5552,18 +5638,14 @@ def fold(value, n):
     return out + [cur]
 
 
-def picture(s, table=False, pic=None, total=None, note=None):
-    """a receipt's lines wrap under their label (s is made at PNG_COLS); a comparison table keeps its columns.
-    A receipt reads like one from a shop: what was asked for, what it made (with a picture of it if given),
-    what it took, and the total"""
+FOOT = "made with receipt.py {} · musharna.github.io/prompt-receipts"
+
+
+def parts(s):
+    """a receipt's text -> (head, asked, made, took): [(label, value lines)] each, a line that starts with 9 spaces
+    going on with the one above"""
     head, *body = s.split("\n")
-    foot = f"made with receipt.py {VERSION} · musharna.github.io/prompt-receipts"
-    if table:
-        heads = fold(head, max([PNG_COLS] + [len(b) for b in body]))
-        cols = max(len(x) for x in body + heads)
-        rows = [(x, 1) for x in heads] + [("-" * cols, 3)] + [(x, 1) for x in body]
-        return png(rows + [("-" * cols, 3), (foot, 3)])
-    entries = []  # (label, value lines): a line that starts with 9 spaces goes on with the one above
+    entries = []
     for line in body:
         if entries and line[:9] == " " * 9:
             entries[-1][1].append(line[9:])
@@ -5572,13 +5654,28 @@ def picture(s, table=False, pic=None, total=None, note=None):
     asked = [e for e in entries if e[0].strip() in ("prompt", "prompts", "given")]
     made = [e for e in entries if e[0].strip() in ("files", "made", "page")]
     took = [e for e in entries if e not in asked and e not in made]
+    return head, asked, made, took
+
+
+def picture(s, table=False, pic=None, total=None, note=None, no=None):
+    """a receipt's lines wrap under their label (s is made at PNG_COLS); a comparison table keeps its columns.
+    A receipt reads like one from a shop: what was asked for, what it made (with a picture of it if given),
+    what it took, the total, and a barcode of its number"""
+    head, *body = s.split("\n")
+    foot = FOOT.format(VERSION)
+    if table:
+        heads = fold(head, max([PNG_COLS] + [len(b) for b in body]))
+        cols = max(len(x) for x in body + heads)
+        rows = [(x, 1) for x in heads] + [("-" * cols, 3)] + [(x, 1) for x in body]
+        return png(rows + [("-" * cols, 3), (foot, 3)])
+    head, asked, made, took = parts(s)
     rule = ("-", 3)  # drawn as wide as the widest line
     rows = [(x, 1) for x in fold(head, PNG_COLS)] + [rule]
     for label, values in asked:
         if label.strip() == "given":  # whose words the prompt above is, faint under it
             rows[-1:-1] = [(x, 3) for x in textwrap.wrap(" ".join(v.strip() for v in values), PNG_COLS)]
             continue
-        rows.append(("ASKED FOR", 3))
+        rows.append(("ASKED FOR", 5))
         if label.strip() == "prompt":  # one prompt: the whole width
             rows += [(x, 1) for x in textwrap.wrap(" ".join(v.strip() for v in values), PNG_COLS,
                                                    break_long_words=False, break_on_hyphens=False)]  # fmt: skip
@@ -5586,7 +5683,7 @@ def picture(s, table=False, pic=None, total=None, note=None):
             rows += [(v, 1) for v in values]
         rows.append(("", 1))
     if made or pic:
-        rows.append(("MADE", 3))
+        rows.append(("MADE", 5))
         if pic:
             rows.append((None, 0))
             if note:
@@ -5595,27 +5692,287 @@ def picture(s, table=False, pic=None, total=None, note=None):
             rows += [(x, 3 if label.strip() == "page" else 1) for x in fold(" ".join(v.strip() for v in values), PNG_COLS)]
         rows.append(rule)
     if asked or made or pic:
-        rows.append(("IT TOOK", 3))
+        rows.append(("IT TOOK", 5))
     rows += [
-        ((label if i == 0 else " " * 9) + piece, 1)
+        ((label if i == 0 else " " * 9) + piece, 3 if label.strip() == "cost" and j else 1)  # the cost's lines, faint
         for label, values in took
         for j, value in enumerate(values)
         for i, piece in enumerate(fold(value, PNG_COLS - 9), j)
     ]
     if total:
-        rows += [rule, (total, 1)]
-    rows += [rule, (foot, 3)]
+        rows += [rule, (total, 4)]
+    rows.append(rule)
+    if no:
+        rows.append((no, 6))
+    rows.append((foot, 3))
     # the width is known only once every line is in; then the rules span it and the total sits at its right edge
-    cols = max(len(t) if isinstance(t, str) else len(t[0]) + len(t[1]) + 1 for t, _ in rows if t not in (None, "-"))
+    cols = max(len(t) if isinstance(t, str) else 2 * (len(t[0]) + len(t[1]) + 1)
+               for t, ink in rows if t not in (None, "-") and ink != 6)  # fmt: skip
+    cols += cols % 2  # even, so the total at twice the size ends where the rules do
 
-    def drawn(t):
+    def drawn(t, ink):
         if t == "-":
             return "-" * cols
-        if isinstance(t, tuple):
-            return t[0] + " " * (cols - len(t[0]) - len(t[1])) + t[1]
+        if isinstance(t, tuple):  # twice the size: half as many letters span it
+            return t[0] + " " * (cols // 2 - len(t[0]) - len(t[1])) + t[1]
         return t
 
-    return png([(drawn(t), ink) for t, ink in rows], pic=pic)
+    return png([(drawn(t, ink), ink) for t, ink in rows], pic=pic)
+
+
+def stats(took):
+    """IT TOOK's lines -> the few a glance needs: the model, how long, how many tool calls"""
+    first = {label.strip(): values[0].split(" · ")[0] for label, values in took}
+    out = []
+    if "model" in first:
+        out.append(first["model"])
+    if "time" in first:
+        out.append(first["time"].split(" (")[0])
+    if "work" in first:
+        out.append(first["work"].split(", ")[0])
+    return out
+
+
+CARD_W, CARD_H = 1080, 1350  # 4:5, which X, Bluesky and LinkedIn show whole in a feed
+
+
+def card(s, pic=None, total=None, note=None, no=None):
+    """--look card: the receipt cut down for a feed: the prompt large, the picture as big as the rest leaves room
+    for, the model, time and tool calls, the total, a barcode of its number. 1080 wide and at most 1350 tall (4:5),
+    as tall as it needs. The full receipt is the strip"""
+    head, asked, made, took = parts(s)
+    pad, tooth = 48, 10
+    inner = CARD_W - 2 * pad
+
+    def lh(size):
+        return 8 * size + max(8, 3 * size)
+
+    items = []  # (kind, text, size, ink); kinds: line, right, tag, gap, pic, bars
+
+    def say(text, size, ink=1, most=None, kind="line"):
+        cols = inner // (8 * size)
+        lines = fold(text, cols) if " · " in text else textwrap.wrap(text, cols, break_on_hyphens=False) or [""]
+        if most and len(lines) > most:
+            lines = lines[:most]
+            lines[-1] = lines[-1][: cols - 1].rstrip() + "…"
+        items.extend((kind, x, size, ink) for x in lines)
+
+    rule = ("line", "-" * (inner // 16), 2, 3)
+    edge = pad + inner // 16 * 16 - 2  # where the rules' ink ends: the right edge of the card's text
+    say(head, 2, 3, most=2)
+    items.append(rule)
+    prompt = [" ".join(v.strip() for v in values) for label, values in asked if label.strip() != "given"]
+    given = [" ".join(v.strip() for v in values) for label, values in asked if label.strip() == "given"]
+    if prompt:
+        items.append(("tag", "ASKED FOR", 3, 0))
+        say(" ".join(prompt), 4, most=5)
+        if given:  # the given line's whole note is on the strip
+            say("prompt from the sender, not from the log", 3, 3)
+    if pic or made:
+        items.append(("gap", "", 2, 0))
+        if pic:
+            items.append(("pic", "", 0, 0))
+            if note:
+                say(note, 2, 3, most=2)
+        for label, values in made:
+            say(" ".join(v.strip() for v in values), 2, 3 if label.strip() == "page" else 1, most=3)
+    items.append(rule)
+    glance = stats(took)
+    if glance:
+        say(" · ".join(glance), 4, most=3)
+    if total:
+        word, _, rest = total[0].partition(" ")
+        items.append(("gap", "", 2, 0))
+        items.append(("total", (word, total[1]), 6, 1))
+        if rest:
+            items.append(("right", rest, 2, 3))
+    items.append(rule)
+    if no and all(" " <= c <= "~" for c in no):
+        items.append(("bars", no, 2, 1))
+    say(FOOT.format(VERSION), 2, 3, most=2)
+
+    def height(kind, size):
+        return {"gap": 16, "pic": 0, "bars": 84, "tag": lh(size) + 8}.get(kind, lh(size))
+
+    fixed = sum(height(k, size) for k, _, size, _ in items) + 2 * (pad + tooth)
+    if pic:
+        room = CARD_H - fixed - 20  # the frame and the space around it
+        pic = shrink(*pic, inner - 4, max(room, 120))
+    h = fixed + (pic[1] + 20 if pic else 0)  # a short picture makes a shorter card, not one with empty bands
+    box = h - fixed - 20 if pic else 0
+    img = [bytearray(CARD_W) for _ in range(h)]
+    cache, pics = {}, []
+    y = tooth + pad
+    for kind, t, size, ink in items:
+        if kind == "pic":
+            pw, ph, _ = pic
+            x0, at = (CARD_W - pw) // 2, y + 10 + (box - ph) // 2
+            for yy in range(at - 2, at + ph + 2):
+                img[yy][x0 - 2 : x0 + pw + 2] = b"\x01" * (pw + 4)
+            pics.append((x0, at, pic))
+            y += box + 20
+            continue
+        if kind == "tag":
+            wide = len(t) * 8 * size
+            for yy in range(y, y + 8 * size + 4 * size):
+                img[yy][pad - 2 * size : pad + wide + 2 * size] = b"\x01" * (wide + 4 * size)
+            letters(img, pad, y + 2 * size, t, size, 0, 1, cache)
+        elif kind == "bars":
+            bars(img, y + 12, t, 2, 56)
+        elif kind == "total":  # right-aligned to the last inked column: a letter's cell has one blank column
+            letters(img, pad, y, t[0], size, 1, 0, cache)
+            letters(img, edge - (len(t[1]) * 8 - 1) * size, y, t[1], size, 1, 0, cache)
+        elif kind == "right":
+            letters(img, edge - (len(t) * 8 - 1) * size, y, t, size, ink, 0, cache)
+        elif kind == "line":
+            letters(img, pad, y, t, size, ink, 0, cache)
+        y += height(kind, size)
+    torn(img, tooth)
+    return encode(img, pics)
+
+
+def alt_text(s, total=None, note=None, pic=None, most=1000):
+    """what the picture of the receipt shows, in words, for people who can't see it: 1,000 characters at most,
+    as X and Mastodon take"""
+    head, asked, made, took = parts(s)
+    said = ["A receipt for an AI coding run, made with receipt.py."]
+    prompt = " ".join(" ".join(v.strip() for v in values) for label, values in asked if label.strip() != "given")
+    if any(label.strip() == "given" for label, _ in asked):
+        said.append("(The sender gave the prompt; the log doesn't hold it.)")
+    if pic:
+        said.append(f"It shows what the run made: {note}." if note else "It shows a picture of what the run made.")
+    things = ["; ".join(" ".join(v.strip() for v in values) for label, values in made if label.strip() != "page")]
+    if things[0]:
+        said.append(f"Made: {things[0]}.")
+    glance = stats(took)
+    if glance:
+        said.append("It took: " + ", ".join(glance) + ".")
+    if total:
+        said.append(f"{total[0][:1]}{total[0][1:5].lower()}{total[0][5:]}: {total[1]}.")  # TOTAL at API prices
+    rest = " ".join(said)
+    if prompt:
+        prompt = prompt.rstrip(".")
+        room = most - len(rest) - len(" Asked for: .")
+        if len(prompt) > room:
+            prompt = prompt[: max(room - 1, 0)].rstrip() + "…"
+        said.insert(1, f"Asked for: {prompt}.")
+    return " ".join(said)[:most]
+
+
+PRINT_W = 640  # CSS pixels; the picture is twice that
+
+
+def print_page(s, pic=None, total=None, note=None, no=None):
+    """--look print as a page: the receipt laid out in a real font, for a browser to draw"""
+    head, asked, made, took = parts(s)
+    e = html.escape
+
+    def dots(v):  # a wrapped line ends with its "·" rather than starting with one, and keeps a short (…) whole
+        v = re.sub(r"\([^()]{1,24}\)", lambda m: m.group(0).replace(" ", "\u00a0"), v)
+        return e(v).replace(" · ", "\u00a0· ")
+
+    paper, ink, back, faint = ("#%02x%02x%02x" % c for c in INKS)
+    out = [f'<div class="head">{e(head)}</div><hr>']
+    prompt = [" ".join(v.strip() for v in values) for label, values in asked if label.strip() != "given"]
+    if prompt:
+        out.append('<h2>ASKED FOR</h2>')
+        out += [f'<p class="ask">{e(p)}</p>' for p in prompt]
+        out += [f'<p class="faint">{e(" ".join(v.strip() for v in values))}</p>'
+                for label, values in asked if label.strip() == "given"]  # fmt: skip
+    if pic or made:
+        out.append("<h2>MADE</h2>")
+        if pic:
+            pw, ph, _ = pic = shrink(*pic, 2 * (PRINT_W - 64))
+            data = base64.b64encode(rgb_png(pw, ph, pic[2])).decode()
+            out.append(f'<img src="data:image/png;base64,{data}" width="{pw / 2:g}" height="{ph / 2:g}" alt="">')
+            if note:
+                out.append(f'<p class="faint">{e(note)}</p>')
+        for label, values in made:
+            out.append(f'<p class="{"faint" if label.strip() == "page" else ""}">{dots(" ".join(v.strip() for v in values))}</p>')
+        out.append("<hr>")
+    if asked or made or pic:
+        out.append("<h2>IT TOOK</h2>")
+    out.append("<dl>")
+    for label, values in took:
+        first, *more = values
+        rest = "".join(f'<span class="{"faint" if label.strip() == "cost" else ""}">\n{dots(v)}</span>' for v in more)
+        out.append(f"<dt>{e(label.strip())}</dt><dd>{dots(first)}{rest}</dd>")
+    out.append("</dl>")
+    if total:
+        out.append(f'<hr><div class="total"><span>{e(total[0])}</span><span>{e(total[1])}</span></div>')
+    out.append("<hr>")
+    if no and all(" " <= c <= "~" for c in no):
+        x, rects = 0, []
+        for i, n in enumerate(code128(no)):
+            if i % 2 == 0:
+                rects.append(f'<rect x="{x}" width="{n}" height="1"/>')
+            x += n
+        plate, bar = (ink, paper) if dark_paper() else (paper, ink)  # scanners read dark bars on light
+        out.append(f'<svg class="bars" viewBox="-10 0 {x + 20} 1" width="{(x + 20) * 2}" height="56" '
+                   f'preserveAspectRatio="none"><rect x="-10" width="{x + 20}" height="1" fill="{plate}"/>'
+                   f'<g fill="{bar}">{"".join(rects)}</g></svg>')  # fmt: skip
+    out.append(f'<div class="foot">{e(FOOT.format(VERSION))}</div>')
+    tooth = 8  # torn paper: a row of paper triangles, pointing away from the receipt
+    zig = ("url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='8'%3E"
+           f"%3Cpath d='M0 8L8 0L16 8Z' fill='%23{paper[1:]}'/%3E%3C/svg%3E\") repeat-x")  # fmt: skip
+    return f"""<!doctype html><meta charset="utf-8"><style>
+html,body{{margin:0;background:{back}}}
+.r{{background:{paper};color:{ink};padding:22px 32px 26px;
+font:14px/1.5 ui-monospace,"Cascadia Mono","SF Mono",Menlo,Consolas,"DejaVu Sans Mono","Liberation Mono",monospace;
+overflow-wrap:anywhere}}
+.edge{{height:{tooth}px;background:{zig}}}
+.edge.bottom{{transform:scaleY(-1)}}
+.head{{font-size:12px;color:{faint}}}
+hr{{border:0;border-top:2px dashed {faint};margin:12px 0}}
+h2{{display:inline-block;margin:10px 0 6px;padding:1px 8px;background:{ink};color:{paper};font-size:13px;
+letter-spacing:.12em;font-weight:700}}
+p{{margin:0 0 6px}}
+.ask{{font-size:19px;line-height:1.4;font-weight:600}}
+.faint{{color:{faint}}}
+img{{display:block;margin:8px auto;border:2px solid {ink}}}
+dl{{display:grid;grid-template-columns:9ch 1fr;margin:0;column-gap:1ch}}
+dt{{color:{faint}}}
+dd{{margin:0;white-space:pre-wrap}}
+.total{{display:flex;justify-content:space-between;font-size:28px;font-weight:800;letter-spacing:.03em}}
+.bars{{display:block;margin:6px auto 14px}}
+.foot{{text-align:center;font-size:11px;color:{faint}}}
+</style><div class="edge"></div><div class="r">{"".join(out)}</div><div class="edge bottom"></div>
+"""
+
+
+def print_look(s, pic=None, total=None, note=None, no=None):
+    """--look print: the receipt drawn by a browser, in a real font, cut where the paper ends"""
+    b = browser()
+    if not b:
+        sys.exit("receipt: --look print is drawn by Chrome, Edge or Chromium, and none was found; "
+                 "set RECEIPT_BROWSER to the browser's path, or use --look strip or card")  # fmt: skip
+    page = print_page(s, pic, total, note, no)
+    lines = s.count("\n") + 1
+    tall = 600 + 26 * lines + (pic[1] * (PRINT_W - 64) // max(pic[0], 1) if pic else 0)
+    tmp = tempfile.mkdtemp(prefix="receipt-")
+    try:
+        path = os.path.join(tmp, "receipt.html")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(page)
+        shot_png = snap(b, pathlib.Path(path).as_uri(), os.path.join(tmp, "print.png"), tmp, "--look print",
+                        f"{PRINT_W},{tall}", ["--force-device-scale-factor=2"])  # fmt: skip
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    w, h, rows = pixels(shot_png, "the browser's picture of the receipt")
+    blank = bytes(INKS[2]) * w
+
+    def near(row):  # the browser may round a colour by one
+        return all(abs(a - c) <= 2 for a, c in zip(row[::97], blank[::97]))
+
+    if not near(rows[-1]):
+        sys.exit(f"receipt: --look print: {b} drew the receipt taller than its window ({h} pixels); "
+                 "please report it")  # fmt: skip
+    end = h
+    while end and near(rows[end - 1]):
+        end -= 1
+    if not end:
+        sys.exit(f"receipt: --look print: {b} drew nothing")
+    return rgb_png(w, end, rows[:end])
 
 
 # ---------- main ----------
@@ -5636,7 +5993,7 @@ def out_path(a, r, ext):
 
 
 def main():
-    global PRICES, PRICES_FROM
+    global PRICES, PRICES_FROM, INKS
     ap = argparse.ArgumentParser(
         description=__doc__.split("\n")[0],
         epilog="parts for --hide: " + ", ".join(PARTS),
@@ -5683,6 +6040,8 @@ def main():
     ap.add_argument("--bundle", metavar="FILE.zip")
     ap.add_argument("--shot", action="store_true")
     ap.add_argument("--picture", metavar="FILE.png")
+    ap.add_argument("--look", choices=("strip", "card", "print"))
+    ap.add_argument("--theme", choices=tuple(THEMES))
     ap.add_argument("--statusline", action="store_true")
     ap.add_argument("--totals", nargs="?", const="day", choices=BY)
     ap.add_argument("--since", metavar="DATE")
@@ -5794,6 +6153,11 @@ def main():
                  "or --out receipt.png")  # fmt: skip
     if a.picture and not a.png:
         sys.exit("receipt: --picture goes on a picture of the receipt, so add --out receipt.png")
+    if (a.look or a.theme) and not a.png:
+        sys.exit("receipt: --look and --theme are for a picture of the receipt, so add --out receipt.png")
+    if a.look not in (None, "strip") and (a.compare or a.totals or a.list):
+        sys.exit(f"receipt: --look {a.look} draws one receipt, so it can't go with --compare, --totals or --list")
+    INKS = THEMES[a.theme or "paper"]  # before any picture is read: see-through parts are laid on the paper
     if a.picture and (many_in or a.list or a.totals):
         sys.exit("receipt: --picture goes on one session's receipt, so it can't go with --combine, --compare, "
                  "--list or --totals")  # fmt: skip
@@ -6238,7 +6602,16 @@ def emit(a, r, s, payload, table=False, pic=None, note=None):
         total = None
         if not table and r.get("cost_usd") is not None and any(x.startswith("cost     $") for x in s.split("\n")):
             total = ("TOTAL at API prices" if "API" in r.get("cost_note", "") else "TOTAL", money(r["cost_usd"]))
-        data, ext = picture(s, table, pic, total, note), "png"
+        no = None if table else r.get("receipt_no")
+        if table or a.look in (None, "strip"):
+            data = picture(s, table, pic, total, note, no)
+        else:
+            data = (card if a.look == "card" else print_look)(s, pic, total, note, no)
+        if not table:
+            alt = alt_text(s, total, note, pic)
+            data = with_alt(data, alt)
+            print(f"receipt: alt text for the picture (also inside the PNG):\n  {alt}", file=sys.stderr)
+        ext = "png"
     elif payload is not None:
         data, ext = payload, "json"
     else:

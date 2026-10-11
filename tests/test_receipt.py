@@ -283,7 +283,7 @@ class Receipts(Base):
     def test_claude_code_receipt(self):
         self.claude_log()
         out = self.ok().stdout
-        self.assertIn("Receipt v7.6 · Claude Code 2.1.300", out)
+        self.assertIn("Receipt v7.7 · Claude Code 2.1.300", out)
         self.assertIn(
             "2 prompts from me", out
         )  # the "[Request interrupted" line isn't a prompt
@@ -338,7 +338,7 @@ class Receipts(Base):
     def test_opencode(self):
         self.opencode_db()
         out = self.ok("--opencode").stdout
-        self.assertIn("Receipt v7.6 · OpenCode 1.18.31", out)
+        self.assertIn("Receipt v7.7 · OpenCode 1.18.31", out)
         self.assertIn("qwen3:8b (ollama, on this computer)", out)
         self.assertIn("2 prompts from me", out)
         self.assertIn("1 failed call", out)
@@ -412,7 +412,7 @@ class Receipts(Base):
             "prompt_id",
         ):
             self.assertNotIn(k, r)
-        self.assertEqual(r["receipt_version"], "7.6")
+        self.assertEqual(r["receipt_version"], "7.7")
         self.assertEqual(r["tool_errors"], 1)
         names = json.loads(self.ok("--json", "--file-names").stdout)["file_names"]
         self.assertEqual(names, ["index.html"])
@@ -426,7 +426,7 @@ class Receipts(Base):
         self.assertIn("warning  found your prompts but no model reply", p.stdout)
 
     def test_version(self):
-        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.6")
+        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.7")
 
     # ---------- output ----------
 
@@ -448,8 +448,11 @@ class Receipts(Base):
                 w, h = struct.unpack(">II", body[:8])
             if kind == b"IDAT":
                 idat += body
+            if kind == b"iTXt":
+                alt = body
             pos += 12 + n
-        self.assertEqual(kinds, [b"IHDR", b"PLTE", b"IDAT", b"IEND"])
+        self.assertEqual(kinds, [b"IHDR", b"PLTE", b"iTXt", b"IDAT", b"IEND"])
+        self.assertTrue(alt.startswith(b"Description\0\0\0\0\0A receipt for an AI coding run"), alt[:60])
         self.assertEqual(len(zlib.decompress(idat)), h * (w + 1))
         self.assertGreater(w, 600)
 
@@ -459,7 +462,7 @@ class Receipts(Base):
         url = out.strip().split("\n")[-1]
         self.assertTrue(url.startswith("https://docs.google.com/forms/"), url)
         self.assertIn("entry.349092046=tool", url)
-        self.assertIn("entry.1393206370=Receipt%20v7.6", url)
+        self.assertIn("entry.1393206370=Receipt%20v7.7", url)
 
     def test_hook_saves_a_receipt(self):
         log = self.claude_log()
@@ -476,7 +479,7 @@ class Receipts(Base):
         saved = os.listdir(folder)
         self.assertEqual(len(saved), 1)
         with open(os.path.join(folder, saved[0]), encoding="utf-8") as f:
-            self.assertIn("Receipt v7.6 · Claude Code", f.read())
+            self.assertIn("Receipt v7.7 · Claude Code", f.read())
 
     def test_combine_and_compare(self):
         self.claude_log()
@@ -1228,7 +1231,7 @@ class Totals(Base):
 
     def test_by_day_in_this_folder(self):
         out = self.ok("--totals").stdout
-        self.assertIn("Totals v7.6 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
+        self.assertIn("Totals v7.7 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
         self.assertRegex(out, r"\nThu 1 Oct 2026 +\$4\.00 +1 +1 ")
         self.assertRegex(out, r"\nSat 3 Oct 2026 +\$2\.00 +1 +2 ")
         self.assertRegex(out, r"\ntotal +\$6\.00 +1 +3 ")
@@ -1415,7 +1418,7 @@ class Qwen(Base):
     def test_receipt(self):
         self.qwen_log()
         out = self.ok("--qwen").stdout
-        self.assertIn("Receipt v7.6 · Qwen Code 0.25.0", out)
+        self.assertIn("Receipt v7.7 · Qwen Code 0.25.0", out)
         self.assertIn("2 prompts from me", out)  # Qwen Code's own notice isn't a prompt
         # all three calls, the memory extractor's too: 46k in (20k cached), 320 out
         self.assertIn("tokens   in 46k (20k cached) · out 320", out)
@@ -1516,7 +1519,7 @@ class Gemini(Base):
     def test_receipt(self):
         self.gemini_log()
         out = self.ok("--gemini").stdout
-        self.assertIn("Receipt v7.6 · Gemini CLI · ", out)  # no version is logged
+        self.assertIn("Receipt v7.7 · Gemini CLI · ", out)  # no version is logged
         self.assertIn("2 prompts from me", out)  # its opening message and the tool results aren't prompts
         # each reply once, and the subagent's: 36k in (18k cached); out counts the 40 tokens of reasoning
         self.assertIn("tokens   in 36k (18k cached) · out 186", out)
@@ -1610,7 +1613,7 @@ class Copilot(Base):
     def test_receipt(self):
         self.copilot_log()
         out = self.ok("--copilot").stdout
-        self.assertIn("Receipt v7.6 · Copilot CLI 1.0.95", out)
+        self.assertIn("Receipt v7.7 · Copilot CLI 1.0.95", out)
         self.assertIn("model    claude-opus-4.7 · effort high → xhigh", out)
         self.assertIn("2 prompts from me", out)  # the skill's message isn't one
         # the three calls only: the input counts include cache reads and writes, the output the reasoning
@@ -1897,13 +1900,13 @@ class ShopReceipt(Base):
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         drawn = []
-        mod.png = lambda rows, scale=2, pic=None: drawn.append((rows, pic)) or b""
+        mod.png = lambda rows, scale=2, pic=None: drawn.append((rows, pic)) or b"\x89PNG\r\n\x1a\n" + mod.png_chunk(b"IEND", b"")
         return mod, drawn
 
     def test_its_parts_come_in_order(self):
         mod, drawn = self.module()
         s = "\n".join([
-            "Receipt v7.6 · Claude Code 2.1.300 · 9 Oct 2026",
+            "Receipt v7.7 · Claude Code 2.1.300 · 9 Oct 2026",
             "model    claude-opus-5-5 · effort high",
             "cost     $1.23 (Claude Code's own total at API prices)",
             "files    1 file written or edited (index.html) · 12 lines, 1 KB · a web page",
@@ -1924,10 +1927,14 @@ class ShopReceipt(Base):
         self.assertIn(("https://me.github.io/p.html · sha256 0123456789abcdef", 3), rows)  # faint, under MADE
         self.assertFalse(any(t and t.startswith(("files", "page", "prompt")) for t in texts))
         self.assertTrue(texts[at["TOTAL"]].endswith("$1.23"))
-        self.assertEqual(len(texts[at["TOTAL"]]), len(texts[at["TOTAL"] - 1]))  # as wide as the rule above it
+        self.assertEqual(2 * len(texts[at["TOTAL"]]), len(texts[at["TOTAL"] - 1]) // 2 * 2)  # twice the size: as wide as the rule
+        style = dict(rows)
+        self.assertEqual(style[texts[at["TOTAL"]]], 4)
+        for heading in ("ASKED FOR", "MADE", "IT TOOK"):
+            self.assertEqual(style[heading], 5)  # on a dark tag
         self.assertEqual(pic, (1, 1, [b"\xff\0\0"]))
         drawn.clear()
-        mod.picture("Receipt v7.6 · Claude Code\nmodel    m · effort high\nsettings default")
+        mod.picture("Receipt v7.7 · Claude Code\nmodel    m · effort high\nsettings default")
         texts = [t for t, _ in drawn[0][0]]
         for heading in ("ASKED FOR", "MADE", "IT TOOK", "TOTAL"):
             self.assertNotIn(heading, texts)  # nothing asked for or shown: the plain receipt
@@ -1936,7 +1943,7 @@ class ShopReceipt(Base):
     def test_a_given_prompt_says_so_faintly_under_asked_for(self):
         mod, drawn = self.module()
         s = "\n".join([
-            "Receipt v7.6 · Claude Code 2.1.300",
+            "Receipt v7.7 · Claude Code 2.1.300",
             "model    claude-opus-5-5",
             "prompt   A stretchy galaxy slime",
             "given    by the sender with --asked: claude -p output doesn't hold the prompt",
@@ -2002,7 +2009,7 @@ class ShopReceipt(Base):
         self.ok("--out", out, "--picture", pic)
         with open(out, "rb") as fh:
             w, h = struct.unpack(">II", fh.read()[16:24])
-        self.assertLess(h, w + 1000)  # not a receipt metres long
+        self.assertLess(h, w + 1200)  # not a receipt metres long: the picture is cut to a square
         self.assertGreater(rgb_pixels(out).get((0, 128, 0), 0), 0)
 
     def loudest(self, pic):
@@ -2061,7 +2068,7 @@ class ShopReceipt(Base):
         seen = rgb_pixels(out)
         self.assertGreater(sum(n for px, n in seen.items() if sum(px) > 600), 0)  # the tone, bright
         mod, drawn = self.module()
-        mod.picture("Receipt v7.6 · Claude Code\nmodel    m", pic=(1, 1, [b"\0\0\0"]), note="the sound, read so")
+        mod.picture("Receipt v7.7 · Claude Code\nmodel    m", pic=(1, 1, [b"\0\0\0"]), note="the sound, read so")
         texts = [t for t, _ in drawn[0][0]]
         i = texts.index(None)
         self.assertEqual(drawn[0][0][i + 1], ("the sound, read so", 3))  # faint, right under it
@@ -2169,6 +2176,204 @@ class ShopReceipt(Base):
         else:
             os.kill(helper, 9)
             self.fail("the browser's helper was left running")
+
+
+
+def png_parts(data):
+    """a PNG's chunks -> {kind: body}, IDAT joined"""
+    pos, out = 8, {}
+    while pos < len(data):
+        n, kind = struct.unpack(">I4s", data[pos : pos + 8])
+        out[kind] = out.get(kind, b"") + data[pos + 8 : pos + 8 + n] if kind == b"IDAT" else data[pos + 8 : pos + 8 + n]
+        pos += 12 + n
+    return out
+
+
+def run_widths(line):
+    """a row of pixel values -> the lengths of its runs, from the first dark one to the last"""
+    dark = [v != line[0] for v in line]
+    a, b = dark.index(True), len(dark) - dark[::-1].index(True)
+    out, n = [], 1
+    for x in range(a + 1, b):
+        if dark[x] == dark[x - 1]:
+            n += 1
+        else:
+            out.append(n)
+            n = 1
+    return out + [n]
+
+
+class Looks(Base):
+    """--look card and print, --theme, the barcode and the alt text"""
+
+    SAYS = "\n".join([
+        "Receipt v7.7 · Claude Code 2.1.300 · 9 Oct 2026 · no. 1a2b-3c4d",
+        "model    claude-opus-5-5 · effort high",
+        "time     11 min (model working 9 min) · 1 prompt from me",
+        "cost     $1.23 (Claude Code's own total at API prices)",
+        "         claude-opus-5-5",
+        "           output    55k × $20.00/M    $1.10",
+        "work     25 tool calls, 18 shell commands · web 0",
+        "files    1 file written or edited (index.html) · 12 lines, 1 KB · a web page",
+        "page     https://me.github.io/p.html · sha256 0123456789abcdef",
+        "prompt   Make a page for my habit tracker that shows a streak counter",
+        "         and a calendar of the days I kept it up",
+    ])  # fmt: skip
+    TOTAL = ("TOTAL at API prices", "$1.23")
+
+    def module(self):
+        spec = importlib.util.spec_from_file_location("receipt_under_test", RECEIPT)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def size(self, data):
+        return struct.unpack(">II", data[16:24])
+
+    def test_the_card_fits_a_feed_and_its_words_are_large(self):
+        mod = self.module()
+        drawn, real = [], mod.letters
+        mod.letters = lambda img, x, y, line, size, *a: drawn.append((line, size)) or real(img, x, y, line, size, *a)
+        square = (800, 800, [bytes((0, 90, 0) * 800)] * 800)
+        self.assertEqual(self.size(mod.card(self.SAYS, square, self.TOTAL, None, "1a2b-3c4d")), (1080, 1350))
+        sizes = {}
+        for line, size in drawn:
+            sizes.setdefault(line, size)
+        self.assertEqual(sizes["Make a page for my habit"], 4)  # 32 pixels tall: 11 when a phone shows it 400 wide
+        self.assertEqual(sizes["claude-opus-5-5 · 11 min"], 4)
+        self.assertEqual(sizes["25 tool calls"], 4)
+        self.assertEqual((sizes["TOTAL"], sizes["$1.23"]), (6, 6))
+        self.assertNotIn("output    55k × $20.00/M    $1.10", " ".join(sizes))  # the breakdown stays on the strip
+        drawn.clear()
+        wide = (960, 240, [bytes((0, 90, 0) * 960)] * 240)
+        w, h = self.size(mod.card(self.SAYS, wide, self.TOTAL))
+        self.assertEqual(w, 1080)
+        self.assertLess(h, 1100)  # a short picture makes a short card, not one with empty bands
+        long_ask = self.SAYS.replace("and a calendar of the days I kept it up", "and more " * 80)
+        drawn.clear()
+        self.assertEqual(self.size(mod.card(long_ask, square, self.TOTAL))[1], 1350)
+        asked = [line for line, size in drawn if size == 4][:-2]
+        self.assertEqual(len(asked), 5)
+        self.assertTrue(asked[-1].endswith("…"))
+
+    def test_themes_change_the_colours_only(self):
+        self.claude_log()
+        seen = {}
+        for theme in ("paper", "night", "terminal", "blueprint", "pink"):
+            out = os.path.join(self.home, f"{theme}.png")
+            self.ok("--out", out, "--prompt", "--theme", theme)
+            with open(out, "rb") as fh:
+                parts = png_parts(fh.read())
+            mod = self.module()
+            self.assertEqual(parts[b"PLTE"], b"".join(bytes(c) for c in mod.THEMES[theme]))
+            seen[theme] = zlib.decompress(parts[b"IDAT"])
+        self.assertEqual(seen["paper"], seen["pink"])  # the same drawing; only the inks differ
+        self.assertEqual(seen["night"], seen["terminal"])
+        self.assertEqual(seen["night"], seen["blueprint"])
+        self.assertNotEqual(seen["paper"], seen["night"])  # on dark paper the barcode gets a plate
+
+    def test_the_barcode_holds_the_receipt_number(self):
+        mod = self.module()
+        widths = mod.code128("1a2b-3c4d")
+        self.assertEqual(widths[:6], [2, 1, 1, 2, 1, 4])  # start B
+        self.assertEqual(widths[-7:], [2, 3, 3, 1, 1, 1, 2])  # stop
+        self.assertEqual(sum(widths), 11 * (1 + 9 + 1) + 13)  # start, 9 characters, check, stop
+        vals = [104] + [ord(c) - 32 for c in "1a2b-3c4d"]
+        check = mod.CODE128.index("".join(map(str, widths[-13:-7])))
+        self.assertEqual(check, sum([vals[0]] + [i * v for i, v in enumerate(vals[1:], 1)]) % 103)
+        for theme in ("paper", "night"):
+            mod.INKS = mod.THEMES[theme]
+            img = [bytearray(400) for _ in range(40)]
+            self.assertTrue(mod.bars(img, 10, "1a2b-3c4d", 2, 20))
+            line = img[20]
+            if theme == "night":  # dark bars on light, whatever the theme: a plate of ink, bars of the dark paper
+                a, b = line.index(1), len(line) - line[::-1].index(1)
+                self.assertEqual(line[a : a + 20], b"\x01" * 20)  # 10 modules of quiet either side
+                line = bytes(v ^ 1 for v in line[a:b])  # the bars as 1s on 0, like the paper theme's
+            self.assertEqual([n // 2 for n in run_widths(line)], widths)
+        self.assertFalse(mod.bars(img, 10, "nö", 2, 20))  # not set B: no barcode, rather than a wrong one
+
+    def test_alt_text_goes_in_the_picture_and_is_said(self):
+        self.claude_log()
+        out = os.path.join(self.home, "r.png")
+        p = self.ok("--out", out, "--prompt", "--look", "card")
+        with open(out, "rb") as fh:
+            alt = png_parts(fh.read())[b"iTXt"].split(b"\0", 5)[5].decode()
+        self.assertIn(f"alt text for the picture (also inside the PNG):\n  {alt}\n", p.stderr)
+        self.assertTrue(alt.startswith("A receipt for an AI coding run, made with receipt.py. Asked for: "), alt)
+        mod = self.module()
+        long_ask = self.SAYS.replace("and a calendar of the days I kept it up", "word " * 600)
+        said = mod.alt_text(long_ask, self.TOTAL, None, (1, 1, [b"\0\0\0"]))
+        self.assertLessEqual(len(said), 1000)  # X and Mastodon take 1,000 characters
+        self.assertTrue(said.endswith("Total at API prices: $1.23."), said[-80:])
+        self.assertIn("It took: claude-opus-5-5, 11 min, 25 tool calls.", said)
+        self.assertIn("…. It shows a picture of what the run made.", said)
+        self.assertNotIn("sha256", said)  # the page's address is for the site, not for reading out
+
+    def test_the_strip_is_quieter_where_it_should_be(self):
+        mod = self.module()
+        drawn = []
+        mod.png = lambda rows, scale=2, pic=None: drawn.append(rows) or b"\x89PNG\r\n\x1a\n" + mod.png_chunk(b"IEND", b"")
+        mod.picture(self.SAYS, total=self.TOTAL, no="1a2b-3c4d")
+        style = dict(drawn[0])
+        self.assertEqual(style[next(t for t in style if t and t.startswith("cost"))], 1)
+        self.assertEqual(style["         claude-opus-5-5"], 3)  # the breakdown, faint
+        self.assertEqual(style["           output    55k × $20.00/M    $1.10"], 3)
+        texts = [t for t, _ in drawn[0]]
+        self.assertEqual(texts.index("1a2b-3c4d") + 1, len(texts) - 1)  # the barcode, just above the foot
+        self.assertEqual(style["1a2b-3c4d"], 6)
+        lit = [x for row in mod.glyph("'") for x in range(8) if row >> x & 1]
+        self.assertGreaterEqual(min(lit), 2)  # not at its cell's left edge: "doesn't", not "doesn' t"
+        self.assertEqual(mod.glyph("’"), mod.glyph("'"))
+
+    def test_look_and_theme_need_a_picture(self):
+        self.claude_log()
+        for args in (["--look", "card"], ["--theme", "night"]):
+            p = self.run_receipt(*args)
+            self.assertNotEqual(p.returncode, 0)
+            self.assertIn("--look and --theme are for a picture of the receipt", p.stderr)
+        p = self.run_receipt("--list", "--look", "card", "--out", "r.png")
+        self.assertIn("--look card draws one receipt", p.stderr)
+        self.ok("--out", os.path.join(self.home, "r.png"), "--look", "strip", "--theme", "paper")  # the defaults, said
+
+    def fake_browser(self, rows, w=20):
+        """a stand-in browser that keeps the page it was given and 'draws' rows: (count, colour)"""
+        pic = os.path.join(self.home, "drawn.png")
+        png_file(pic, w, sum(n for n, _ in rows), [bytes(c * w) for n, c in rows for _ in range(n)], kind=2)
+        kept = os.path.join(self.home, "page.html")
+        fake = os.path.join(self.home, "fake-browser")
+        with open(fake, "w", encoding="utf-8") as f:
+            f.write(f"#!{sys.executable}\n" + textwrap.dedent(f"""\
+                import shutil, sys, urllib.parse, urllib.request
+                url = sys.argv[-1]
+                assert "--force-device-scale-factor=2" in sys.argv, sys.argv
+                shutil.copy(urllib.request.url2pathname(urllib.parse.urlparse(url).path), {kept!r})
+                for a in sys.argv:
+                    if a.startswith("--screenshot="):
+                        shutil.copy({pic!r}, a.split("=", 1)[1])
+                """))  # fmt: skip
+        os.chmod(fake, 0o755)
+        return fake, kept
+
+    def test_print_is_drawn_by_the_browser_and_cut_where_the_paper_ends(self):
+        if os.name == "nt":
+            self.skipTest("the stand-in browser is a shell script")
+        self.claude_log()
+        back, paper = (96, 100, 114), (30, 32, 40)  # night
+        fake, kept = self.fake_browser([(3, back), (30, paper), (2, back), (1, paper), (40, back)])
+        out = os.path.join(self.home, "r.png")
+        self.ok("--out", out, "--prompt", "--look", "print", "--theme", "night", env=dict(self.env, RECEIPT_BROWSER=fake))
+        with open(out, "rb") as fh:
+            data = fh.read()
+        self.assertEqual(self.size(data), (20, 36))  # down to the last row with paper in it
+        with open(kept, encoding="utf-8") as fh:
+            page = fh.read()
+        self.assertIn("background:#1e2028", page)  # night's paper
+        self.assertIn("<h2>ASKED FOR</h2>", page)
+        self.assertIn("TOTAL", page)
+        fake, _ = self.fake_browser([(10, paper)])  # paper to the window's edge: the receipt didn't fit
+        p = self.run_receipt("--out", out, "--look", "print", "--theme", "night", env=dict(self.env, RECEIPT_BROWSER=fake))
+        self.assertIn("drew the receipt taller than its window", p.stderr)
 
 
 class StreamJson(Base):
