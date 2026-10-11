@@ -135,8 +135,10 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 | Option | What it does |
 |---|---|
 | `--md`, `--json` | Wrap it for GitHub or Discord, or print it as JSON (hidden parts stay out) |
-| `--out FILE` | Save it to a `.txt`, `.md`, `.json` or `.png` file, or into a folder. A `.png` is a picture of a paper receipt, for posting where text gets mangled. It reads like one from a shop: what was asked for (with `--prompt`), what the run made, what it took, and the total |
+| `--out FILE` | Save it to a `.txt`, `.md`, `.json` or `.png` file, or into a folder. A `.png` is a picture of a paper receipt, for posting where text gets mangled. It reads like one from a shop: what was asked for (with `--prompt`), what the run made, what it took, the total, and a barcode of the receipt's number. It prints alt text for the picture (1,000 characters at most) to paste in with it, and keeps a copy inside the PNG |
 | `--picture FILE` | With a `.png`: put a picture of what the run made on the receipt, under what was asked for. A `.png` goes on as it is, made smaller if it's wider or taller than the receipt is wide. A sound goes on as its spectrogram (time across, pitch up, louder brighter), and a video as 4 of its frames, each with a line saying how long it is. PNGs and WAVs need nothing else; other pictures, sounds (.mp3, .ogg, .flac…) and videos need [ffmpeg](https://ffmpeg.org) (or set `RECEIPT_FFMPEG` to where it is) |
+| `--look LOOK` | With a `.png`: `strip` (the whole receipt, the default), `card` (cut down for a feed: the prompt large, the picture, the model, time, tool calls and the total; 1080 pixels wide and at most 1350 tall, so X, Bluesky and LinkedIn show it whole) or `print` (the strip set in a real font, drawn by Chrome, Edge or Chromium) |
+| `--theme THEME` | With a `.png`: the paper and ink, `paper` (the default), `night`, `terminal`, `blueprint` or `pink`. The barcode stays dark on light, so it scans on dark paper too |
 | `--report` | Also print a link to [the report form](https://musharna.github.io/prompt-receipts/) with this receipt filled in |
 | `--link` | Also print a link that shows this receipt on the site. The receipt rides in the part after `#`, which your browser never sends, so nothing is uploaded. Long receipts make links too long for some chats; it warns over 2,000 characters |
 | `--bundle FILE.zip` | Save one zip with the receipt, its JSON, a record, and the files the run wrote, plus [RO-Crate](https://www.researchobject.org/ro-crate/) metadata and a page that shows the receipt |
@@ -161,6 +163,12 @@ To post the run as a picture, with the prompt, a screenshot of what it made and 
 
 ```sh
 python3 receipt.py --prompt --shot --out receipt.png
+```
+
+For a feed, the card shows the same run in one screen, in the night theme here:
+
+```sh
+python3 receipt.py --prompt --shot --look card --theme night --out card.png
 ```
 
 For a run that made a sound, put its spectrogram there instead:

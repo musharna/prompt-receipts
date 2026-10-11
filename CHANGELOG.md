@@ -1,5 +1,14 @@
 # Changelog
 
+## receipt.py 7.7 (2026-10-11)
+
+- `--look card` makes a short receipt for a feed: the prompt in large letters, the picture as big as the rest leaves room for, the model, time and tool calls, and the total. It is 1080 pixels wide and at most 1350 tall (4:5), which X, Bluesky and LinkedIn show without cutting it; a short picture makes a shorter card. The cost breakdown and the rest stay on the full receipt.
+- `--look print` sets the receipt in a real font, drawn by Chrome, Edge or Chromium (the one `--shot` uses), and cut where the paper ends. It still needs no extra packages.
+- `--theme` picks the paper and ink: `paper`, `night`, `terminal`, `blueprint` or `pink`.
+- The receipt picture reads more easily: ASKED FOR, MADE and IT TOOK on dark tags, the total twice the size, the cost breakdown faint, and the apostrophe no longer leaves a gap after it ("doesn't", not "doesn' t").
+- A barcode (Code 128) of the receipt's number sits at the bottom of every look. On dark themes it is drawn dark on a light plate, so scanners read it.
+- Every picture comes with alt text (what was asked for, what it shows, what it made, what it took, the total; 1,000 characters at most). It is printed to paste in with the picture and kept inside the PNG.
+
 ## receipt.py 7.6 (2026-10-10)
 
 - `--asked FILE` puts the prompt on a receipt whose log doesn't hold it (`claude -p` output never does): from a file, or `-` for what you pipe in. It is checked for home folders, email addresses and keys like a logged prompt. The receipt adds a `given` line saying the prompt is the sender's words, not the log's; on a `.png` it sits faint under ASKED FOR, and `--page` shows it with the same note. A `--record` still fingerprints only what the log holds. It stops if the log holds its own prompt.
