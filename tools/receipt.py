@@ -578,6 +578,8 @@ def claude_lines(path):
             e = dict(d, **base)
             if d.get("parent_tool_use_id"):  # a subagent's message, inline here, in a file of its own in a session log
                 e["isSidechain"] = True
+            if d.get("isSynthetic"):  # Claude Code's own words (a note after a picture it read), not a prompt
+                e["isMeta"] = True
             if d.get("thinking_duration_ms"):
                 e["thinkingDurationMs"] = d["thinking_duration_ms"]
             if d.get("tool_use_result") is not None:
