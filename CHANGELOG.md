@@ -1,5 +1,12 @@
 # Changelog
 
+## receipt.py 7.8 (2026-10-11)
+
+- `--reported FILE` makes a receipt of what someone's post says about a run: its prompt, model, cost, tokens, time and what it made, with the post's address. Every look carries a REPORTED stamp. Anything the post doesn't give reads "not stated". Stated tokens are priced next to the post's own figure, as the least the run could have cost. It has no receipt number, barcode or record.
+- Reads `codex exec --json` output: replies, commands, files and tokens. The prompt, model, version and times aren't in it, and the receipt says so. `--model NAME` names the model, as the sender's word, and prices the tokens.
+- Every run on the site links to its receipt.
+- Fixed: Claude Code's own note after reading a picture counted as a prompt in `claude -p` output, so `--asked` refused the log and the receipt said 2 prompts.
+
 ## receipt.py 7.7 (2026-10-11)
 
 - `--look card` makes a short receipt for a feed: the prompt in large letters, the picture as big as the rest leaves room for, the model, time and tool calls, and the total. It is 1080 pixels wide and at most 1350 tall (4:5), which X, Bluesky and LinkedIn show without cutting it; a short picture makes a shorter card. The cost breakdown and the rest stay on the full receipt.

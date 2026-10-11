@@ -5120,6 +5120,112 @@ def text(r, hide, with_prompt, width=80):
     return "\n".join(out)
 
 
+REPORT_KEYS = ("post", "by", "date", "tool", "model", "effort", "time", "cost", "tokens in", "tokens cached",
+               "tokens out", "made", "prompt")  # fmt: skip
+REPORT_NOTE = "from a post, not read from a log: what it says, unchecked; no receipt number or record"
+
+
+def read_report(path, redact):
+    """--reported FILE: what a post says about a run, as `key: value` lines; the prompt runs on to the next key"""
+    try:
+        if path == "-":
+            body = sys.stdin.read()
+        else:
+            with open(os.path.expanduser(path), encoding="utf-8") as fh:
+                body = fh.read()
+    except (OSError, UnicodeDecodeError) as e:
+        sys.exit(f"receipt: can't read --reported {path} ({getattr(e, 'strerror', None) or e})")
+    got, key = {}, None
+    for n, line in enumerate(body.splitlines(), 1):
+        m = re.match(r"\s*([A-Za-z][A-Za-z ]*?)\s*:\s?(.*)$", line)
+        k = m.group(1).lower() if m else None
+        if k in REPORT_KEYS:
+            if k in got:
+                sys.exit(f"receipt: --reported {path} says {k} twice (line {n})")
+            got[k], key = m.group(2).strip(), k
+        elif key == "prompt":
+            got["prompt"] += "\n" + line
+        elif line.strip() and not line.lstrip().startswith("#"):
+            sys.exit(f"receipt: --reported {path} line {n} isn't one of {', '.join(REPORT_KEYS)} and a colon: "
+                     f"{line.strip()[:40]!r}")  # fmt: skip
+    got = {k: v.strip() for k, v in got.items() if v.strip()}
+    if not re.fullmatch(r"https?://\S+", got.get("post", "")):
+        sys.exit(f"receipt: --reported {path} needs a post: line with the post's https:// address, so anyone can "
+                 "read what it says")  # fmt: skip
+
+    def number(k):
+        v = got.get(k)
+        if v is None:
+            return None
+        m = re.fullmatch(r"([\d,]*\.?\d+)([kKmM]?)", v.replace(" ", ""))
+        if not m:
+            sys.exit(f"receipt: --reported {path}: {k} needs a number like 1.2M, 40k or 40,000, not {v!r}")
+        return round(float(m.group(1).replace(",", "")) * {"": 1, "k": 1e3, "m": 1e6}[m.group(2).lower()])
+
+    cost = None
+    if "cost" in got:
+        m = re.fullmatch(r"(?:US)?\$?\s*([\d,]*\.?\d+)\s*(?:USD|dollars)?", got["cost"], re.I)
+        if not m:
+            sys.exit(f"receipt: --reported {path}: cost needs a dollar figure like $4.10, not {got['cost']!r}")
+        cost = float(m.group(1).replace(",", ""))
+    tin, tc, tout = number("tokens in"), number("tokens cached"), number("tokens out")
+    if tc is not None and (tin is None or tc > tin):
+        sys.exit(f"receipt: --reported {path}: tokens cached is part of tokens in, so it can't be more, or given "
+                 "without it")  # fmt: skip
+    for k in ("by", "date", "tool", "model", "effort", "time", "made", "prompt"):
+        if k in got:
+            got[k] = scrub(got[k], redact, "the post's prompt" if k == "prompt" else f"its {k} line",
+                           f"its {k} line")  # fmt: skip
+    r = {"reported": True, "receipt_version": VERSION, "tool": got.get("tool", ""), "post": got["post"],
+         "by": got.get("by"), "posted": got.get("date"), "models": [got["model"]] if "model" in got else [],
+         "effort": got.get("effort"), "time": got.get("time"), "made": got.get("made"),
+         "first_prompt": got.get("prompt"), "tokens_in": tin, "tokens_cached": tc, "tokens_out": tout}  # fmt: skip
+    if r["models"] and (tin or tout):
+        bill = Bill()
+        codex_call(bill, r["models"][0], {"input_tokens": tin or 0, "cached_input_tokens": tc or 0,
+                                          "output_tokens": tout or 0}, summed=True)  # fmt: skip
+        if bill.lines:
+            r["api_usd"], r["prices"] = round(bill.total(), 6), PRICES_FROM
+            # a floor: a post rarely says which input tokens were cache writes, or how big each call was
+            row, long = rates_for(r["models"][0]), long_from(r["models"][0])
+            more = [why for why, dearer in (
+                ("some were cache writes", max(row[2:4]) > row[0] and (tin or 0) > (tc or 0)),
+                (f"one call went past {(long or 0) // 1000}k tokens", long and (tin or 0) > long)) if dearer]  # fmt: skip
+            r["api_note"] = "at API prices for the model and tokens it states" + ("; more if " + " or ".join(more) if more else "")
+    if cost is not None:
+        r["cost_usd"], r["cost_note"] = cost, "the post's own figure"
+    elif r.get("api_usd") is not None:
+        r["cost_usd"], r["cost_note"] = r["api_usd"], "the post states no cost: " + r["api_note"]
+    return r
+
+
+def reported_text(r, width=80):
+    """a reported receipt: what the post says, line by line, and "not stated" for what it doesn't"""
+    head = f"Reported v{VERSION} · {r['tool'] or 'tool not stated'}" + (f" · {r['posted']}" if r.get("posted") else "")
+    out = [head, labelled("REPORTED ", REPORT_NOTE, width)]
+    out.append(labelled("post     ", r["post"] + (f" · by {r['by']}" if r.get("by") else ""), width))
+    model = ", ".join(r["models"]) or "not stated"
+    out.append(f"model    {model}" + (f" · effort {r.get('effort') or 'not stated'}" if r["models"] or r.get("effort") else ""))
+    out.append(f"time     {r.get('time') or 'not stated'}")
+    if r.get("cost_note") == "the post's own figure":
+        out.append(f"cost     {money(r['cost_usd'])} (the post's own figure)")
+        if r.get("api_usd") is not None:
+            out.append(labelled(" " * 9, f"{money(r['api_usd'])} {r['api_note']}", width))
+    elif r.get("cost_usd") is not None:
+        out.append(labelled("cost     ", f"{money(r['cost_usd'])} ({r['cost_note']})", width))
+    else:
+        out.append("cost     not stated")
+    tin, tc, tout = r["tokens_in"], r["tokens_cached"], r["tokens_out"]
+    if tin is None and tout is None:
+        out.append("tokens   not stated")
+    else:
+        said = f"in {toks(tin)}" + (f" ({toks(tc)} cached)" if tc is not None else "") if tin is not None else "in not stated"
+        out.append(f"tokens   {said} · out {toks(tout) if tout is not None else 'not stated'}")
+    out.append(labelled("made     ", r.get("made") or "not stated", width))
+    out.append(labelled("prompt   ", r.get("first_prompt") or "not stated", width))
+    return "\n".join(out)
+
+
 def labelled(label, body, width):
     """wrap long lines so the receipt pastes without scrolling sideways; keep the text's own line breaks.
     width is the room after the 9-column label, as text() takes it; a longer label takes its extra from it"""
@@ -5761,6 +5867,15 @@ def parts(s):
     return head, asked, made, took
 
 
+def stamp(took):
+    """a reported receipt's REPORTED line and the post it names, out of IT TOOK -> (the rest, note, post)"""
+    note = [" ".join(v.strip() for v in values) for label, values in took if label.strip() == "REPORTED"]
+    if not note:
+        return took, None, None
+    post = [" ".join(v.strip() for v in values) for label, values in took if label.strip() == "post"]
+    return [e for e in took if e[0].strip() not in ("REPORTED", "post")], note[0], (post[0] if post else None)
+
+
 def picture(s, table=False, pic=None, total=None, note=None, no=None):
     """a receipt's lines wrap under their label (s is made at PNG_COLS); a comparison table keeps its columns.
     A receipt reads like one from a shop: what was asked for, what it made (with a picture of it if given),
@@ -5775,6 +5890,11 @@ def picture(s, table=False, pic=None, total=None, note=None, no=None):
     head, asked, made, took = parts(s)
     rule = ("-", 3)  # drawn as wide as the widest line
     rows = [(x, 1) for x in fold(head, PNG_COLS)] + [rule]
+    took, said, post = stamp(took)
+    if said:  # what a post says, not a log: stamped at the top
+        rows += [("REPORTED", 5)] + [(x, 1) for x in textwrap.wrap(said, PNG_COLS)]
+        rows += [(x, 1) for x in fold(post, PNG_COLS)] if post else []
+        rows.append(("", 1))
     for label, values in asked:
         if label.strip() == "given":  # whose words the prompt above is, faint under it
             rows[-1:-1] = [(x, 3) for x in textwrap.wrap(" ".join(v.strip() for v in values), PNG_COLS)]
@@ -5828,9 +5948,9 @@ def stats(took):
     """IT TOOK's lines -> the few a glance needs: the model, how long, how many tool calls"""
     first = {label.strip(): values[0].split(" · ")[0] for label, values in took}
     out = []
-    if "model" in first:
+    if "model" in first and not first["model"].startswith("not "):
         out.append(first["model"].split(" (")[0])
-    if "time" in first and not first["time"].startswith("not in"):
+    if "time" in first and not first["time"].startswith("not "):
         out.append(first["time"].split(" (")[0])
     if "work" in first:
         out.append(first["work"].split(", ")[0])
@@ -5870,6 +5990,13 @@ def card(s, pic=None, total=None, note=None, no=None):
     edge = pad + inner // 16 * 16 - 2  # where the rules' ink ends: the right edge of the card's text
     say(head, 2, 3, most=2)
     items.append(rule)
+    took, said, post = stamp(took)
+    if said:
+        items.append(("tag", "REPORTED", 3, 0))
+        say(said, 2, most=2)
+        if post:
+            say(post, 2, most=2)
+        items.append(("gap", "", 2, 0))
     prompt = [" ".join(v.strip() for v in values) for label, values in asked if label.strip() != "given"]
     given = [" ".join(v.strip() for v in values) for label, values in asked if label.strip() == "given"]
     if prompt:
@@ -5877,6 +6004,7 @@ def card(s, pic=None, total=None, note=None, no=None):
         say(" ".join(prompt), 4, most=5)
         if given:  # the given line's whole note is on the strip
             say("prompt from the sender, not from the log", 3, 3)
+    made = [m for m in made if " ".join(v.strip() for v in m[1]) != "not stated"]  # a card has no label to say what
     if pic or made:
         items.append(("gap", "", 2, 0))
         if pic:
@@ -5893,10 +6021,14 @@ def card(s, pic=None, total=None, note=None, no=None):
         say("model named by the sender, not from the log", 2, 3)
     if total:
         word, _, rest = total[0].partition(" ")
+        if rest == "as reported":  # the post's figure: the word stays as large as it, so a cropped card keeps it
+            word, rest = "REPORTED", ""
         items.append(("gap", "", 2, 0))
         items.append(("total", (word, total[1]), 6, 1))
         if rest:
             items.append(("right", rest, 2, 3))
+    elif any(label.strip() == "cost" and values[0] == "not stated" for label, values in took):
+        say("cost not stated", 4)
     items.append(rule)
     if no and all(" " <= c <= "~" for c in no):
         items.append(("bars", no, 2, 1))
@@ -5946,7 +6078,9 @@ def alt_text(s, total=None, note=None, pic=None, most=1000):
     """what the picture of the receipt shows, in words, for people who can't see it: 1,000 characters at most,
     as X and Mastodon take"""
     head, asked, made, took = parts(s)
-    said = ["A receipt for an AI coding run, made with receipt.py."]
+    took, stamped, post = stamp(took)
+    said = [f"A receipt of what a post says about an AI coding run, not read from a log{f' ({post})' if post else ''}."
+            if stamped else "A receipt for an AI coding run, made with receipt.py."]  # fmt: skip
     prompt = " ".join(" ".join(v.strip() for v in values) for label, values in asked if label.strip() != "given")
     if any(label.strip() == "given" for label, _ in asked):
         said.append("(The sender gave the prompt; the log doesn't hold it.)")
@@ -5984,6 +6118,9 @@ def print_page(s, pic=None, total=None, note=None, no=None):
 
     paper, ink, back, faint = ("#%02x%02x%02x" % c for c in INKS)
     out = [f'<div class="head">{e(head)}</div><hr>']
+    took, said, post = stamp(took)
+    if said:
+        out += ["<h2>REPORTED</h2>", f"<p>{e(said)}</p>"] + ([f"<p>{dots(post)}</p>"] if post else [])
     prompt = [" ".join(v.strip() for v in values) for label, values in asked if label.strip() != "given"]
     if prompt:
         out.append('<h2>ASKED FOR</h2>')
@@ -6129,6 +6266,7 @@ def main():
     ap.add_argument("--prompt", action="store_true")
     ap.add_argument("--asked", metavar="FILE")
     ap.add_argument("--model", metavar="NAME")
+    ap.add_argument("--reported", metavar="FILE")
     ap.add_argument("--redact", action="store_true")
     ap.add_argument("--prompt-id", action="store_true")
     ap.add_argument("--file-names", action="store_true")
@@ -6176,6 +6314,13 @@ def main():
         return
     if a.signers:
         sys.exit("receipt: --signers goes with --verify")
+    if a.reported:  # no log: only what makes, shows or signs the receipt goes with it
+        keep = ("reported", "out", "png", "json", "md", "look", "theme", "picture", "link", "redact", "prices", "sign",
+                "report")  # fmt: skip
+        clash = ["a session" if k == "session" else "--" + k.replace("_", "-")
+                 for k, v in vars(a).items() if k not in keep and v not in (None, False, [], "")]  # fmt: skip
+        if clash:
+            sys.exit(f"receipt: --reported makes a receipt from what a post says, so it can't go with {', '.join(clash)}")
     if a.prices:
         try:
             with open(os.path.expanduser(a.prices), encoding="utf-8") as fh:
@@ -6206,7 +6351,7 @@ def main():
     if len(picked) > 1:
         flags = [f"--{t}" for t in TOOLS if t != "claude"]
         sys.exit(f"receipt: pick one of {', '.join(flags[:-1])} and {flags[-1]}")
-    if a.redact and not (a.prompt or a.asked or a.reply or a.outcome or a.recipe or a.page):
+    if a.redact and not (a.prompt or a.asked or a.reply or a.outcome or a.recipe or a.page or a.reported):
         sys.exit(
             "receipt: --redact changes text the receipt shows, so it needs --prompt, --reply, --recipe, --outcome "
             "or --page"
@@ -6282,6 +6427,15 @@ def main():
             pic, note = look(os.path.expanduser(a.picture), a.picture)
         except OSError as e:
             sys.exit(f"receipt: can't read --picture {a.picture} ({e.strerror})")
+    if a.reported:
+        r = read_report(a.reported, a.redact)
+        s = reported_text(r, PNG_COLS - 9) if a.png else reported_text(r)
+        saved = emit(a, r, s, json.dumps(r, indent=1) if a.json else None, pic=pic, note=note)
+        if a.sign and saved:
+            sign(a.sign, saved)
+        if a.link:
+            print(link(reported_text(r)))
+        return
     if a.bundle and (many_in or a.list):
         sys.exit(
             "receipt: --bundle covers one session, so it can't go with --combine, --compare or --list"
@@ -6737,7 +6891,8 @@ def emit(a, r, s, payload, table=False, pic=None, note=None):
     if a.png:
         total = None
         if not table and r.get("cost_usd") is not None and any(x.startswith("cost     $") for x in s.split("\n")):
-            total = ("TOTAL at API prices" if "API" in r.get("cost_note", "") else "TOTAL", money(r["cost_usd"]))
+            word = "TOTAL at API prices" if "API" in r.get("cost_note", "") else "TOTAL as reported" if r.get("reported") else "TOTAL"
+            total = (word, money(r["cost_usd"]))
         no = None if table else r.get("receipt_no")
         if table or a.look in (None, "strip"):
             data = picture(s, table, pic, total, note, no)

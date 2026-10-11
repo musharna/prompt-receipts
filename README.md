@@ -75,6 +75,8 @@ Run it somewhere else and it tells you where your sessions are; `--list --all` l
 
 A run with `claude -p` in a script or CI can be saved with `--output-format stream-json --verbose > run.jsonl`, and `receipt run.jsonl` reads it like a session log. That output has no prompt, effort, hooks or memory files, so the receipt says they aren't in it. If you still have the prompt, `--asked prompt.txt` puts it on the receipt, with a line saying it is your words and not the log's.
 
+`codex exec --json > run.jsonl` saves a Codex run the same way. Its output has the replies, commands, files and tokens, but no prompt, model, version or times. `--asked` gives the prompt, and `--model NAME` names the model, so its tokens are priced; the receipt says both are your word. Codex logs only the run's total tokens, not each call's, so the price is at the model's standard rate.
+
 ### Common uses
 
 ```
@@ -118,7 +120,8 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 | `--rename old=new` | Show one name as another. Stops with an error if the name isn't on the receipt, so a typo can't leave the real one in |
 | `--prompt` | Add your prompts, each one numbered. Home folders become `~`, and it stops if a prompt holds an email address or a key |
 | `--asked FILE` | For a log that doesn't hold its prompt (`claude -p` output): put the prompt from FILE (or `-` for what you pipe in) on the receipt, checked like `--prompt`. The receipt says it is your words, not the log's, and a `--record` still vouches only for the log. It stops if the log holds its own prompt |
-| `--redact` | With `--prompt`, `--asked`, `--reply`, `--recipe` or `--outcome`: print the text with `[email]` and `[key]` in their place instead of stopping |
+| `--model NAME` | For a log that doesn't name its model (`codex exec --json` output): the model it ran on, so its tokens can be priced. The receipt says it is your word |
+| `--redact` | With `--prompt`, `--asked`, `--reply`, `--recipe`, `--outcome` or `--reported`: print the text with `[email]` and `[key]` in their place instead of stopping |
 | `--file-names` | Name the files the run wrote. Off by default: the receipt shows only how many and their types |
 
 ### Prompt by prompt
@@ -187,6 +190,29 @@ receipt --page run.html --output-url RAW_ADDRESS --link
 ```
 
 Making the page again gives the same bytes, so the uploaded copy matches; if it doesn't (the run went on, or you hid something else), `receipt.py` says so and you upload the new one. The raw address names that version of the gist, so a later edit to the gist can't change what the receipt points at.
+
+### From someone's post
+
+Found a post that shares a prompt, what it cost and what it made? `--reported FILE` makes a receipt of what the post says. FILE holds `key: value` lines: `post` (its address, needed), and any of `by`, `date`, `tool`, `model`, `effort`, `time`, `cost`, `tokens in`, `tokens cached`, `tokens out`, `made` and `prompt` (put it last; it can run over several lines).
+
+```
+$ receipt --reported post.txt
+Reported v7.8 · Claude Code · 7 Oct 2026
+REPORTED from a post, not read from a log: what it says, unchecked; no receipt number or
+         record
+post     https://musharna.github.io/prompt-receipts/#p1 · by Prompt Receipts
+model    claude-opus-5-5 · effort medium
+time     4 min
+cost     $0.80 (the post's own figure)
+         $0.65 at API prices for the model and tokens it states; more if some were cache
+         writes
+tokens   in 439k (402k cached) · out 21k
+made     a full page with captions and speech bubbles
+prompt   A three-panel comic page, drawn as a finished image file, about a pigeon who's
+         convinced he's the town postman, for the kids' corner of our local newsletter.
+```
+
+Every look carries a REPORTED stamp, and anything the post leaves out reads "not stated". With a model and tokens, they are priced next to the post's own figure. That price is the least the run could have cost, since posts rarely say which tokens were cache writes. The receipt has no number, barcode or record, because there's no log to vouch for. It goes with `--out`, `--look`, `--theme`, `--picture`, `--link` and `--redact`.
 
 ### More than one run
 
@@ -288,7 +314,7 @@ echo "$(echo "$input" | ~/.claude/my-statusline.sh) · $(echo "$input" | python3
 
 [![One prompt, run once on each model: Opus, Sonnet and Haiku 5.5 in Claude Code, and GPT-5.6 Sol, Terra and Luna in Codex](og.png)](https://musharna.github.io/prompt-receipts/)
 
-Each prompt on [the site](https://musharna.github.io/prompt-receipts/) was run once on plain Claude Code (Opus, Sonnet and Haiku 5.5) and on GPT-5.6 Sol, Terra and Luna in Codex, all at medium effort, plus GPT-6-Astra, Codex's default model. Every run shows what came out, what it cost and how long it took.
+Each prompt on [the site](https://musharna.github.io/prompt-receipts/) was run once on plain Claude Code (Opus, Sonnet and Haiku 5.5) and on GPT-5.6 Sol, Terra and Luna in Codex, all at medium effort, plus GPT-6-Astra, Codex's default model. Every run shows what came out, what it cost and how long it took, and links to its receipt.
 
 Tried one? Use the "Tell us how it went" button on its card. Runs that didn't work are as useful as ones that did.
 

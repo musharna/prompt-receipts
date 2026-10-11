@@ -2625,6 +2625,143 @@ class ExecJson(Base):
         self.assertEqual([e.get("failed") for e in pred["tool_results"]], [None, True])
 
 
+class Reported(Base):
+    """--reported FILE: a receipt of what someone's post says about a run, stamped as such, with no number or record"""
+
+    POST = textwrap.dedent("""\
+        post: https://x.com/someone/status/123
+        by: @someone
+        date: 3 Oct 2026
+        tool: Claude Code
+        model: claude-opus-5-5
+        cost: $4.10
+        tokens in: 1.2M
+        tokens cached: 900k
+        tokens out: 40,000
+        made: https://someone.github.io/tracker/
+        prompt: Make a habit tracker
+        with a streak counter
+        """)  # fmt: skip
+
+    def post(self, body=None):
+        path = os.path.join(self.home, "post.txt")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(self.POST if body is None else body)
+        return path
+
+    def module(self):
+        spec = importlib.util.spec_from_file_location("receipt_under_test", RECEIPT)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_a_receipt_of_what_a_post_says(self):
+        out = self.ok("--reported", self.post()).stdout
+        rate = self.module().rates_for("claude-opus-5-5")
+        api = (300_000 * rate[0] + 900_000 * rate[1] + 40_000 * rate[4]) / 1e6
+        lines = out.split("\n")
+        self.assertEqual(lines[0], "Reported v7.8 · Claude Code · 3 Oct 2026")  # no receipt number: no log to number
+        self.assertTrue(lines[1].startswith("REPORTED from a post, not read from a log"), lines[1])
+        self.assertIn("post     https://x.com/someone/status/123 · by @someone", out)
+        self.assertIn("model    claude-opus-5-5 · effort not stated", out)
+        self.assertIn("time     not stated", out)
+        self.assertIn(f"cost $4.10 (the post's own figure) ${api:,.2f} at API prices for the model and tokens it "
+                      "states; more if some were cache writes tokens", " ".join(out.split()))  # fmt: skip
+        self.assertIn("tokens   in 1.2M (900k cached) · out 40k", out)
+        self.assertIn("made     https://someone.github.io/tracker/", out)
+        self.assertIn("prompt   Make a habit tracker\n         with a streak counter", out)
+        self.assertNotIn("sha256", out)  # the site would try to check a page line against the post's link
+        j = json.loads(self.ok("--reported", self.post(), "--json").stdout)
+        self.assertTrue(j["reported"])
+        self.assertNotIn("receipt_no", j)
+        self.assertEqual((j["cost_usd"], j["tokens_in"], j["tokens_cached"], j["tokens_out"]), (4.1, 1_200_000, 900_000, 40_000))
+        self.assertAlmostEqual(j["api_usd"], api, places=5)
+        self.assertIn("link (the receipt is inside the link", self.ok("--reported", self.post(), "--link").stdout)
+
+    def test_what_it_leaves_out_is_said(self):
+        out = self.ok("--reported", self.post("post: https://bsky.app/p/1\nprompt: a slime\n")).stdout
+        self.assertTrue(out.startswith("Reported v7.8 · tool not stated\nREPORTED "), out[:80])
+        self.assertNotIn("effort", out)  # "model not stated", not a second "not stated" for its effort
+        for line in ("model    not stated\n", "cost     not stated", "tokens   not stated",
+                     "made     not stated", "prompt   a slime"):  # fmt: skip
+            self.assertIn(line, out)
+
+    def test_tokens_priced_when_it_states_no_cost(self):
+        out = self.ok("--reported", self.post("post: https://x.com/a/1\nmodel: gpt-5.6-sol\ntokens in: 115k\n"
+                                              "tokens cached: 103k\ntokens out: 9k\n")).stdout  # fmt: skip
+        self.assertIn("cost $0.27 (the post states no cost: at API prices for the model and tokens it states; more if "
+                      "some were cache writes) tokens", " ".join(out.split()))  # fmt: skip
+        self.assertIn("tokens   in 115k (103k cached) · out 9k", out)
+        out = self.ok("--reported", self.post("post: https://x.com/a/1\nmodel: qwen-flash\ntokens in: 300k\n"
+                                              "tokens out: 9k\n")).stdout  # fmt: skip
+        self.assertIn("(the post states no cost: at API prices for the model and tokens it states; more if one call "
+                      "went past 256k tokens)", " ".join(out.split()))  # cache writes cost it no more than input
+        self.assertIn("cost     $0.02 (", out)  # 300k × $0.05/M + 9k × $0.40/M, at the rate under 256k
+
+    def test_what_it_refuses(self):
+        def no(why, *args, body=None):
+            p = self.run_receipt("--reported", self.post(body), *args)
+            self.assertNotEqual(p.returncode, 0, args)
+            self.assertIn(why, p.stderr)
+        no("--reported makes a receipt from what a post says, so it can't go with --record", "--record", "r.json")
+        no("so it can't go with a session", "some.jsonl")
+        no("so it can't go with --model", "--model", "x")
+        no("needs a post: line with the post's https:// address", body="prompt: hi\n")
+        no("needs a post: line with the post's https:// address", body="post: x.com/a/1\n")
+        no("cost needs a dollar figure like $4.10", body="post: https://x.com/a/1\ncost: four dollars\n")
+        no("tokens in needs a number like 1.2M, 40k or 40,000", body="post: https://x.com/a/1\ntokens in: lots\n")
+        no("line 2 isn't one of", body="post: https://x.com/a/1\nmodle: opus\n")
+        no("says model twice", body="post: https://x.com/a/1\nmodel: a\nmodel: b\n")
+        no("tokens cached is part of tokens in", body="post: https://x.com/a/1\ntokens in: 5k\ntokens cached: 9k\n")
+        no("the post's prompt holds 1 email address", body="post: https://x.com/a/1\nprompt: mail me@ex.com\n")
+        out = self.ok("--reported", self.post("post: https://x.com/a/1\nprompt: mail me@ex.com\n"), "--redact").stdout
+        self.assertIn("prompt   mail [email]", out)  # the positive control: the same post goes through with --redact
+
+    def test_every_look_says_reported_and_has_no_barcode(self):
+        mod = self.module()
+        drawn = []
+        mod.png = lambda rows, scale=2, pic=None: drawn.append(rows) or b"\x89PNG\r\n\x1a\n" + mod.png_chunk(b"IEND", b"")
+        p = self.ok("--reported", self.post(), "--out", os.path.join(self.home, "r.txt"))
+        with open(os.path.join(self.home, "r.txt"), encoding="utf-8") as fh:
+            s = fh.read().rstrip("\n")
+        total = ("TOTAL as reported", "$4.10")
+        mod.picture(s, total=total)
+        style = dict(drawn[0])
+        self.assertEqual(style["REPORTED"], 5)  # a dark tag, like ASKED FOR
+        self.assertNotIn(6, style.values())  # no barcode: there is no receipt number
+        self.assertFalse(any(t.startswith("REPORTED ") for t in style if t))  # the line became the tag and a note
+        texts = [t for t, _ in drawn[0]]
+        self.assertLess(texts.index("REPORTED"), texts.index("ASKED FOR"))
+        self.assertEqual({ink for t, ink in drawn[0] if t and t.startswith("from a post")}, {1})  # the note, not faint
+        drew, real = [], mod.letters
+        mod.letters = lambda img, x, y, line, size, fg=1, *a: drew.append((line, size, fg)) or real(img, x, y, line, size, fg, *a)
+        mod.card(s, None, total)
+        said = [line for line, _, _ in drew]
+        self.assertIn(("REPORTED", 6, 1), drew)  # the total's word, as large as its figure: a cropped feed keeps it
+        self.assertNotIn("TOTAL", said)
+        self.assertEqual({fg for line, _, fg in drew if line.startswith("from a post")}, {1})
+        self.assertIn("claude-opus-5-5", said)  # the glance leaves out what isn't stated (time)
+        self.assertNotIn("not stated", " ".join(said))
+        bare = mod.reported_text(mod.read_report(self.post("post: https://x.com/a/1\nprompt: hi\n"), False))
+        self.assertEqual(mod.stats(mod.stamp(mod.parts(bare)[3])[0]), [])  # no model, no time: nothing to glance at
+        drew.clear()
+        mod.card(bare)
+        said = [line for line, _, _ in drew]
+        self.assertIn("cost not stated", said)  # no total to show: the card says so
+        self.assertNotIn("not stated", said)  # no line that doesn't say what isn't stated
+        page = mod.print_page(s, None, total)
+        self.assertIn("<h2>REPORTED</h2>", page)
+        self.assertNotIn('class="faint">from a post', page)
+        alt = mod.alt_text(s, total)
+        self.assertTrue(alt.startswith("A receipt of what a post says about an AI coding run, not read from a log"), alt)
+        self.assertIn("Total as reported: $4.10.", alt)
+        out = os.path.join(self.home, "r.png")
+        p = self.ok("--reported", self.post(), "--out", out, "--look", "card")
+        with open(out, "rb") as fh:
+            self.assertIn(b"A receipt of what a post says", png_parts(fh.read())[b"iTXt"])
+        self.assertIn("Total as reported: $4.10.", p.stderr)  # the post's figure, not called an API price
+
+
 class ChangedByRun(Base):
     """a file the run wrote whole, then changed with a shell command: what it made is the copy on disk"""
 
