@@ -22,6 +22,8 @@ usage: python3 receipt.py [SESSION] [options]
   --counts         numbers instead of names for skills, MCP servers, plugins, subagent types and memory files
   --rename a=b     show name a as b (repeatable); fails if a isn't on the receipt, so a typo can't leak it
   --prompt         also print your prompts (home folders become ~; stops if one holds an email address or a key)
+  --asked FILE     the prompt a log doesn't hold (claude -p output), from FILE or - for stdin; the receipt
+                   says it is the sender's words, and a --record still vouches only for the log
   --reply          also print the model's last reply, checked the same way
   --recipe         also print the commands that rerun your prompts with the same model and effort
   --outcome TEXT   add your own words on how it went ("worked first try")
@@ -101,7 +103,7 @@ import urllib.parse
 import zipfile
 import zlib
 
-VERSION = "7.5"
+VERSION = "7.6"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 SITE = "https://musharna.github.io/prompt-receipts/"
 LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters
@@ -3044,8 +3046,12 @@ def output_page(r, s, rows, files, a, hide, extra="", linked=None):
     if rows:
         out.append("<h2>Prompts and replies</h2>")
         for n, t in enumerate(rows, 1):
-            out.append(f'<h3>Prompt {n}</h3><pre class="said">{e(scrub(t["prompt"], a.redact))}</pre>' if t["prompt"] else
-                       f'<h3>Prompt {n}</h3><p class="dim">Not in the log: claude -p doesn\'t write the prompt it was given.</p>')  # fmt: skip
+            if not t["prompt"] and n == 1 and r.get("prompt_given"):
+                out.append(f'<h3>Prompt {n}</h3><pre class="said">{e(r["first_prompt"])}</pre><p class="dim">Given by '
+                           "the sender with --asked: claude -p doesn't write the prompt it was given.</p>")  # fmt: skip
+            else:
+                out.append(f'<h3>Prompt {n}</h3><pre class="said">{e(scrub(t["prompt"], a.redact))}</pre>' if t["prompt"] else
+                           f'<h3>Prompt {n}</h3><p class="dim">Not in the log: claude -p doesn\'t write the prompt it was given.</p>')  # fmt: skip
             if t.get("reply"):
                 reply = scrub(t["reply"], a.redact, "the model's reply", "--page")
                 out.append(f'<h3>Reply</h3><pre class="said">{e(reply)}</pre>')
@@ -4359,6 +4365,8 @@ def combine(rs):
     prompts = {x.get("first_prompt") for x in rs}
     if len(prompts) == 1:
         r["first_prompt"] = prompts.pop()
+        if r["first_prompt"] and any(x.get("prompt_given") for x in rs):  # one said it in their own words
+            r["prompt_given"] = True
     ids = {x.get("prompt_id") for x in rs}
     if len(ids) == 1 and None not in ids:
         r["prompt_id"] = ids.pop()
@@ -4979,6 +4987,9 @@ def text(r, hide, with_prompt, width=80):
             )
     elif with_prompt and r.get("first_prompt") and not r.get("prompt_texts"):
         out.append(labelled("prompt   ", r["first_prompt"], width))
+        if r.get("prompt_given"):
+            out.append(labelled("given    ", f"by the sender with --asked: {r.get('log_name') or 'the log'} doesn't "
+                                "hold the prompt", width))  # fmt: skip
     elif with_prompt and r.get("prompts_unsaved") and not r.get("prompt_texts"):
         out.append(f"prompt   not in {r.get('log_name') or 'the log'}")
     if r.get("reply"):
@@ -5558,12 +5569,15 @@ def picture(s, table=False, pic=None, total=None, note=None):
             entries[-1][1].append(line[9:])
         else:
             entries.append((line[:9], [line[9:]]))
-    asked = [e for e in entries if e[0].strip() in ("prompt", "prompts")]
+    asked = [e for e in entries if e[0].strip() in ("prompt", "prompts", "given")]
     made = [e for e in entries if e[0].strip() in ("files", "made", "page")]
     took = [e for e in entries if e not in asked and e not in made]
     rule = ("-", 3)  # drawn as wide as the widest line
     rows = [(x, 1) for x in fold(head, PNG_COLS)] + [rule]
     for label, values in asked:
+        if label.strip() == "given":  # whose words the prompt above is, faint under it
+            rows[-1:-1] = [(x, 3) for x in textwrap.wrap(" ".join(v.strip() for v in values), PNG_COLS)]
+            continue
         rows.append(("ASKED FOR", 3))
         if label.strip() == "prompt":  # one prompt: the whole width
             rows += [(x, 1) for x in textwrap.wrap(" ".join(v.strip() for v in values), PNG_COLS,
@@ -5645,6 +5659,7 @@ def main():
     ap.add_argument("--counts", action="store_true")
     ap.add_argument("--rename", action="append", default=[])
     ap.add_argument("--prompt", action="store_true")
+    ap.add_argument("--asked", metavar="FILE")
     ap.add_argument("--redact", action="store_true")
     ap.add_argument("--prompt-id", action="store_true")
     ap.add_argument("--file-names", action="store_true")
@@ -5720,11 +5735,28 @@ def main():
     if len(picked) > 1:
         flags = [f"--{t}" for t in TOOLS if t != "claude"]
         sys.exit(f"receipt: pick one of {', '.join(flags[:-1])} and {flags[-1]}")
-    if a.redact and not (a.prompt or a.reply or a.outcome or a.recipe or a.page):
+    if a.redact and not (a.prompt or a.asked or a.reply or a.outcome or a.recipe or a.page):
         sys.exit(
             "receipt: --redact changes text the receipt shows, so it needs --prompt, --reply, --recipe, --outcome "
             "or --page"
         )
+    asked = None
+    if a.asked:  # read it now, so a file it can't use stops it before anything is made
+        if a.list or a.totals or a.hook or a.combine or a.compare:
+            sys.exit("receipt: --asked gives one session's prompt, so it can't go with --list, --totals, --hook, "
+                     "--combine or --compare")  # fmt: skip
+        try:
+            if a.asked == "-":
+                asked = sys.stdin.read()
+            else:
+                with open(os.path.expanduser(a.asked), encoding="utf-8") as fh:
+                    asked = fh.read()
+        except (OSError, UnicodeDecodeError) as e:
+            sys.exit(f"receipt: can't read --asked {a.asked} ({getattr(e, 'strerror', None) or e})")
+        asked = asked.strip()
+        if not asked:
+            sys.exit(f"receipt: --asked {a.asked} is empty")
+        a.prompt = True  # giving the prompt is asking for it on the receipt
     if a.out and a.out.lower().endswith(".png"):
         a.png = True
     if a.out and a.out.lower().endswith(".json"):
@@ -5949,6 +5981,11 @@ def main():
             said = [t["reply"] for t in rows if t.get("reply")]
             r["replies"], r["reply_words"] = len(said), sum(len(x.split()) for x in said)
         add_turns(r, rows, a, hide)
+        if asked is not None:  # a prompt the log doesn't hold, in the sender's words: the receipt says so
+            if r.get("first_prompt"):
+                sys.exit("receipt: this log holds its own prompt (--prompt shows it); --asked is for a log that "
+                         "doesn't, like claude -p output")  # fmt: skip
+            r["first_prompt"], r["prompt_given"] = asked, True
     if a.rename:
         rename(r, a.rename)
     renames = dict(p.split("=", 1) for p in a.rename)
@@ -5969,7 +6006,8 @@ def main():
     if not a.prompt_id and not a.prompt:
         r.pop("prompt_id", None)
     if a.prompt and r.get("first_prompt"):
-        r["first_prompt"] = scrub(r["first_prompt"], a.redact)
+        given = ("the --asked prompt", "--asked") if r.get("prompt_given") else ()
+        r["first_prompt"] = scrub(r["first_prompt"], a.redact, *given)
     else:
         r.pop("first_prompt", None)
     if a.outcome:

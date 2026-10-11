@@ -283,7 +283,7 @@ class Receipts(Base):
     def test_claude_code_receipt(self):
         self.claude_log()
         out = self.ok().stdout
-        self.assertIn("Receipt v7.5 · Claude Code 2.1.300", out)
+        self.assertIn("Receipt v7.6 · Claude Code 2.1.300", out)
         self.assertIn(
             "2 prompts from me", out
         )  # the "[Request interrupted" line isn't a prompt
@@ -338,7 +338,7 @@ class Receipts(Base):
     def test_opencode(self):
         self.opencode_db()
         out = self.ok("--opencode").stdout
-        self.assertIn("Receipt v7.5 · OpenCode 1.18.31", out)
+        self.assertIn("Receipt v7.6 · OpenCode 1.18.31", out)
         self.assertIn("qwen3:8b (ollama, on this computer)", out)
         self.assertIn("2 prompts from me", out)
         self.assertIn("1 failed call", out)
@@ -412,7 +412,7 @@ class Receipts(Base):
             "prompt_id",
         ):
             self.assertNotIn(k, r)
-        self.assertEqual(r["receipt_version"], "7.5")
+        self.assertEqual(r["receipt_version"], "7.6")
         self.assertEqual(r["tool_errors"], 1)
         names = json.loads(self.ok("--json", "--file-names").stdout)["file_names"]
         self.assertEqual(names, ["index.html"])
@@ -426,7 +426,7 @@ class Receipts(Base):
         self.assertIn("warning  found your prompts but no model reply", p.stdout)
 
     def test_version(self):
-        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.5")
+        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.6")
 
     # ---------- output ----------
 
@@ -459,7 +459,7 @@ class Receipts(Base):
         url = out.strip().split("\n")[-1]
         self.assertTrue(url.startswith("https://docs.google.com/forms/"), url)
         self.assertIn("entry.349092046=tool", url)
-        self.assertIn("entry.1393206370=Receipt%20v7.5", url)
+        self.assertIn("entry.1393206370=Receipt%20v7.6", url)
 
     def test_hook_saves_a_receipt(self):
         log = self.claude_log()
@@ -476,7 +476,7 @@ class Receipts(Base):
         saved = os.listdir(folder)
         self.assertEqual(len(saved), 1)
         with open(os.path.join(folder, saved[0]), encoding="utf-8") as f:
-            self.assertIn("Receipt v7.5 · Claude Code", f.read())
+            self.assertIn("Receipt v7.6 · Claude Code", f.read())
 
     def test_combine_and_compare(self):
         self.claude_log()
@@ -1228,7 +1228,7 @@ class Totals(Base):
 
     def test_by_day_in_this_folder(self):
         out = self.ok("--totals").stdout
-        self.assertIn("Totals v7.5 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
+        self.assertIn("Totals v7.6 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
         self.assertRegex(out, r"\nThu 1 Oct 2026 +\$4\.00 +1 +1 ")
         self.assertRegex(out, r"\nSat 3 Oct 2026 +\$2\.00 +1 +2 ")
         self.assertRegex(out, r"\ntotal +\$6\.00 +1 +3 ")
@@ -1415,7 +1415,7 @@ class Qwen(Base):
     def test_receipt(self):
         self.qwen_log()
         out = self.ok("--qwen").stdout
-        self.assertIn("Receipt v7.5 · Qwen Code 0.25.0", out)
+        self.assertIn("Receipt v7.6 · Qwen Code 0.25.0", out)
         self.assertIn("2 prompts from me", out)  # Qwen Code's own notice isn't a prompt
         # all three calls, the memory extractor's too: 46k in (20k cached), 320 out
         self.assertIn("tokens   in 46k (20k cached) · out 320", out)
@@ -1516,7 +1516,7 @@ class Gemini(Base):
     def test_receipt(self):
         self.gemini_log()
         out = self.ok("--gemini").stdout
-        self.assertIn("Receipt v7.5 · Gemini CLI · ", out)  # no version is logged
+        self.assertIn("Receipt v7.6 · Gemini CLI · ", out)  # no version is logged
         self.assertIn("2 prompts from me", out)  # its opening message and the tool results aren't prompts
         # each reply once, and the subagent's: 36k in (18k cached); out counts the 40 tokens of reasoning
         self.assertIn("tokens   in 36k (18k cached) · out 186", out)
@@ -1610,7 +1610,7 @@ class Copilot(Base):
     def test_receipt(self):
         self.copilot_log()
         out = self.ok("--copilot").stdout
-        self.assertIn("Receipt v7.5 · Copilot CLI 1.0.95", out)
+        self.assertIn("Receipt v7.6 · Copilot CLI 1.0.95", out)
         self.assertIn("model    claude-opus-4.7 · effort high → xhigh", out)
         self.assertIn("2 prompts from me", out)  # the skill's message isn't one
         # the three calls only: the input counts include cache reads and writes, the output the reasoning
@@ -1903,7 +1903,7 @@ class ShopReceipt(Base):
     def test_its_parts_come_in_order(self):
         mod, drawn = self.module()
         s = "\n".join([
-            "Receipt v7.5 · Claude Code 2.1.300 · 9 Oct 2026",
+            "Receipt v7.6 · Claude Code 2.1.300 · 9 Oct 2026",
             "model    claude-opus-5-5 · effort high",
             "cost     $1.23 (Claude Code's own total at API prices)",
             "files    1 file written or edited (index.html) · 12 lines, 1 KB · a web page",
@@ -1927,11 +1927,35 @@ class ShopReceipt(Base):
         self.assertEqual(len(texts[at["TOTAL"]]), len(texts[at["TOTAL"] - 1]))  # as wide as the rule above it
         self.assertEqual(pic, (1, 1, [b"\xff\0\0"]))
         drawn.clear()
-        mod.picture("Receipt v7.5 · Claude Code\nmodel    m · effort high\nsettings default")
+        mod.picture("Receipt v7.6 · Claude Code\nmodel    m · effort high\nsettings default")
         texts = [t for t, _ in drawn[0][0]]
         for heading in ("ASKED FOR", "MADE", "IT TOOK", "TOTAL"):
             self.assertNotIn(heading, texts)  # nothing asked for or shown: the plain receipt
         self.assertIn("model    m · effort high", texts)
+
+    def test_a_given_prompt_says_so_faintly_under_asked_for(self):
+        mod, drawn = self.module()
+        s = "\n".join([
+            "Receipt v7.6 · Claude Code 2.1.300",
+            "model    claude-opus-5-5",
+            "prompt   A stretchy galaxy slime",
+            "given    by the sender with --asked: claude -p output doesn't hold the prompt",
+        ])  # fmt: skip
+        mod.picture(s)
+        rows = drawn[0][0]
+        texts = [t for t, _ in rows]
+        i = texts.index("ASKED FOR")
+        self.assertEqual(rows[i + 1], ("A stretchy galaxy slime", 1))
+        faint = []
+        for t, style in rows[i + 2 :]:
+            if t == "":
+                break
+            self.assertEqual(style, 3, t)
+            faint.append(t)
+        self.assertEqual(" ".join(faint), "by the sender with --asked: claude -p output doesn't hold the prompt")
+        self.assertEqual(texts.count("ASKED FOR"), 1)
+        self.assertLess(i + 1 + len(faint), texts.index("IT TOOK"))
+        self.assertFalse(any(t and t.startswith("given") for t in texts))
 
     def test_a_picture_goes_on_it_as_it_is(self):
         self.claude_log()
@@ -2037,7 +2061,7 @@ class ShopReceipt(Base):
         seen = rgb_pixels(out)
         self.assertGreater(sum(n for px, n in seen.items() if sum(px) > 600), 0)  # the tone, bright
         mod, drawn = self.module()
-        mod.picture("Receipt v7.5 · Claude Code\nmodel    m", pic=(1, 1, [b"\0\0\0"]), note="the sound, read so")
+        mod.picture("Receipt v7.6 · Claude Code\nmodel    m", pic=(1, 1, [b"\0\0\0"]), note="the sound, read so")
         texts = [t for t, _ in drawn[0][0]]
         i = texts.index(None)
         self.assertEqual(drawn[0][0][i + 1], ("the sound, read so", 3))  # faint, right under it
@@ -2219,6 +2243,75 @@ class StreamJson(Base):
             pred = json.load(f)["predicate"]
         self.assertEqual(pred["prompts"], [])
         self.assertIn("claude -p's output doesn't hold the prompt", json.dumps(pred))
+
+    ASKED = "A stretchy galaxy slime you can pull apart,\nfor my kids' stall at the school science night."
+
+    def asked_file(self, text=ASKED):
+        f = os.path.join(self.home, "asked.txt")
+        with open(f, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        return f
+
+    def test_asked_puts_the_prompt_on_and_says_it_is_the_senders(self):
+        path, f = self.save(), self.asked_file()
+        out = self.ok(path, "--asked", f).stdout  # --asked shows it without --prompt
+        self.assertIn("prompt   A stretchy galaxy slime you can pull apart,\n         for my kids' stall", out)
+        self.assertIn("given    by the sender with --asked: claude -p output doesn't hold the prompt", out)
+        self.assertNotIn("prompt   not in", out)
+        self.assertEqual(self.ok(path, "--asked", "-", stdin=self.ASKED).stdout, out)  # - reads it from stdin
+        r = json.loads(self.ok(path, "--asked", f, "--json").stdout)
+        self.assertEqual((r["first_prompt"], r["prompt_given"]), (self.ASKED, True))
+        flat = " ".join(self.ASKED.split())
+        self.assertEqual(r["prompt_id"], hashlib.sha256(flat.encode()).hexdigest()[:12])
+        page = os.path.join(self.home, "page.html")
+        self.ok(path, "--asked", f, "--page", page)
+        with open(page, encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("Given by the sender with --asked: claude -p doesn't write the prompt", text)
+        self.assertNotIn("Not in the log", text)
+        self.assertIn("school science night.</pre>", text)
+        rec = os.path.join(self.home, "rec.json")
+        self.ok(path, "--asked", f, "--record", rec)
+        with open(rec, encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh)["predicate"]["prompts"], [])  # a record vouches only for the log
+
+    def test_asked_is_refused_where_the_log_has_its_prompt_or_it_cant_apply(self):
+        f = self.asked_file()
+        self.assertIn("given    by the sender", self.ok(self.save(), "--asked", f).stdout)  # control: it works here
+        self.claude_log()  # a session log holds its prompts
+        p = self.run_receipt("--asked", f)
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("this log holds its own prompt", p.stderr)
+        self.assertEqual(p.stdout, "")
+        for extra in (["--list"], ["--totals"], ["--compare", "x.json"]):
+            p = self.run_receipt("--asked", f, *extra)
+            self.assertNotEqual(p.returncode, 0, extra)
+            self.assertIn("--asked gives one session's prompt", p.stderr)
+        p = self.run_receipt(self.save(), "--asked", self.asked_file("  \n"))
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("is empty", p.stderr)
+        p = self.run_receipt(self.save(), "--asked", os.path.join(self.home, "nope.txt"))
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("can't read --asked", p.stderr)
+
+    def test_a_combined_receipt_keeps_saying_whose_words_the_prompt_is(self):
+        path, f = self.save(), self.asked_file()
+        a, b = os.path.join(self.home, "a.json"), os.path.join(self.home, "b.json")
+        self.ok(path, "--asked", f, "--out", a)
+        self.ok(path, "--asked", f, "--out", b)
+        out = self.ok("--combine", a, b, "--prompt").stdout
+        self.assertIn("prompt   A stretchy galaxy slime", out)
+        self.assertIn("given    by the sender with --asked", out)
+        self.ok(path, "--prompt", "--out", b)  # control: without --asked, no prompt to share and no given line
+        self.assertNotIn("given", self.ok("--combine", a, b, "--prompt").stdout)
+
+    def test_asked_is_scrubbed_like_a_logged_prompt(self):
+        path, f = self.save(), self.asked_file("Mail it to kid@example.com from /home/kid/proj")
+        p = self.run_receipt(path, "--asked", f)
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("the --asked prompt holds 1 email address", p.stderr)
+        out = self.ok(path, "--asked", f, "--redact").stdout
+        self.assertIn("Mail it to [email] from ~/proj", out)
 
     def test_a_session_log_is_read_as_before(self):  # the same messages with a prompt and timestamps on every entry
         self.claude_log()
