@@ -2539,6 +2539,80 @@ class StreamJson(Base):
         self.assertIn("2 prompts from me", out)
 
 
+
+class ExecJson(Base):
+    """codex exec --json: its events, without a prompt, model, version or times"""
+
+    def save(self):
+        page = os.path.join(self.proj, "index.html")
+        with open(page, "w", encoding="utf-8") as fh:
+            fh.write("<h1>slime</h1>\n")
+        es = [
+            {"type": "thread.started", "thread_id": "01a1-thread"},
+            {"type": "turn.started"},
+            {"type": "item.completed", "item": {"id": "i0", "type": "agent_message", "text": "I'll build it."}},
+            {"type": "item.completed", "item": {"id": "i1", "type": "command_execution", "command": "ls",
+                                                "aggregated_output": "x\n", "exit_code": 0, "status": "completed"}},
+            {"type": "item.completed", "item": {"id": "i2", "type": "file_change", "status": "completed",
+                                                "changes": [{"path": page, "kind": "add"}]}},
+            {"type": "item.completed", "item": {"id": "i3", "type": "command_execution", "command": "false",
+                                                "aggregated_output": "", "exit_code": 1, "status": "failed"}},
+            {"type": "item.completed", "item": {"id": "i4", "type": "agent_message", "text": "Done: open index.html now"}},
+            {"type": "turn.completed", "usage": {"input_tokens": 115000, "cached_input_tokens": 103000,
+                                                 "output_tokens": 9000, "reasoning_output_tokens": 100}},
+        ]  # fmt: skip
+        out = os.path.join(self.home, "out.jsonl")
+        with open(out, "w", encoding="utf-8") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in es))
+        return out
+
+    def test_a_receipt_from_codex_exec_output(self):
+        p = self.ok(self.save(), "--file-names")
+        out = p.stdout
+        self.assertIn("Receipt v7.7 · Codex CLI · no. ", out)  # no version, no date
+        self.assertIn("model    not in codex exec --json output · effort not recorded", out)
+        self.assertIn("time     not in codex exec --json output · 1 prompt from me", out)
+        self.assertIn("cost     no model in codex exec --json output, so no price (--model names it)", out)
+        self.assertIn("tokens   in 115k (103k cached) · out 9k", out)
+        self.assertIn("work     3 tool calls, 2 shell commands · web 0 · 1 failed call", out)
+        self.assertIn("files    1 file written or edited (index.html)", out)
+        self.assertIn("replies  1 reply, 4 words", out)  # the last message, as for the other tools
+        self.assertIn("settings not in codex exec --json output", out)
+        self.assertNotIn("warning", p.stderr)
+        self.assertEqual(self.ok(self.save(), "--codex", "--file-names").stdout.split("\n")[1:], out.split("\n")[1:])
+
+    def test_model_names_it_and_prices_its_tokens(self):
+        out = self.ok(self.save(), "--model", "gpt-5.6-sol").stdout
+        self.assertIn("model    gpt-5.6-sol (the sender's word, with --model: not in codex exec --json output)", out)
+        self.assertIn("cost     $0.27 (worked out from the logged tokens at API prices for the model you named)", out)
+        j = json.loads(self.ok(self.save(), "--model", "gpt-5.6-sol", "--json").stdout)
+        self.assertTrue(j["model_given"])
+        self.assertNotIn("_usage", j)
+        self.claude_log()  # a log that names its model: --model is refused there, and works on the one that doesn't
+        p = self.run_receipt("--model", "gpt-5.6-sol")
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("this log names its model", p.stderr)
+        p = self.run_receipt("--list", "--model", "x")
+        self.assertIn("--model names one log's model", p.stderr)
+
+    def test_asked_and_a_record_of_it(self):
+        path = self.save()
+        asked = os.path.join(self.home, "asked.txt")
+        with open(asked, "w", encoding="utf-8") as fh:
+            fh.write("A galaxy slime")
+        self.assertIn("given    by the sender with --asked: codex exec --json output doesn't hold the prompt",
+                      self.ok(path, "--asked", asked).stdout)
+        rec = os.path.join(self.home, "rec.json")
+        self.ok(path, "--record", rec)
+        said = self.ok("--verify", rec, os.path.join(self.proj, "index.html")).stdout
+        self.assertIn("came out of the run", said)
+        with open(rec, encoding="utf-8") as fh:
+            pred = json.load(fh)["predicate"]
+        self.assertEqual(pred["prompts"], [])
+        self.assertEqual(len(pred["tool_results"]), 2)
+        self.assertEqual([e.get("failed") for e in pred["tool_results"]], [None, True])
+
+
 class ChangedByRun(Base):
     """a file the run wrote whole, then changed with a shell command: what it made is the copy on disk"""
 

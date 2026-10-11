@@ -22,6 +22,8 @@ usage: python3 receipt.py [SESSION] [options]
   --counts         numbers instead of names for skills, MCP servers, plugins, subagent types and memory files
   --rename a=b     show name a as b (repeatable); fails if a isn't on the receipt, so a typo can't leak it
   --prompt         also print your prompts (home folders become ~; stops if one holds an email address or a key)
+  --model NAME     the model, for a log that doesn't name it (codex exec --json output): said to be your word,
+                   and its tokens priced at that model's API prices
   --asked FILE     the prompt a log doesn't hold (claude -p output), from FILE or - for stdin; the receipt
                    says it is the sender's words, and a --record still vouches only for the log
   --reply          also print the model's last reply, checked the same way
@@ -1800,6 +1802,74 @@ def codex(path, part=None):
     return r
 
 
+EXEC_JSON = "codex exec --json output"
+
+
+def is_exec_json(path):
+    """is this the output of `codex exec --json`? It starts with the thread it made"""
+    try:
+        return next(lines(path), {}).get("type") == "thread.started"
+    except (OSError, StopIteration):
+        return False
+
+
+def codex_exec(path, part=None):
+    """the output of `codex exec --json` (its events, printed as the run went): the replies, commands, files and
+    tokens, without the prompt, the model, Codex's version or any times, which it doesn't print"""
+    r = {"tool": "Codex CLI", "part": "whole session", "log_name": EXEC_JSON}
+    usage, calls, shell, web, mcp, errors, written, deleted, replies, key = collections.Counter(), 0, 0, 0, 0, 0, set(), set(), 0, None
+    for d in lines(path):
+        t, it = d.get("type"), d.get("item") or {}
+        if t == "thread.started":
+            key = key or d.get("thread_id")
+        elif t == "turn.completed":
+            usage.update({k: v for k, v in (d.get("usage") or {}).items() if isinstance(v, int)})
+        elif t == "item.completed":
+            kind = it.get("type")
+            if kind == "agent_message":
+                replies += 1
+            elif kind == "command_execution":
+                calls, shell = calls + 1, shell + 1
+                errors += it.get("exit_code") not in (0, None)
+            elif kind == "file_change":
+                calls += 1
+                for ch in it.get("changes") or []:
+                    (deleted if ch.get("kind") == "delete" else written).add(ch.get("path"))
+            elif kind == "web_search":
+                calls, web = calls + 1, web + 1
+            elif kind == "mcp_tool_call":
+                calls, mcp = calls + 1, mcp + 1
+    if not key:
+        sys.exit(f"receipt: {path} has no thread.started event; is it the output of codex exec --json?")
+    r.update(version="", models=[], providers=[], effort="not recorded", permissions=None, started=None, ended=None,
+             prompts=1, prompts_unsaved=1, model_time_ms=None, session_key=key, first_prompt=None,
+             cost_note=f"no model in {EXEC_JSON}, so no price (--model names it)", billing=codex_billing([]),
+             tokens_in=usage["input_tokens"], tokens_cached=usage["cached_input_tokens"],
+             tokens_out=usage["output_tokens"], tool_calls=calls, shell_commands=shell, web=web, images_made=0,
+             tool_errors=errors, interrupted=0, skills_used={}, mcp_used={"MCP tool calls": mcp} if mcp else {},
+             hooks=None, memory=None, replies=replies, _usage=dict(usage))  # fmt: skip
+    files_part(r, sorted(p for p in written - deleted if p), len(deleted))
+    return r
+
+
+def exec_turns(path):
+    """codex exec --json output as one turn: its last reply, tool calls and files; no times, prompt or model"""
+    reply, calls, shell, files = None, 0, 0, set()
+    for d in lines(path):
+        it = d.get("item") or {}
+        if d.get("type") != "item.completed":
+            continue
+        if it.get("type") == "agent_message" and (it.get("text") or "").strip():
+            reply = it["text"]
+        elif it.get("type") in ("command_execution", "file_change", "web_search", "mcp_tool_call"):
+            calls += 1
+            shell += it.get("type") == "command_execution"
+            files |= {c.get("path") for c in it.get("changes") or [] if c.get("kind") != "delete"}
+    return [{"n": 1, "started": None, "time_ms": None, "tool_calls": calls, "shell_commands": shell,
+             "files": len(files - {None}), "prompt": None, "reply": reply, "model": None, "effort": None,
+             "_models": {}}]  # fmt: skip
+
+
 # ---------- OpenCode ----------
 
 OC_BUILTIN = {
@@ -3173,7 +3243,7 @@ def output_subject(path, written, ended, names, n, how_made=None):
         with open(path, "rb") as fh:
             body = fh.read()
         disk = sha(body)
-        later = os.path.getmtime(path) > when(ended).timestamp() + 2
+        later = ended is not None and os.path.getmtime(path) > when(ended).timestamp() + 2
     except OSError:
         pass
     if written is not None and disk is not None and not later and disk != sha(written):
@@ -3543,15 +3613,37 @@ def record_copilot(path, part, names, counts):
     return rec, writes, ["Copilot CLI logs no tool definitions"]
 
 
+def record_exec(path, part, names, counts):
+    """codex exec --json output: what its commands printed and the files it changed; the output holds no text
+    of the files, so each is fingerprinted as it is on disk now"""
+    seen, writes = [], {}
+    for d in lines(path):
+        it = d.get("item") or {}
+        if d.get("type") != "item.completed":
+            continue
+        if it.get("type") == "command_execution":
+            e = {"tool": "command_execution", "sha256": sha(it.get("aggregated_output") or "")}
+            if it.get("exit_code") not in (0, None):
+                e["failed"] = True
+            seen.append(e)
+        elif it.get("type") == "file_change":
+            for c in it.get("changes") or []:
+                if c.get("path") and c.get("kind") != "delete":
+                    writes[c["path"]] = None
+    return {"prompts": [], "tool_results": seen}, writes, [
+        f"{EXEC_JSON} holds no prompt, system prompt, instruction files, model or times",
+        "files are fingerprinted as they are on disk now: the output doesn't hold their text"]
+
+
 def make_record(r, tool, key, part, names, counts, hide, renames, turns=()):
-    rec, writes, limits = {
+    rec, writes, limits = (record_exec if r.get("log_name") == EXEC_JSON else {
         "claude": record_claude,
         "codex": record_codex,
         "opencode": record_opencode,
         "qwen": record_qwen,
         "gemini": record_gemini,
         "copilot": record_copilot,
-    }[tool](key, part, names, counts)
+    }[tool])(key, part, names, counts)
     made = [
         output_subject(p, w, r["ended"], names, n)
         for n, (p, w) in enumerate(writes.items(), 1)
@@ -4024,7 +4116,7 @@ def check(r):
     w = []
     if not r.get("prompts"):
         w.append("found no prompts from you in this log")
-    elif not r.get("models"):
+    elif not r.get("models") and not r.get("replies"):
         w.append("found your prompts but no model reply")
     elif not (r.get("tokens_in") or r.get("tokens_out")):
         w.append("found model replies but no token counts")
@@ -4827,11 +4919,13 @@ def text(r, hide, with_prompt, width=80):
             if via
             else ""
         )
+        named = f" (the sender's word, with --model: not in {r['log_name']})" if r.get("model_given") else ""
+        none = f"not in {r['log_name']}" if r.get("log_name") == EXEC_JSON else "no model reply in this log"
         out.append(
-            f"model    {', '.join(r['models']) or 'no model reply in this log'}{via}{bg} · effort {r['effort']}"
+            f"model    {', '.join(r['models']) or none}{named}{via}{bg} · effort {r['effort']}"
         )
     if "time" not in hide:
-        took = mins(r["duration_ms"])
+        took = mins(r["duration_ms"]) if r.get("duration_ms") is not None else f"not in {r.get('log_name') or 'the log'}"
         if r.get("model_time_ms"):
             took += f" (model working {mins(r['model_time_ms'])})"
         out.append(
@@ -4976,7 +5070,7 @@ def text(r, hide, with_prompt, width=80):
         )
         out.append(f"memory   {m}")
     if "settings" not in hide:
-        out.append(f"settings {r['permissions']}")
+        out.append(f"settings {r['permissions'] if r.get('permissions') is not None else 'not in ' + (r.get('log_name') or 'the log')}")
     if r.get("turns"):
         out += turn_lines(r, hide, width)
     if r.get("prompt_id"):
@@ -5727,12 +5821,17 @@ def stats(took):
     first = {label.strip(): values[0].split(" · ")[0] for label, values in took}
     out = []
     if "model" in first:
-        out.append(first["model"])
-    if "time" in first:
+        out.append(first["model"].split(" (")[0])
+    if "time" in first and not first["time"].startswith("not in"):
         out.append(first["time"].split(" (")[0])
     if "work" in first:
         out.append(first["work"].split(", ")[0])
     return out
+
+
+def named(took):
+    """is the model the sender's word (--model), not the log's?"""
+    return any(label.strip() == "model" and "with --model" in values[0] for label, values in took)
 
 
 CARD_W, CARD_H = 1080, 1350  # 4:5, which X, Bluesky and LinkedIn show whole in a feed
@@ -5782,6 +5881,8 @@ def card(s, pic=None, total=None, note=None, no=None):
     glance = stats(took)
     if glance:
         say(" · ".join(glance), 4, most=3)
+    if named(took):
+        say("model named by the sender, not from the log", 2, 3)
     if total:
         word, _, rest = total[0].partition(" ")
         items.append(("gap", "", 2, 0))
@@ -5848,7 +5949,7 @@ def alt_text(s, total=None, note=None, pic=None, most=1000):
         said.append(f"Made: {things[0]}.")
     glance = stats(took)
     if glance:
-        said.append("It took: " + ", ".join(glance) + ".")
+        said.append("It took: " + ", ".join(glance) + (" (the model named by the sender)" if named(took) else "") + ".")
     if total:
         said.append(f"{total[0][:1]}{total[0][1:5].lower()}{total[0][5:]}: {total[1]}.")  # TOTAL at API prices
     rest = " ".join(said)
@@ -6019,6 +6120,7 @@ def main():
     ap.add_argument("--rename", action="append", default=[])
     ap.add_argument("--prompt", action="store_true")
     ap.add_argument("--asked", metavar="FILE")
+    ap.add_argument("--model", metavar="NAME")
     ap.add_argument("--redact", action="store_true")
     ap.add_argument("--prompt-id", action="store_true")
     ap.add_argument("--file-names", action="store_true")
@@ -6118,6 +6220,9 @@ def main():
         if not asked:
             sys.exit(f"receipt: --asked {a.asked} is empty")
         a.prompt = True  # giving the prompt is asking for it on the receipt
+    if a.model and (a.list or a.totals or a.hook or a.combine or a.compare):
+        sys.exit("receipt: --model names one log's model, so it can't go with --list, --totals, --hook, --combine "
+                 "or --compare")  # fmt: skip
     if a.out and a.out.lower().endswith(".png"):
         a.png = True
     if a.out and a.out.lower().endswith(".json"):
@@ -6219,12 +6324,12 @@ def main():
             keys = [k for k in keys if changed(tool, k).date() >= since]
         if len(keys) > 100:
             print(f"receipt: reading {len(keys):,} sessions…", file=sys.stderr)
-        rows, priced = totals(tool, keys, a.totals, since, until) if keys else ({}, True)
+        rows, all_priced = totals(tool, keys, a.totals, since, until) if keys else ({}, True)
         if not rows:
             sys.exit("receipt: no prompts in those dates" if since or until else f"receipt: no prompts in {TOOLS[tool]}'s sessions")
         billing = claude_billing() if tool == "claude" else None
         scope = "every folder" if a.all else f"folder {base_name(os.getcwd())}"
-        s, payload = totals_text(tool, scope, a.totals, rows, priced, hide, billing, since, until)
+        s, payload = totals_text(tool, scope, a.totals, rows, all_priced, hide, billing, since, until)
         r = {"tool": "totals-" + TOOLS[tool]}
         saved = emit(a, r, s, json.dumps(payload, indent=1) if a.json else None, table=True)
         if a.link:
@@ -6314,13 +6419,16 @@ def main():
                 sys.exit(
                     f"receipt: --pick {n}, but {scope} has {found} sessions (see --list)"
                 )
-        r = {"opencode": opencode, "codex": codex, "qwen": qwen, "gemini": gemini, "copilot": copilot, "claude": claude}[
+        reader = {"opencode": opencode, "codex": codex, "qwen": qwen, "gemini": gemini, "copilot": copilot, "claude": claude}[
             tool
-        ](path, part)
+        ]
+        if tool in ("claude", "codex") and is_exec_json(path):
+            reader, tool = codex_exec, "codex"
+        r = reader(path, part)
         r["receipt_version"] = VERSION
-        r["duration_ms"] = round(
-            (when(r["ended"]) - when(r["started"])).total_seconds() * 1000
-        )
+        r["duration_ms"] = (
+            round((when(r["ended"]) - when(r["started"])).total_seconds() * 1000) if r.get("started") else None
+        )  # fmt: skip
         r.setdefault("extras", {})
         r["receipt_no"] = receipt_no(r["tool"], r.pop("session_key"), r["part"])
         if tool == "claude":
@@ -6340,7 +6448,7 @@ def main():
             or a.record
             or a.bundle
         ):
-            rows = TURNS[tool](path)
+            rows = (exec_turns if reader is codex_exec else TURNS[tool])(path)
             sel, _ = pick(len(rows), part)
             rows = rows[sel[0] : sel[1]] if sel else rows
         if "output" not in hide:  # the replies the run gave: how many, how long; their text stays off
@@ -6352,6 +6460,20 @@ def main():
                 sys.exit("receipt: this log holds its own prompt (--prompt shows it); --asked is for a log that "
                          "doesn't, like claude -p output")  # fmt: skip
             r["first_prompt"], r["prompt_given"] = asked, True
+        used = r.pop("_usage", None)
+        if a.model:  # a model the log doesn't name, in the sender's words: its tokens priced at that model
+            if r.get("log_name") != EXEC_JSON:
+                sys.exit(f"receipt: this log names its model ({', '.join(r['models']) or 'none replied'}); --model is "
+                         f"for one that doesn't, like {EXEC_JSON}")  # fmt: skip
+            r["models"], r["model_given"] = [a.model], True
+            bill = Bill()
+            codex_call(bill, a.model, used or {})
+            if bill.lines:
+                r["cost_usd"] = round(bill.total(), 6)
+                r["cost_note"] = "worked out from the logged tokens at API prices for the model you named"
+                priced(r, bill)
+            else:
+                r["cost_note"] = f"the price table has none for {a.model}"
     if a.rename:
         rename(r, a.rename)
     renames = dict(p.split("=", 1) for p in a.rename)
