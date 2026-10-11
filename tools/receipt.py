@@ -110,7 +110,7 @@ import urllib.parse
 import zipfile
 import zlib
 
-VERSION = "7.7"
+VERSION = "7.8"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 SITE = "https://musharna.github.io/prompt-receipts/"
 LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters
@@ -461,8 +461,8 @@ class Bill:
         self.given = {}  # model -> $, calls the log shows only as the tool's own figure
         self.fast = self.us = 0  # calls in fast mode / processed in the US only
 
-    def add(self, model, n, fast=False, us=False, searches=0):
-        """n: tokens of each kind, in CLASSES' order"""
+    def add(self, model, n, fast=False, us=False, searches=0, summed=False):
+        """n: tokens of each kind, in CLASSES' order; summed: n adds up several calls, so no one prompt's size is known"""
         model = re.sub(r"\[.*\]$", "", model or "?")
         row = rates_for(model)
         if row is None:
@@ -471,9 +471,9 @@ class Bill:
             return
         extra = row[5] if len(row) > 5 else {}
         rates, mult = row[:5], 1
-        if extra.get("above") and sum(n[:4]) > extra["above"][0]:
+        if extra.get("above") and sum(n[:4]) > extra["above"][0] and not summed:
             rates = extra["above"][1:]
-        for tier in extra.get("tiers", []):  # the last range the prompt is past sets the price
+        for tier in extra.get("tiers", []) if not summed else []:  # the last range the prompt is past sets the price
             if sum(n[:4]) > tier[0]:
                 rates = tier[1:]
         if fast:
@@ -1609,7 +1609,14 @@ def codex_window(path, part):
     return bounds(marks, sel), name
 
 
-def codex_call(bill, model, u):
+def long_from(model):
+    """the prompt size past which a model costs more, if it does"""
+    row = rates_for(model) or []
+    extra = row[5] if len(row) > 5 else {}
+    return extra["above"][0] if extra.get("above") else (extra["tiers"][0][0] if extra.get("tiers") else None)
+
+
+def codex_call(bill, model, u, summed=False):
     # input_tokens counts the cached and cache-written tokens too; output_tokens counts reasoning
     cached, wrote = (
         u.get("cached_input_tokens") or 0,
@@ -1624,6 +1631,7 @@ def codex_call(bill, model, u):
             0,
             u.get("output_tokens") or 0,
         ],
+        summed=summed,
     )
 
 
@@ -6467,10 +6475,14 @@ def main():
                          f"for one that doesn't, like {EXEC_JSON}")  # fmt: skip
             r["models"], r["model_given"] = [a.model], True
             bill = Bill()
-            codex_call(bill, a.model, used or {})
+            codex_call(bill, a.model, used or {}, summed=True)  # the turn's total: its calls' sizes aren't logged
             if bill.lines:
                 r["cost_usd"] = round(bill.total(), 6)
                 r["cost_note"] = "worked out from the logged tokens at API prices for the model you named"
+                long = long_from(a.model)
+                if long and (used or {}).get("input_tokens", 0) > long:
+                    r["cost_note"] += (f", at its standard rate: the log adds up the run's calls, so if one went past "
+                                       f"{long // 1000}k tokens it cost more")  # fmt: skip
                 priced(r, bill)
             else:
                 r["cost_note"] = f"the price table has none for {a.model}"

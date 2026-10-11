@@ -283,7 +283,7 @@ class Receipts(Base):
     def test_claude_code_receipt(self):
         self.claude_log()
         out = self.ok().stdout
-        self.assertIn("Receipt v7.7 · Claude Code 2.1.300", out)
+        self.assertIn("Receipt v7.8 · Claude Code 2.1.300", out)
         self.assertIn(
             "2 prompts from me", out
         )  # the "[Request interrupted" line isn't a prompt
@@ -338,7 +338,7 @@ class Receipts(Base):
     def test_opencode(self):
         self.opencode_db()
         out = self.ok("--opencode").stdout
-        self.assertIn("Receipt v7.7 · OpenCode 1.18.31", out)
+        self.assertIn("Receipt v7.8 · OpenCode 1.18.31", out)
         self.assertIn("qwen3:8b (ollama, on this computer)", out)
         self.assertIn("2 prompts from me", out)
         self.assertIn("1 failed call", out)
@@ -412,7 +412,7 @@ class Receipts(Base):
             "prompt_id",
         ):
             self.assertNotIn(k, r)
-        self.assertEqual(r["receipt_version"], "7.7")
+        self.assertEqual(r["receipt_version"], "7.8")
         self.assertEqual(r["tool_errors"], 1)
         names = json.loads(self.ok("--json", "--file-names").stdout)["file_names"]
         self.assertEqual(names, ["index.html"])
@@ -426,7 +426,7 @@ class Receipts(Base):
         self.assertIn("warning  found your prompts but no model reply", p.stdout)
 
     def test_version(self):
-        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.7")
+        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.8")
 
     # ---------- output ----------
 
@@ -462,7 +462,7 @@ class Receipts(Base):
         url = out.strip().split("\n")[-1]
         self.assertTrue(url.startswith("https://docs.google.com/forms/"), url)
         self.assertIn("entry.349092046=tool", url)
-        self.assertIn("entry.1393206370=Receipt%20v7.7", url)
+        self.assertIn("entry.1393206370=Receipt%20v7.8", url)
 
     def test_hook_saves_a_receipt(self):
         log = self.claude_log()
@@ -479,7 +479,7 @@ class Receipts(Base):
         saved = os.listdir(folder)
         self.assertEqual(len(saved), 1)
         with open(os.path.join(folder, saved[0]), encoding="utf-8") as f:
-            self.assertIn("Receipt v7.7 · Claude Code", f.read())
+            self.assertIn("Receipt v7.8 · Claude Code", f.read())
 
     def test_combine_and_compare(self):
         self.claude_log()
@@ -1231,7 +1231,7 @@ class Totals(Base):
 
     def test_by_day_in_this_folder(self):
         out = self.ok("--totals").stdout
-        self.assertIn("Totals v7.7 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
+        self.assertIn("Totals v7.8 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
         self.assertRegex(out, r"\nThu 1 Oct 2026 +\$4\.00 +1 +1 ")
         self.assertRegex(out, r"\nSat 3 Oct 2026 +\$2\.00 +1 +2 ")
         self.assertRegex(out, r"\ntotal +\$6\.00 +1 +3 ")
@@ -1418,7 +1418,7 @@ class Qwen(Base):
     def test_receipt(self):
         self.qwen_log()
         out = self.ok("--qwen").stdout
-        self.assertIn("Receipt v7.7 · Qwen Code 0.25.0", out)
+        self.assertIn("Receipt v7.8 · Qwen Code 0.25.0", out)
         self.assertIn("2 prompts from me", out)  # Qwen Code's own notice isn't a prompt
         # all three calls, the memory extractor's too: 46k in (20k cached), 320 out
         self.assertIn("tokens   in 46k (20k cached) · out 320", out)
@@ -1519,7 +1519,7 @@ class Gemini(Base):
     def test_receipt(self):
         self.gemini_log()
         out = self.ok("--gemini").stdout
-        self.assertIn("Receipt v7.7 · Gemini CLI · ", out)  # no version is logged
+        self.assertIn("Receipt v7.8 · Gemini CLI · ", out)  # no version is logged
         self.assertIn("2 prompts from me", out)  # its opening message and the tool results aren't prompts
         # each reply once, and the subagent's: 36k in (18k cached); out counts the 40 tokens of reasoning
         self.assertIn("tokens   in 36k (18k cached) · out 186", out)
@@ -1613,7 +1613,7 @@ class Copilot(Base):
     def test_receipt(self):
         self.copilot_log()
         out = self.ok("--copilot").stdout
-        self.assertIn("Receipt v7.7 · Copilot CLI 1.0.95", out)
+        self.assertIn("Receipt v7.8 · Copilot CLI 1.0.95", out)
         self.assertIn("model    claude-opus-4.7 · effort high → xhigh", out)
         self.assertIn("2 prompts from me", out)  # the skill's message isn't one
         # the three calls only: the input counts include cache reads and writes, the output the reasoning
@@ -1906,7 +1906,7 @@ class ShopReceipt(Base):
     def test_its_parts_come_in_order(self):
         mod, drawn = self.module()
         s = "\n".join([
-            "Receipt v7.7 · Claude Code 2.1.300 · 9 Oct 2026",
+            "Receipt v7.8 · Claude Code 2.1.300 · 9 Oct 2026",
             "model    claude-opus-5-5 · effort high",
             "cost     $1.23 (Claude Code's own total at API prices)",
             "files    1 file written or edited (index.html) · 12 lines, 1 KB · a web page",
@@ -1934,7 +1934,7 @@ class ShopReceipt(Base):
             self.assertEqual(style[heading], 5)  # on a dark tag
         self.assertEqual(pic, (1, 1, [b"\xff\0\0"]))
         drawn.clear()
-        mod.picture("Receipt v7.7 · Claude Code\nmodel    m · effort high\nsettings default")
+        mod.picture("Receipt v7.8 · Claude Code\nmodel    m · effort high\nsettings default")
         texts = [t for t, _ in drawn[0][0]]
         for heading in ("ASKED FOR", "MADE", "IT TOOK", "TOTAL"):
             self.assertNotIn(heading, texts)  # nothing asked for or shown: the plain receipt
@@ -1943,7 +1943,7 @@ class ShopReceipt(Base):
     def test_a_given_prompt_says_so_faintly_under_asked_for(self):
         mod, drawn = self.module()
         s = "\n".join([
-            "Receipt v7.7 · Claude Code 2.1.300",
+            "Receipt v7.8 · Claude Code 2.1.300",
             "model    claude-opus-5-5",
             "prompt   A stretchy galaxy slime",
             "given    by the sender with --asked: claude -p output doesn't hold the prompt",
@@ -2068,7 +2068,7 @@ class ShopReceipt(Base):
         seen = rgb_pixels(out)
         self.assertGreater(sum(n for px, n in seen.items() if sum(px) > 600), 0)  # the tone, bright
         mod, drawn = self.module()
-        mod.picture("Receipt v7.7 · Claude Code\nmodel    m", pic=(1, 1, [b"\0\0\0"]), note="the sound, read so")
+        mod.picture("Receipt v7.8 · Claude Code\nmodel    m", pic=(1, 1, [b"\0\0\0"]), note="the sound, read so")
         texts = [t for t, _ in drawn[0][0]]
         i = texts.index(None)
         self.assertEqual(drawn[0][0][i + 1], ("the sound, read so", 3))  # faint, right under it
@@ -2207,7 +2207,7 @@ class Looks(Base):
     """--look card and print, --theme, the barcode and the alt text"""
 
     SAYS = "\n".join([
-        "Receipt v7.7 · Claude Code 2.1.300 · 9 Oct 2026 · no. 1a2b-3c4d",
+        "Receipt v7.8 · Claude Code 2.1.300 · 9 Oct 2026 · no. 1a2b-3c4d",
         "model    claude-opus-5-5 · effort high",
         "time     11 min (model working 9 min) · 1 prompt from me",
         "cost     $1.23 (Claude Code's own total at API prices)",
@@ -2543,7 +2543,7 @@ class StreamJson(Base):
 class ExecJson(Base):
     """codex exec --json: its events, without a prompt, model, version or times"""
 
-    def save(self):
+    def save(self, usage=None):
         page = os.path.join(self.proj, "index.html")
         with open(page, "w", encoding="utf-8") as fh:
             fh.write("<h1>slime</h1>\n")
@@ -2558,8 +2558,8 @@ class ExecJson(Base):
             {"type": "item.completed", "item": {"id": "i3", "type": "command_execution", "command": "false",
                                                 "aggregated_output": "", "exit_code": 1, "status": "failed"}},
             {"type": "item.completed", "item": {"id": "i4", "type": "agent_message", "text": "Done: open index.html now"}},
-            {"type": "turn.completed", "usage": {"input_tokens": 115000, "cached_input_tokens": 103000,
-                                                 "output_tokens": 9000, "reasoning_output_tokens": 100}},
+            {"type": "turn.completed", "usage": usage or {"input_tokens": 115000, "cached_input_tokens": 103000,
+                                                          "output_tokens": 9000, "reasoning_output_tokens": 100}},
         ]  # fmt: skip
         out = os.path.join(self.home, "out.jsonl")
         with open(out, "w", encoding="utf-8") as f:
@@ -2569,7 +2569,7 @@ class ExecJson(Base):
     def test_a_receipt_from_codex_exec_output(self):
         p = self.ok(self.save(), "--file-names")
         out = p.stdout
-        self.assertIn("Receipt v7.7 · Codex CLI · no. ", out)  # no version, no date
+        self.assertIn("Receipt v7.8 · Codex CLI · no. ", out)  # no version, no date
         self.assertIn("model    not in codex exec --json output · effort not recorded", out)
         self.assertIn("time     not in codex exec --json output · 1 prompt from me", out)
         self.assertIn("cost     no model in codex exec --json output, so no price (--model names it)", out)
@@ -2594,6 +2594,18 @@ class ExecJson(Base):
         self.assertIn("this log names its model", p.stderr)
         p = self.run_receipt("--list", "--model", "x")
         self.assertIn("--model names one log's model", p.stderr)
+
+    def test_added_up_calls_get_the_standard_rate(self):  # 362k in over a turn's calls is no 362k-token prompt
+        log = self.save({"input_tokens": 362000, "cached_input_tokens": 305000, "output_tokens": 2000})
+        j = json.loads(self.ok(log, "--model", "gpt-5.6-luna", "--json").stdout)
+        self.assertEqual({i["kind"]: i["rate"] for i in j["items"]}, {"input": 0.2, "cache read": 0.02, "output": 1.2})
+        self.assertAlmostEqual(j["cost_usd"], 0.0199)
+        self.assertIn("cost     $0.02 (worked out from the logged tokens at API prices for the model you named, at its "
+                      "standard rate: the log adds up the run's calls, so if one went past 272k tokens it cost more)",
+                      self.ok(log, "--model", "gpt-5.6-luna").stdout)  # fmt: skip
+        j = json.loads(self.ok(log, "--model", "qwen-flash", "--json").stdout)  # priced by prompt size in tiers
+        self.assertEqual({i["rate"] for i in j["items"]}, {0.05, 0.4})
+        self.assertIn("past 256k tokens", j["cost_note"])
 
     def test_asked_and_a_record_of_it(self):
         path = self.save()
