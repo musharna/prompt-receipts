@@ -73,7 +73,7 @@ It needs only Python 3.9 or later. It reads the logs these tools already keep, s
 
 Run it somewhere else and it tells you where your sessions are; `--list --all` lists them from every folder.
 
-A run with `claude -p` in a script or CI can be saved with `--output-format stream-json --verbose > run.jsonl`, and `receipt run.jsonl` reads it like a session log. That output has no prompt, effort, hooks or memory files, so the receipt says they aren't in it.
+A run with `claude -p` in a script or CI can be saved with `--output-format stream-json --verbose > run.jsonl`, and `receipt run.jsonl` reads it like a session log. That output has no prompt, effort, hooks or memory files, so the receipt says they aren't in it. If you still have the prompt, `--asked prompt.txt` puts it on the receipt, with a line saying it is your words and not the log's.
 
 ### Common uses
 
@@ -117,7 +117,8 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 | `--counts` | Show numbers instead of the names of skills, MCP servers, plugins, subagent types and memory files |
 | `--rename old=new` | Show one name as another. Stops with an error if the name isn't on the receipt, so a typo can't leave the real one in |
 | `--prompt` | Add your prompts, each one numbered. Home folders become `~`, and it stops if a prompt holds an email address or a key |
-| `--redact` | With `--prompt`, `--reply`, `--recipe` or `--outcome`: print the text with `[email]` and `[key]` in their place instead of stopping |
+| `--asked FILE` | For a log that doesn't hold its prompt (`claude -p` output): put the prompt from FILE (or `-` for what you pipe in) on the receipt, checked like `--prompt`. The receipt says it is your words, not the log's, and a `--record` still vouches only for the log. It stops if the log holds its own prompt |
+| `--redact` | With `--prompt`, `--asked`, `--reply`, `--recipe` or `--outcome`: print the text with `[email]` and `[key]` in their place instead of stopping |
 | `--file-names` | Name the files the run wrote. Off by default: the receipt shows only how many and their types |
 
 ### Prompt by prompt

@@ -1,5 +1,10 @@
 # Changelog
 
+## receipt.py 7.6 (2026-10-10)
+
+- `--asked FILE` puts the prompt on a receipt whose log doesn't hold it (`claude -p` output never does): from a file, or `-` for what you pipe in. It is checked for home folders, email addresses and keys like a logged prompt. The receipt adds a `given` line saying the prompt is the sender's words, not the log's; on a `.png` it sits faint under ASKED FOR, and `--page` shows it with the same note. A `--record` still fingerprints only what the log holds. It stops if the log holds its own prompt.
+- The galaxy slime example on the site now shows its prompt, given with `--asked`.
+
 ## receipt.py 7.5 (2026-10-10)
 
 - Files a run's programs made are counted: a new `made` line lists the files that changed in the run's folder while it ran and that its own tools didn't write (a script's sound, ffmpeg's video), with their size and, for sounds and videos, how long they are. They go in the record, the bundle and the page too. Hidden folders, `node_modules`, `__pycache__`, virtual environments and the home folder aren't looked in.
