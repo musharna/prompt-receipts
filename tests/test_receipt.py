@@ -283,7 +283,7 @@ class Receipts(Base):
     def test_claude_code_receipt(self):
         self.claude_log()
         out = self.ok().stdout
-        self.assertIn("Receipt v7.4 · Claude Code 2.1.300", out)
+        self.assertIn("Receipt v7.5 · Claude Code 2.1.300", out)
         self.assertIn(
             "2 prompts from me", out
         )  # the "[Request interrupted" line isn't a prompt
@@ -338,7 +338,7 @@ class Receipts(Base):
     def test_opencode(self):
         self.opencode_db()
         out = self.ok("--opencode").stdout
-        self.assertIn("Receipt v7.4 · OpenCode 1.18.31", out)
+        self.assertIn("Receipt v7.5 · OpenCode 1.18.31", out)
         self.assertIn("qwen3:8b (ollama, on this computer)", out)
         self.assertIn("2 prompts from me", out)
         self.assertIn("1 failed call", out)
@@ -412,7 +412,7 @@ class Receipts(Base):
             "prompt_id",
         ):
             self.assertNotIn(k, r)
-        self.assertEqual(r["receipt_version"], "7.4")
+        self.assertEqual(r["receipt_version"], "7.5")
         self.assertEqual(r["tool_errors"], 1)
         names = json.loads(self.ok("--json", "--file-names").stdout)["file_names"]
         self.assertEqual(names, ["index.html"])
@@ -426,7 +426,7 @@ class Receipts(Base):
         self.assertIn("warning  found your prompts but no model reply", p.stdout)
 
     def test_version(self):
-        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.4")
+        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.5")
 
     # ---------- output ----------
 
@@ -459,7 +459,7 @@ class Receipts(Base):
         url = out.strip().split("\n")[-1]
         self.assertTrue(url.startswith("https://docs.google.com/forms/"), url)
         self.assertIn("entry.349092046=tool", url)
-        self.assertIn("entry.1393206370=Receipt%20v7.4", url)
+        self.assertIn("entry.1393206370=Receipt%20v7.5", url)
 
     def test_hook_saves_a_receipt(self):
         log = self.claude_log()
@@ -476,7 +476,7 @@ class Receipts(Base):
         saved = os.listdir(folder)
         self.assertEqual(len(saved), 1)
         with open(os.path.join(folder, saved[0]), encoding="utf-8") as f:
-            self.assertIn("Receipt v7.4 · Claude Code", f.read())
+            self.assertIn("Receipt v7.5 · Claude Code", f.read())
 
     def test_combine_and_compare(self):
         self.claude_log()
@@ -1228,7 +1228,7 @@ class Totals(Base):
 
     def test_by_day_in_this_folder(self):
         out = self.ok("--totals").stdout
-        self.assertIn("Totals v7.4 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
+        self.assertIn("Totals v7.5 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
         self.assertRegex(out, r"\nThu 1 Oct 2026 +\$4\.00 +1 +1 ")
         self.assertRegex(out, r"\nSat 3 Oct 2026 +\$2\.00 +1 +2 ")
         self.assertRegex(out, r"\ntotal +\$6\.00 +1 +3 ")
@@ -1415,7 +1415,7 @@ class Qwen(Base):
     def test_receipt(self):
         self.qwen_log()
         out = self.ok("--qwen").stdout
-        self.assertIn("Receipt v7.4 · Qwen Code 0.25.0", out)
+        self.assertIn("Receipt v7.5 · Qwen Code 0.25.0", out)
         self.assertIn("2 prompts from me", out)  # Qwen Code's own notice isn't a prompt
         # all three calls, the memory extractor's too: 46k in (20k cached), 320 out
         self.assertIn("tokens   in 46k (20k cached) · out 320", out)
@@ -1516,7 +1516,7 @@ class Gemini(Base):
     def test_receipt(self):
         self.gemini_log()
         out = self.ok("--gemini").stdout
-        self.assertIn("Receipt v7.4 · Gemini CLI · ", out)  # no version is logged
+        self.assertIn("Receipt v7.5 · Gemini CLI · ", out)  # no version is logged
         self.assertIn("2 prompts from me", out)  # its opening message and the tool results aren't prompts
         # each reply once, and the subagent's: 36k in (18k cached); out counts the 40 tokens of reasoning
         self.assertIn("tokens   in 36k (18k cached) · out 186", out)
@@ -1610,7 +1610,7 @@ class Copilot(Base):
     def test_receipt(self):
         self.copilot_log()
         out = self.ok("--copilot").stdout
-        self.assertIn("Receipt v7.4 · Copilot CLI 1.0.95", out)
+        self.assertIn("Receipt v7.5 · Copilot CLI 1.0.95", out)
         self.assertIn("model    claude-opus-4.7 · effort high → xhigh", out)
         self.assertIn("2 prompts from me", out)  # the skill's message isn't one
         # the three calls only: the input counts include cache reads and writes, the output the reasoning
@@ -1903,7 +1903,7 @@ class ShopReceipt(Base):
     def test_its_parts_come_in_order(self):
         mod, drawn = self.module()
         s = "\n".join([
-            "Receipt v7.4 · Claude Code 2.1.300 · 9 Oct 2026",
+            "Receipt v7.5 · Claude Code 2.1.300 · 9 Oct 2026",
             "model    claude-opus-5-5 · effort high",
             "cost     $1.23 (Claude Code's own total at API prices)",
             "files    1 file written or edited (index.html) · 12 lines, 1 KB · a web page",
@@ -1927,7 +1927,7 @@ class ShopReceipt(Base):
         self.assertEqual(len(texts[at["TOTAL"]]), len(texts[at["TOTAL"] - 1]))  # as wide as the rule above it
         self.assertEqual(pic, (1, 1, [b"\xff\0\0"]))
         drawn.clear()
-        mod.picture("Receipt v7.4 · Claude Code\nmodel    m · effort high\nsettings default")
+        mod.picture("Receipt v7.5 · Claude Code\nmodel    m · effort high\nsettings default")
         texts = [t for t, _ in drawn[0][0]]
         for heading in ("ASKED FOR", "MADE", "IT TOOK", "TOTAL"):
             self.assertNotIn(heading, texts)  # nothing asked for or shown: the plain receipt
@@ -2037,7 +2037,7 @@ class ShopReceipt(Base):
         seen = rgb_pixels(out)
         self.assertGreater(sum(n for px, n in seen.items() if sum(px) > 600), 0)  # the tone, bright
         mod, drawn = self.module()
-        mod.picture("Receipt v7.4 · Claude Code\nmodel    m", pic=(1, 1, [b"\0\0\0"]), note="the sound, read so")
+        mod.picture("Receipt v7.5 · Claude Code\nmodel    m", pic=(1, 1, [b"\0\0\0"]), note="the sound, read so")
         texts = [t for t, _ in drawn[0][0]]
         i = texts.index(None)
         self.assertEqual(drawn[0][0][i + 1], ("the sound, read so", 3))  # faint, right under it
@@ -2050,13 +2050,16 @@ class ShopReceipt(Base):
         gif = os.path.join(self.home, "a.gif")
         with open(gif, "wb") as fh:
             fh.write(b"GIF89a")
-        p = self.run_receipt("--out", "r.png", "--picture", gif)
-        self.assertIn("isn't a PNG", p.stderr)
+        p = self.run_receipt("--out", "r.png", "--picture", gif, env=dict(self.env, RECEIPT_FFMPEG="none"))
+        self.assertIn("a.gif is a picture; receipt.py reads PNGs and WAVs itself and needs ffmpeg", p.stderr)
         deep = os.path.join(self.home, "deep.png")
         png_file(deep, 2, 2, [bytes(8), bytes(8)], kind=6, lace=1)  # interlaced
         p = self.run_receipt("--out", "r.png", "--picture", deep)
         self.assertIn("a kind of PNG receipt.py can't read", p.stderr)
-        self.assertIn("isn't a PNG or a WAV", self.run_receipt("--out", "r.png", "--picture", gif).stderr)
+        odd = os.path.join(self.home, "a.xyz")
+        with open(odd, "wb") as fh:
+            fh.write(b"hello")
+        self.assertIn("isn't a PNG or a WAV", self.run_receipt("--out", "r.png", "--picture", odd).stderr)
         good = wav_bytes(tone(440, 0.1))
         for name, data, says in [
             ("mulaw.wav", good[:20] + struct.pack("<H", 7) + good[22:], "a kind of WAV receipt.py can't read"),
@@ -2265,6 +2268,217 @@ class ChangedByRun(Base):
         self.assertIn("files    1 file written or edited (.js) · 1 line, 1 byte", out)
         self.assertEqual(p.returncode, 1)
         self.assertIn("NOT in this record", p.stdout)
+
+
+def mp4_bytes(secs, w, h, version=0):
+    """a small MP4 shaped like a real one: its header boxes after the media data, as many programs save it"""
+    def box(tag, body):
+        return struct.pack(">I", 8 + len(body)) + tag + body
+    if version == 1:
+        mvhd = bytes([1, 0, 0, 0]) + bytes(16) + struct.pack(">IQ", 1000, int(secs * 1000)) + bytes(80)
+    else:
+        mvhd = bytes(12) + struct.pack(">II", 1000, int(secs * 1000)) + bytes(80)
+    sound_trak = box(b"trak", box(b"tkhd", bytes(84)))  # a sound track: no width
+    trak = box(b"trak", box(b"tkhd", bytes(76) + struct.pack(">II", w << 16, h << 16)))
+    return box(b"ftyp", b"isom" + bytes(4)) + box(b"mdat", bytes(100)) + box(b"moov", box(b"mvhd", mvhd) + sound_trak + trak)
+
+
+def at(minute, second=0):
+    return datetime.datetime(2026, 10, 9, 14, minute, second, tzinfo=datetime.timezone.utc).timestamp()
+
+
+class MadeWhileItRan(Base):
+    """files a program the run ran made (a script's sound, ffmpeg's video) are counted apart, and shown and played"""
+
+    def need_ffmpeg(self):
+        if not shutil.which("ffmpeg"):
+            if os.environ.get("RECEIPT_TEST_NEEDS_FFMPEG"):
+                self.fail("ffmpeg isn't installed, and this run of the tests needs it")
+            self.skipTest("ffmpeg isn't installed")
+
+    def put(self, rel, data, when=None):
+        path = os.path.join(self.folder, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as fh:
+            fh.write(data)
+        t = at(2) if when is None else when
+        os.utime(path, (t, t))
+        return path
+
+    def log(self, folder=None, page="<p>hi</p>", own="index.html"):
+        self.folder = folder or self.proj
+        es = [
+            {"type": "user", "timestamp": ts(0), "cwd": self.folder, "version": "2.1.300", "sessionId": "v1",
+             "message": {"role": "user", "content": "make a song and a clip"}},
+            {"type": "assistant", "timestamp": ts(1), "message": {"id": "m1", "model": "claude-opus-5-5",
+             "usage": {"input_tokens": 10, "output_tokens": 5}, "content": [
+                 {"type": "tool_use", "id": "w", "name": "Write",
+                  "input": {"file_path": os.path.join(self.folder, own), "content": page}},
+                 {"type": "tool_use", "id": "b", "name": "Bash", "input": {"command": "python make.py"}}]}},
+            {"type": "assistant", "timestamp": ts(3), "message": {"id": "m2", "model": "claude-opus-5-5",
+             "usage": {"input_tokens": 10, "output_tokens": 5}, "content": [{"type": "text", "text": "made"}]}},
+        ]  # fmt: skip
+        folder = os.path.join(self.claude_dir, "projects", slug(self.folder))
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, "v1.jsonl"), "w", encoding="utf-8") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in es))
+        self.put(own, page.encode())  # its own write: counted as written, not as made
+
+    def song_and_clip(self, page="<p>hi</p>"):
+        self.log(page=page)
+        self.wav = wav_bytes(tone(440, 0.5))
+        self.put("song.wav", self.wav)
+        self.mp4 = mp4_bytes(12, 640, 360)
+        self.put("out/clip.mp4", self.mp4)
+        self.put(".cache/hidden.bin", b"x")  # not looked in
+        self.put("node_modules/dep.js", b"x")
+        self.put("before.txt", b"x", when=at(0) - 3600)  # there before the run
+        self.put("after.txt", b"x", when=at(30))  # changed long after it
+
+    def test_they_are_counted_on_a_line_of_their_own(self):
+        self.song_and_clip()
+        size = size_kb = len(self.wav) + len(self.mp4)
+        size_kb = f"{round(size / 1024)} KB"
+        out = self.ok().stdout
+        self.assertIn("files    1 file written or edited (.html)", out)
+        self.assertIn(f"made     2 files changed in its folder while it ran (.mp4, .wav) · {size_kb} · "
+                      "a video, 0:12, 640×360 · a sound, 0.5 s", out)  # fmt: skip
+        self.assertIn("(clip.mp4, song.wav)", self.ok("--file-names").stdout)
+        r = json.loads(self.ok("--json").stdout)
+        self.assertEqual((r["files_made"], r["made_bytes"]), (2, size))
+        self.assertEqual(r["made_media"], {"videos": 1, "video_seconds": 12.0, "video_size": "640×360",
+                                           "sounds": 1, "sound_seconds": 0.5})  # fmt: skip
+        self.assertNotIn("made_names", r)
+        hidden = self.ok("--hide", "files").stdout
+        self.assertNotIn("made     ", hidden)
+        self.assertFalse([k for k in json.loads(self.ok("--json", "--hide", "files").stdout) if "made" in k])
+
+    def test_they_go_in_the_record_page_and_bundle(self):
+        self.song_and_clip()
+        rec = os.path.join(self.home, "rec.json")
+        self.ok("--record", rec)
+        with open(rec, encoding="utf-8") as fh:
+            subjects = json.load(fh)["subject"]
+        made = [x for x in subjects if x["annotations"]["source"] == "changed in the run's folder while it ran"]
+        self.assertEqual(sorted(x["digest"]["sha256"] for x in made),
+                         sorted(hashlib.sha256(b).hexdigest() for b in (self.wav, self.mp4)))  # fmt: skip
+        page = os.path.join(self.home, "page.html")
+        self.ok("--page", page)
+        with open(page, encoding="utf-8") as fh:
+            html_ = fh.read()
+        self.assertIn('<audio controls preload="metadata" src="data:audio/wav;base64,'
+                      + base64.b64encode(self.wav).decode() + '"></audio>', html_)  # fmt: skip
+        self.assertIn('<video controls preload="metadata" playsinline src="data:video/mp4;base64,'
+                      + base64.b64encode(self.mp4).decode() + '"></video>', html_)  # fmt: skip
+        self.assertIn("file2.wav · changed in the run&#x27;s folder while it ran", html_)
+        zp = os.path.join(self.home, "b.zip")
+        self.ok("--bundle", zp)
+        with zipfile.ZipFile(zp) as z:
+            self.assertEqual(z.read("outputs/file2.wav"), self.wav)
+            preview = z.read("ro-crate-preview.html").decode()
+            crate = json.loads(z.read("ro-crate-metadata.json"))
+        self.assertIn('<audio controls preload="metadata" src="outputs/file2.wav"></audio>', preview)  # not twice
+        self.assertNotIn("data:audio", preview)
+        said = {x["@id"]: x.get("description") for x in crate["@graph"]}
+        self.assertEqual(said["outputs/file3.mp4"], "a file changed in the run's folder while it ran")
+        self.assertEqual(said["outputs/file1.html"], "a file the run wrote")
+        p = self.run_receipt("--verify", rec, os.path.join(self.proj, "song.wav"))
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+
+    def test_a_page_plays_the_sound_it_names_once(self):
+        self.song_and_clip(page='<audio controls src="song.wav"></audio><video src="nope.mp4"></video>')
+        page = os.path.join(self.home, "page.html")
+        self.ok("--page", page)
+        with open(page, encoding="utf-8") as fh:
+            html_ = fh.read()
+        import html as h
+        inner = h.unescape(re.search(r'<iframe sandbox="allow-scripts" srcdoc="([^"]*)"', html_).group(1))
+        self.assertIn('<audio controls src="data:audio/wav;base64,' + base64.b64encode(self.wav).decode() + '">', inner)
+        self.assertIn("so they aren't here: nope.mp4", html_)
+        self.assertEqual(html_.count(base64.b64encode(self.wav).decode()), 1)  # in the page, not again under Files
+        self.assertIn("It plays in the page above.", html_)
+
+    def big(self):
+        self.log()
+        second = wav_bytes(tone(440, 1.0))
+        body = second[44:] * 200  # 200 s, about 17 MB: more than one page holds
+        return self.put("long.wav", second[:40] + struct.pack("<I", len(body)) + body)
+
+    def test_too_big_for_the_page_without_ffmpeg(self):
+        self.big()
+        page = os.path.join(self.home, "page.html")
+        self.ok("--page", page, env=dict(self.env, RECEIPT_FFMPEG="none"))
+        with open(page, encoding="utf-8") as fh:
+            html_ = fh.read()
+        self.assertIn("Not shown: 16.8 MB, more than the page holds (with ffmpeg installed, a smaller copy is shown).",
+                      html_)  # fmt: skip
+        self.assertNotIn("<audio", html_)
+        self.assertLess(len(html_), 2**20)
+
+    def test_too_big_for_the_page_with_ffmpeg_a_smaller_copy_the_same_each_time(self):
+        self.need_ffmpeg()
+        self.big()
+        page = os.path.join(self.home, "page.html")
+        self.ok("--page", page)
+        with open(page, "rb") as fh:
+            first = fh.read()
+        self.assertIn(b'<audio controls preload="metadata" src="data:audio/mp4;base64,', first)
+        self.assertIn(b"A smaller copy, made with ffmpeg so it fits in the page", first)
+        self.assertLess(len(first), 25 * 2**20)
+        self.ok("--page", page)
+        with open(page, "rb") as fh:
+            self.assertEqual(fh.read(), first)  # --output-url's gist route makes the page twice
+
+    def test_the_home_folder_isnt_searched(self):
+        self.log(folder=self.home)
+        self.put("song.wav", wav_bytes(tone(440, 0.1)))
+        p = self.ok(cwd=self.home)
+        self.assertNotIn("made     ", p.stdout)
+        self.assertIn("didn't look for files programs the run ran made: its folder is your home folder", p.stderr)
+
+    def test_a_look_through_too_many_files_says_it_stopped(self):
+        mod, _ = ShopReceipt.module(self)
+        self.log()
+        for i in range(5):
+            self.put(f"f{i}.txt", b"x")
+        mod.MADE_SCAN_MAX = 3
+        found, stopped = mod.made_while(self.proj, ts(0), ts(3), set())
+        self.assertEqual((len(found), stopped), (3, True))
+        mod.MADE_SCAN_MAX = 100
+        self.assertEqual(len(mod.made_while(self.proj, ts(0), ts(3), set())[0]), 6)  # f0-f4 and index.html
+
+    def test_a_video_s_length_and_size_from_its_header(self):
+        mod, _ = ShopReceipt.module(self)
+        for version in (0, 1):
+            path = os.path.join(self.home, f"v{version}.mp4")
+            with open(path, "wb") as fh:
+                fh.write(mp4_bytes(75.5, 1920, 1080, version))
+            self.assertEqual(mod.mp4_info(path), (75.5, 1920, 1080))
+        self.assertEqual(mod.media_text(mod.media_facts([path, path])), "2 videos, 2:31 in all")
+
+    def test_shot_with_no_page_shows_its_sound_without_a_browser(self):
+        self.log(page="make a song", own="make.py")  # it wrote no page
+        self.put("song.wav", wav_bytes(tone(1000, 0.5)))
+        out = os.path.join(self.home, "r.png")
+        self.ok("--out", out, "--shot", env=dict(self.env, RECEIPT_BROWSER=os.path.join(self.home, "no-browser")))
+        self.assertGreater(sum(n for px, n in rgb_pixels(out).items() if sum(px) > 600), 0)  # the tone, bright
+
+    def test_a_video_as_frames_and_other_sounds_with_ffmpeg(self):
+        self.need_ffmpeg()
+        mod, _ = ShopReceipt.module(self)
+        clip, song = os.path.join(self.home, "clip.mp4"), os.path.join(self.home, "song.mp3")
+        for args in (["-f", "lavfi", "-i", "testsrc=size=320x240:rate=10:duration=2", "-pix_fmt", "yuv420p", clip],
+                     ["-f", "lavfi", "-i", "sine=frequency=1000:duration=1", song]):  # fmt: skip
+            subprocess.run(["ffmpeg", "-v", "error", "-y", *args], check=True)
+        (w, h, rows), note = mod.look(clip, "clip.mp4")
+        self.assertEqual((w, h, note), (4 * 480 + 3 * 8, 360, "4 frames from the video, 2 s long, 320×240"))
+        (w, h, rows), note = mod.look(song, "song.mp3")
+        self.assertEqual(note, "the sound as a spectrogram: 1 s across, 0-16 kHz up")
+        want = mel_row(1000, h, 16000)
+        for x in ShopReceipt.loudest(self, (w, h, rows)):
+            self.assertLessEqual(abs(x - want), 1)
+        p = self.run_receipt("--out", "r.png", "--picture", song, env=dict(self.env, RECEIPT_FFMPEG="none"))
+        self.assertIn("song.mp3 is a sound; receipt.py reads PNGs and WAVs itself and needs ffmpeg", p.stderr)
 
 
 if __name__ == "__main__":

@@ -34,8 +34,9 @@ usage: python3 receipt.py [SESSION] [options]
   --out PATH       save it to a file (.txt, .md, .json or .png) or into a folder
   --png            with --out: draw it as a picture, for posting where text gets mangled: what was asked
                    for, what it made, what it took and the total
-  --picture F.png  with --png: put a picture of what the run made on it, or a .wav's spectrogram (with
-                   --shot: a screenshot of the page it made)
+  --picture FILE   with --png: put a picture of what the run made on it: a PNG as it is, a sound as its
+                   spectrogram, a video as 4 of its frames (WAV and PNG need nothing; others need ffmpeg). With
+                   --shot: a screenshot of the page it made, or with no page, its video or sound
   --link           also print a link that shows the receipt on the site; the receipt is inside the link, so
                    nothing is uploaded
   --report         also print a link to the Prompt Receipts form with this receipt filled in
@@ -88,6 +89,7 @@ import shutil
 import signal
 import socketserver
 import sqlite3
+import stat
 import struct
 import subprocess
 import sys
@@ -99,7 +101,7 @@ import urllib.parse
 import zipfile
 import zlib
 
-VERSION = "7.4"
+VERSION = "7.5"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 SITE = "https://musharna.github.io/prompt-receipts/"
 LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters
@@ -764,6 +766,188 @@ def size_text(n):
     if n < 2**20:
         return f"{max(round(n / 1024), 1):,} KB"
     return f"{n / 2**20:,.1f} MB"
+
+
+AUDIO_TYPES = {".wav": "audio/wav", ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".oga": "audio/ogg", ".opus": "audio/ogg",
+               ".flac": "audio/flac", ".m4a": "audio/mp4", ".aac": "audio/aac"}  # fmt: skip
+VIDEO_TYPES = {".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm"}
+SKIP_DIRS = {"node_modules", "__pycache__", "venv", "env", "site-packages"}  # and every folder whose name starts with .
+MADE_SCAN_MAX = 20000  # files looked at, at most, for the ones made while the run went
+MADE_HOW = "changed in the run's folder while it ran"
+
+
+def made_while(folder, started, ended, written):
+    """-> (the files in folder last changed while the run went that its own tools didn't write, whether the look
+    stopped early). Programs it ran made these (a script's sound, ffmpeg's video); anything else changing files
+    there at the time would count too, which is why the receipt lists them apart"""
+    lo, hi = when(started).timestamp() - 1, when(ended).timestamp() + 2
+    found, seen = [], 0
+    for top, dirs, files in os.walk(folder):
+        dirs[:] = sorted(d for d in dirs if not d.startswith(".") and d not in SKIP_DIRS)
+        for f in sorted(files):
+            if f.startswith("."):
+                continue
+            seen += 1
+            if seen > MADE_SCAN_MAX:
+                return found, True
+            path = os.path.join(top, f)
+            try:
+                st = os.lstat(path)  # a link isn't followed
+            except OSError:
+                continue
+            if stat.S_ISREG(st.st_mode) and lo <= st.st_mtime <= hi and os.path.realpath(path) not in written:
+                found.append(path)
+    return found, False
+
+
+def length_text(secs):
+    if secs < 10:
+        return f"{secs:.2g} s"
+    secs = int(secs)
+    if secs < 3600:
+        return f"{secs // 60}:{secs % 60:02d}"
+    return f"{secs // 3600}:{secs % 3600 // 60:02d}:{secs % 60:02d}"
+
+
+def wav_secs(path):
+    """-> a WAV's length in seconds from its header alone, or None"""
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(12)
+            if head[:4] != b"RIFF" or head[8:12] != b"WAVE":
+                return None
+            rate = align = None
+            while True:
+                h = fh.read(8)
+                if len(h) < 8:
+                    return None
+                tag, n = struct.unpack("<4sI", h)
+                if tag == b"fmt ":
+                    _, _, rate, _, align, _ = struct.unpack("<HHIIHH", fh.read(n + (n & 1))[:16])
+                elif tag == b"data" and rate and align:
+                    return min(n, os.path.getsize(path) - fh.tell()) // align / rate
+                else:
+                    fh.seek(n + (n & 1), 1)
+    except (OSError, struct.error):
+        return None
+
+
+def mp4_info(path):
+    """-> (seconds, width, height) from an MP4, MOV or M4A's header boxes (0, 0 when there's no picture), or None"""
+
+    def boxes(b):
+        i = 0
+        while i + 8 <= len(b):
+            n, tag = struct.unpack(">I4s", b[i : i + 8])
+            if n < 8:
+                return
+            yield tag, b[i + 8 : i + n]
+            i += n
+
+    try:
+        size, pos, moov = os.path.getsize(path), 0, None
+        with open(path, "rb") as fh:
+            while pos + 8 <= size:
+                fh.seek(pos)
+                n, tag = struct.unpack(">I4s", fh.read(8))
+                head = 8
+                if n == 1:
+                    n, head = struct.unpack(">Q", fh.read(8))[0], 16
+                elif n == 0:
+                    n = size - pos
+                if n < head:
+                    return None
+                if tag == b"moov":
+                    moov = fh.read(min(n - head, 64 * 2**20))
+                    break
+                pos += n
+        if moov is None:
+            return None
+        secs, w, h = None, 0, 0
+        for tag, body in boxes(moov):
+            if tag == b"mvhd" and body:
+                scale, dur = struct.unpack(">IQ", body[20:32]) if body[0] == 1 else struct.unpack(">II", body[12:20])
+                secs = dur / scale if scale else None
+            elif tag == b"trak":
+                for t2, b2 in boxes(body):
+                    if t2 == b"tkhd" and len(b2) >= 84 and not w:
+                        tw, th = struct.unpack(">II", b2[-8:])
+                        w, h = tw >> 16, th >> 16
+        return secs, w, h
+    except (OSError, struct.error, IndexError):
+        return None
+
+
+def media_facts(paths):
+    """-> how many sounds and videos are among paths, and how long they are, from their headers (no decoding)"""
+    videos, sounds = [], []
+    for path in paths:
+        ext = os.path.splitext(path)[1].lower()
+        if ext in VIDEO_TYPES:
+            videos.append((mp4_info(path) if ext != ".webm" else None) or (None, 0, 0))
+        elif ext in AUDIO_TYPES:
+            sounds.append(wav_secs(path) if ext == ".wav" else (mp4_info(path) or (None,))[0] if ext == ".m4a" else None)
+    out = {}
+    if videos:
+        out["videos"] = len(videos)
+        if all(v[0] is not None for v in videos):
+            out["video_seconds"] = round(sum(v[0] for v in videos), 1)
+        if len(videos) == 1 and videos[0][1]:
+            out["video_size"] = f"{videos[0][1]}×{videos[0][2]}"
+    if sounds:
+        out["sounds"] = len(sounds)
+        if all(x is not None for x in sounds):
+            out["sound_seconds"] = round(sum(sounds), 1)
+    return out
+
+
+def media_text(m):
+    out = []
+    for kind in ("video", "sound"):
+        n = m.get(kind + "s")
+        if not n:
+            continue
+        t = f"a {kind}" if n == 1 else f"{n} {kind}s"
+        if m.get(kind + "_seconds") is not None:
+            t += f", {length_text(m[kind + '_seconds'])}" + (" in all" if n > 1 else "")
+        if kind == "video" and m.get("video_size"):
+            t += f", {m['video_size']}"
+        out.append(t)
+    return " · ".join(out)
+
+
+def made_part(r, folder):
+    """the files programs the run ran made: changed in its folder while it ran, besides the ones its own tools wrote"""
+    if not folder or not os.path.isdir(folder) or not r.get("started") or not r.get("ended"):
+        return
+    if os.path.realpath(folder) in {os.path.realpath(home()), os.path.realpath(os.path.abspath(os.sep))}:
+        print("receipt: didn't look for files programs the run ran made: its folder is your home folder, where "
+              "too much else changes", file=sys.stderr)  # fmt: skip
+        return
+    written = {os.path.realpath(x if os.path.isabs(x) else os.path.join(folder, x))
+               for x in r.get("_written", ([], {}))[0]}  # fmt: skip
+    paths, stopped = made_while(folder, r["started"], r["ended"], written)
+    r["_made"] = paths
+    if not paths and not stopped:
+        return
+    names_ = [base_name(x) for x in paths]
+    r["files_made"] = len(paths)
+    r["made_types"] = dict(collections.Counter(os.path.splitext(n)[1].lower() or "no type" for n in names_))
+    rank = lambda n: (0 if n.lower().endswith(tuple(VIDEO_TYPES)) else 1 if n.lower().endswith(tuple(AUDIO_TYPES))
+                      else 2 if n.lower().endswith(tuple(IMAGE_TYPES)) else 3, n)  # fmt: skip
+    r["made_names"] = sorted(set(names_), key=rank)  # videos and sounds first: what the run was asked for, mostly
+    size = 0
+    for x in paths:
+        try:
+            size += os.path.getsize(x)
+        except OSError:
+            pass
+    r["made_bytes"] = size
+    media = media_facts(paths)
+    if media:
+        r["made_media"] = media
+    if stopped:
+        r["made_note"] = f"stopped looking after {MADE_SCAN_MAX:,} files"
 
 
 # ---------- where each tool keeps its logs ----------
@@ -2691,23 +2875,29 @@ SCRIPT_SRC = re.compile(r"<script\b([^>]{0,500}?)\bsrc\s*=\s*([\"'])([^\"'<>]{1,
 STYLE_LINK = re.compile(r"<link\b[^>]{0,500}?>", re.I)
 HREF = re.compile(r"\bhref\s*=\s*([\"'])([^\"'<>]{1,500})\1", re.I)
 IMG_SRC = re.compile(r"(<img\b[^>]{0,500}?\bsrc\s*=\s*)([\"'])([^\"'<>]{1,500})\2", re.I)
+MEDIA_SRC = re.compile(r"(<(?:audio|video|source)\b[^>]{0,500}?\bsrc\s*=\s*)([\"'])([^\"'<>]{1,500})\2", re.I)
+PAGE_MEDIA_MAX = 16 * 2**20  # pictures, sounds and videos put in one page, in all: it stays under 25 MB
 
 
-def page_files(paths, texts, names):
-    """-> [{name, body, path, source}] for the files the run wrote, named as a record or bundle names them"""
+def page_files(paths, texts, names, made=()):
+    """-> [{name, body, path, source}] for the files the run wrote, then those made while it ran, named as a record
+    or bundle names them"""
     out = []
-    for n, p in enumerate(paths, 1):
+    for n, p in enumerate(list(paths) + list(made), 1):
         ext = os.path.splitext(base_name(p))[1].lower()
         text = texts.get(p)
         body = file_body(p, text)
-        source = "as written" if text is not None else "as it is on disk now" if body is not None else "not on disk now"
+        source = ("as written" if text is not None else MADE_HOW if n > len(paths) else
+                  "as it is on disk now" if body is not None else "not on disk now")  # fmt: skip
         out.append({"name": base_name(p) if names else f"file{n}{ext}", "body": body, "path": p, "source": source})
     return out
 
 
-def inline_page(html_text, here, by_path):
-    """-> the page with the run's own .js, .css and pictures it names put inside it, and the names it couldn't"""
-    missing = []
+def inline_page(html_text, here, by_path, left=None):
+    """-> the page with the run's own .js, .css, pictures, sounds and videos it names put inside it, the names it
+    couldn't, and the paths of the sounds and videos it put in. left: [bytes of media the page can still hold]"""
+    missing, inside = [], []
+    left = [PAGE_MEDIA_MAX] if left is None else left
 
     def find(ref):
         ref = ref.split("?")[0].split("#")[0]
@@ -2747,24 +2937,101 @@ def inline_page(html_text, here, by_path):
             return m.group(0)
         return f"{m.group(1)}{m.group(2)}data:{kind};base64,{base64.b64encode(body).decode()}{m.group(2)}"
 
+    def media(m):
+        ref = m.group(3)
+        if not LOCAL_REF.match(ref):
+            return m.group(0)
+        ext = os.path.splitext(ref.split("?")[0])[1].lower()
+        kind = AUDIO_TYPES.get(ext) or VIDEO_TYPES.get(ext)
+        body = find(ref)
+        if body is None or not kind or len(body) > left[0]:
+            missing.append(ref if body is None or not kind else f"{ref} ({size_text(len(body))}, too big for the page)")
+            return m.group(0)
+        left[0] -= len(body)
+        inside.append(os.path.normpath(os.path.join(here, ref.split("?")[0].split("#")[0])))
+        return f"{m.group(1)}{m.group(2)}data:{kind};base64,{base64.b64encode(body).decode()}{m.group(2)}"
+
     html_text = SCRIPT_SRC.sub(script, html_text)
     html_text = STYLE_LINK.sub(style, html_text)
     html_text = IMG_SRC.sub(img, html_text)
-    return html_text, list(dict.fromkeys(missing))
+    html_text = MEDIA_SRC.sub(media, html_text)
+    return html_text, list(dict.fromkeys(missing)), inside
 
 
-def output_page(r, s, rows, files, a, hide, extra=""):
-    """-> the output page's HTML; text in it goes through scrub(), as --prompt and --reply do"""
+DATA_URI = re.compile(r"data:[a-z0-9.+-]{1,60}/[a-z0-9.+-]{1,60};base64,[A-Za-z0-9+/=]+", re.I)
+
+
+def scrub_around_data(text, redact, where_, flag):
+    """scrub() the page's text, not the base64 of the pictures, sounds and videos put in it: those aren't text, so
+    in them a 'key-like string' is chance, and --redact would break them"""
+    held = []
+
+    def hold(m):
+        held.append(m.group(0))
+        return f"\0{len(held) - 1}\0"
+
+    text = scrub(DATA_URI.sub(hold, text), redact, where_, flag)
+    return re.sub("\0(\\d+)\0", lambda m: held[int(m.group(1))], text)
+
+
+def smaller(path, ext, what):
+    """-> (bytes, type) of a smaller copy of a sound or video, made with ffmpeg, the same bytes each time"""
+    tmp = tempfile.mkdtemp(prefix="receipt-")
+    try:
+        same = ["-map_metadata", "-1", "-fflags", "+bitexact", "-flags", "+bitexact"]
+        if ext in VIDEO_TYPES:
+            out, kind = os.path.join(tmp, "small.mp4"), "video/mp4"
+            run_ffmpeg(["-i", path, *same, "-vf", "scale='min(854,iw)':-2", "-c:v", "libx264", "-preset", "veryfast",
+                        "-crf", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart",
+                        out], f"a smaller copy of {what}")  # fmt: skip
+        else:
+            out, kind = os.path.join(tmp, "small.m4a"), "audio/mp4"
+            run_ffmpeg(["-i", path, "-vn", *same, "-c:a", "aac", "-b:a", "128k", out], f"a smaller copy of {what}")
+        with open(out, "rb") as fh:
+            return fh.read(), kind
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def output_page(r, s, rows, files, a, hide, extra="", linked=None):
+    """-> the output page's HTML; text in it goes through scrub(), as --prompt and --reply do. Pictures, sounds and
+    videos go inside it up to PAGE_MEDIA_MAX in all; linked: a folder beside the page that holds the files (a
+    bundle's outputs/), for sounds and videos to play from instead"""
     e = html.escape
+    left, inside = [PAGE_MEDIA_MAX], set()
+
+    def media(f, ext):
+        if linked is not None and ext not in IMAGE_TYPES:
+            src, note = linked + urllib.parse.quote(f["name"]), ""
+        else:
+            b, kind, note = f["body"], IMAGE_TYPES.get(ext) or AUDIO_TYPES.get(ext) or VIDEO_TYPES[ext], ""
+            if len(b) > left[0]:
+                if ext in IMAGE_TYPES or not ffmpeg() or not os.path.isfile(f["path"]):
+                    how = "" if ext in IMAGE_TYPES or ffmpeg() else " (with ffmpeg installed, a smaller copy is shown)"
+                    return f'<p class="dim">Not shown: {size_text(len(b))}, more than the page holds{how}.</p>'
+                b, kind = smaller(f["path"], ext, f["name"])
+                if len(b) > left[0]:
+                    return f'<p class="dim">Not shown: even a smaller copy is {size_text(len(b))}, more than the page holds.</p>'
+                note = ('<p class="dim">A smaller copy, made with ffmpeg so it fits in the page; the record\'s '
+                        "fingerprint is of the original.</p>")  # fmt: skip
+            left[0] -= len(b)
+            src = f"data:{kind};base64,{base64.b64encode(b).decode()}"
+        if ext in IMAGE_TYPES:
+            return f'<img alt="{e(f["name"])}" src="{src}">{note}'
+        if ext in AUDIO_TYPES:
+            return f'<audio controls preload="metadata" src="{src}"></audio>{note}'
+        return f'<video controls preload="metadata" playsinline src="{src}"></video>{note}'
+
     by_path = {os.path.normpath(f["path"]): f["body"] for f in files if f["body"] is not None}
     parts = []
     shown = [] if "files" in hide else files
     for f in shown:
         if f["body"] is None or not f["name"].lower().endswith(PAGE_TYPES) or not is_text(f["body"]):
             continue
-        page, missing = inline_page(f["body"].decode("utf-8", "replace"), os.path.dirname(f["path"]), by_path)
-        page = scrub(page, a.redact, f"the page {f['name']}", "--page")
-        note = (f" It names files the run didn't write, so they aren't here: {e(', '.join(missing))}."
+        page, missing, put = inline_page(f["body"].decode("utf-8", "replace"), os.path.dirname(f["path"]), by_path, left)
+        inside.update(put)
+        page = scrub_around_data(page, a.redact, f"the page {f['name']}", "--page")
+        note = (f" It names files the run didn't make, or too big to put here, so they aren't here: {e(', '.join(missing))}."
                 if missing else "")  # fmt: skip
         parts.append(
             f'<h3>{e(f["name"])}</h3><iframe sandbox="allow-scripts" srcdoc="{e(page)}" title="{e(f["name"])}">'
@@ -2789,8 +3056,10 @@ def output_page(r, s, rows, files, a, hide, extra=""):
             head = f"{e(f['name'])} · {e(f['source'])}" + (f" · {size_text(len(b))}" if b is not None else "")
             if b is None:
                 body = ""
-            elif ext in IMAGE_TYPES:
-                body = f'<img alt="{e(f["name"])}" src="data:{IMAGE_TYPES[ext]};base64,{base64.b64encode(b).decode()}">'
+            elif os.path.normpath(f["path"]) in inside:
+                body = '<p class="dim">It plays in the page above.</p>'
+            elif ext in IMAGE_TYPES or ext in AUDIO_TYPES or ext in VIDEO_TYPES:
+                body = media(f, ext)
             elif not is_text(b) or len(b) > PAGE_TEXT_MAX:
                 body = '<p class="dim">Not shown: too big, or not text.</p>'
             else:
@@ -2808,7 +3077,8 @@ def output_page(r, s, rows, files, a, hide, extra=""):
         ".said{white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:4px;padding:10px 12px}"
         "details{background:#fff;border:1px solid #ddd;border-radius:4px;margin:10px 0}"
         "summary{cursor:pointer;padding:8px 12px;font-family:ui-monospace,monospace}"
-        "details pre{padding:10px 12px;border-top:1px solid #eee}details img{max-width:100%;display:block;margin:10px}"
+        "details pre{padding:10px 12px;border-top:1px solid #eee}"
+        "details img,details video{max-width:calc(100% - 20px);display:block;margin:10px}details audio{margin:10px}"
         "iframe{width:100%;height:70vh;border:1px solid #bbb;border-radius:4px;background:#fff}"
         ".dim{color:#555;font-size:.9em}"
         "</style></head><body><main><h1 class=own>What the run made</h1>"
@@ -2881,7 +3151,7 @@ def file_label(path, names):
     return base if names else (os.path.splitext(base)[1].lower() or "no type")
 
 
-def output_subject(path, written, ended, names, n):
+def output_subject(path, written, ended, names, n, how_made=None):
     """-> an in-toto subject for a file the run wrote: the content the log holds, else the file as it is now"""
     ext = os.path.splitext(base_name(path))[1].lower()
     name = base_name(path) if names else f"file{n}{ext}"
@@ -2906,7 +3176,7 @@ def output_subject(path, written, ended, names, n):
     elif disk is not None:
         digest, how, same = (
             disk,
-            "on disk now" + ("; changed after the run" if later else ""),
+            how_made or "on disk now" + ("; changed after the run" if later else ""),
             True,
         )
     else:
@@ -3272,7 +3542,7 @@ def make_record(r, tool, key, part, names, counts, hide, renames, turns=()):
     made = [
         output_subject(p, w, r["ended"], names, n)
         for n, (p, w) in enumerate(writes.items(), 1)
-    ]
+    ] + [output_subject(p, None, r["ended"], names, len(writes) + n, MADE_HOW) for n, p in enumerate(r.get("_made", []), 1)]
     subjects = [s for s, _ in made if s]
     r["_outputs"] = [b for _, b in made if b]  # the files themselves, for --bundle and --shot
     pred = {
@@ -3487,8 +3757,9 @@ def bundle(path, r, s, payload, record, outputs, a, rows=(), hide=()):
         shutil.rmtree(
             tmp, ignore_errors=True
         )  # a browser can leave files behind for a moment
-    files["ro-crate-metadata.json"] = canon(crate(r, files, outs))
-    files["ro-crate-preview.html"] = output_page(r, s, rows, outputs, a, hide, preview(files)).encode("utf-8")
+    made = {"outputs/" + o["name"] for o in outputs if o.get("source") == MADE_HOW}
+    files["ro-crate-metadata.json"] = canon(crate(r, files, outs, made))
+    files["ro-crate-preview.html"] = output_page(r, s, rows, outputs, a, hide, preview(files), "outputs/").encode("utf-8")
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         for name in sorted(files):
             z.writestr(name, files[name])
@@ -3517,7 +3788,7 @@ CRATE_PARTS = {
 }
 
 
-def crate(r, files, outs):
+def crate(r, files, outs, made=()):
     today = datetime.date.today().isoformat()
     run = {"@id": "#run", "@type": "CreateAction", "name": f"{r['tool']} run ({r['part']})",
            "instrument": {"@id": "#tool"}, "result": [{"@id": f} for f in outs]}  # fmt: skip
@@ -3540,7 +3811,7 @@ def crate(r, files, outs):
     for f in sorted(files):
         if f != "ro-crate-metadata.json":
             graph.append({"@id": f, "@type": "File", "name": f.split("/")[-1],
-                          "description": CRATE_PARTS.get(f, "a file the run wrote"),
+                          "description": CRATE_PARTS.get(f, f"a file {MADE_HOW}" if f in made else "a file the run wrote"),
                           "contentSize": str(len(files[f])),
                           "encodingFormat": mimetypes.guess_type(f)[0] or "application/octet-stream"})  # fmt: skip
     return {"@context": "https://w3id.org/ro/crate/1.2/context", "@graph": graph}
@@ -3867,6 +4138,7 @@ def counts_only(r):
     if r.get("memory") is not None:
         r["memory"] = len(r["memory"])
     r.pop("file_names", None)
+    r.pop("made_names", None)
 
 
 DROP = {
@@ -3898,9 +4170,15 @@ DROP = {
         "output_bytes",
         "web_page",
         "files_gone",
+        "files_made",
+        "made_types",
+        "made_names",
+        "made_bytes",
+        "made_media",
+        "made_note",
     ],
     "output": ["output_lines", "output_bytes", "web_page", "files_gone", "replies", "reply_words", "output_url",
-               "output_sha256"],
+               "output_sha256", "made_bytes", "made_media"],
     "addons": [
         "skills_used",
         "skills_available",
@@ -4603,6 +4881,21 @@ def text(r, hide, with_prompt, width=80):
         if r.get("files_note"):
             line += f" · {r['files_note']}"
         out.append(line)
+    if "files" not in hide and r.get("files_made") is not None:
+        n = r["files_made"]
+        if r.get("made_names"):
+            fn = r["made_names"][:12]
+            what = ", ".join(fn) + (f" and {n - len(fn)} more" if n > len(fn) else "")
+        else:
+            what = names(r.get("made_types"))
+        line = f"made     {many(n, 'file')} changed in its folder while it ran" + (f" ({what})" if n else "")
+        if r.get("made_bytes") and "output" not in hide:
+            line += " · " + size_text(r["made_bytes"])
+        if r.get("made_media") and "output" not in hide:
+            line += " · " + media_text(r["made_media"])
+        if r.get("made_note"):
+            line += f" · {r['made_note']}"
+        out.append(line)
     if r.get("output_url") and "output" not in hide:  # the site's receipt page fetches it and checks this
         out.append(f"page     {r['output_url']} · sha256 {r['output_sha256'][:16]}")
     if r.get("replies") is not None and "output" not in hide:
@@ -5105,18 +5398,121 @@ def sound(data, what, wide=960, tall=240):
             line += lut[max(0, min(255, int(v * 255)))]
         rows.append(bytes(line))
     secs = frames / rate
-    long_ = f"{secs:.2g} s" if secs < 10 else f"{int(secs // 60)}:{int(secs % 60):02d}"
-    note = f"the sound as a spectrogram: {long_} across, 0-{top / 1000:g} kHz up"
+    note = f"the sound as a spectrogram: {length_text(secs)} across, 0-{top / 1000:g} kHz up"
     return (len(cols), tall, rows), note + (" (silent)" if not loud else "")
 
 
-def look(data, what):
-    """--picture's file -> (picture, note): a PNG as it is, a WAV as its spectrogram"""
+def ffmpeg():
+    """-> ffmpeg to use ($RECEIPT_FFMPEG first; "none" there means don't), or None"""
+    v = os.environ.get("RECEIPT_FFMPEG")
+    if v is not None:
+        return None if v.strip().lower() in ("", "none", "off") else v
+    return shutil.which("ffmpeg")
+
+
+def run_ffmpeg(args, what, timeout=600):
+    exe = ffmpeg()
+    try:
+        p = subprocess.run([exe, "-v", "error", "-nostdin", "-y", *args], capture_output=True, timeout=timeout)
+    except OSError as e:
+        sys.exit(f"receipt: couldn't start ffmpeg ({exe}): {e.strerror}")
+    except subprocess.TimeoutExpired:
+        sys.exit(f"receipt: ffmpeg took over {timeout} s on {what}")
+    if p.returncode:
+        said = p.stderr.decode("utf-8", "replace").strip()[-300:]
+        sys.exit(f"receipt: ffmpeg couldn't make {what} ({said})")
+
+
+def probe(path, what):
+    """-> (seconds or None, width, height) of a sound or video, as ffmpeg reads it (0, 0 with no picture)"""
+    try:
+        p = subprocess.run([ffmpeg(), "-hide_banner", "-nostdin", "-i", path], capture_output=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        sys.exit(f"receipt: ffmpeg couldn't read {what} ({e})")
+    said = p.stderr.decode("utf-8", "replace")
+    if "Stream #" not in said:
+        sys.exit(f"receipt: ffmpeg couldn't read {what} ({said.strip()[-300:]})")
+    d = re.search(r"Duration: (\d+):(\d\d):(\d\d(?:\.\d+)?)", said)
+    v = re.search(r"Stream #[^\n]*Video:[^\n]*?(\d{2,5})x(\d{2,5})", said)
+    secs = int(d.group(1)) * 3600 + int(d.group(2)) * 60 + float(d.group(3)) if d else None
+    return secs, (int(v.group(1)) if v else 0), (int(v.group(2)) if v else 0)
+
+
+def frames(path, what, n=4):
+    """-> (n frames of a video side by side, a line saying what they are), taken with ffmpeg"""
+    secs, w, h = probe(path, what)
+    if not w:
+        sys.exit(f"receipt: {what} has no pictures in it")
+    tmp = tempfile.mkdtemp(prefix="receipt-")
+    try:
+        got = []
+        for i, t in enumerate([secs * (k + 0.5) / n for k in range(n)] if secs else [0]):
+            out = os.path.join(tmp, f"{i}.png")
+            run_ffmpeg(["-ss", f"{t:.3f}", "-i", path, "-frames:v", "1", "-vf", "scale=480:-2", "-pix_fmt", "rgb24",
+                        out], f"a frame of {what}")  # fmt: skip
+            if os.path.isfile(out):
+                with open(out, "rb") as fh:
+                    got.append(pixels(fh.read(), f"a frame of {what}"))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    if not got:
+        sys.exit(f"receipt: ffmpeg found no frames in {what}")
+    tall, gap = min(g[1] for g in got), bytes((251, 248, 240)) * 8
+    rows = [gap.join(g[2][y] for g in got) for y in range(tall)]
+    long_ = f", {length_text(secs)} long" if secs else ""
+    many_ = f"{len(got)} frames" if len(got) > 1 else "a frame"
+    return (len(rows[0]) // 3, tall, rows), f"{many_} from the video{long_}, {w}×{h}"
+
+
+def look(path, what, data=None):
+    """--picture's file, or the one --shot picks -> (picture, note): a PNG as it is, a WAV as its spectrogram; with
+    ffmpeg, other pictures as they are, other sounds as spectrograms and videos as frames"""
+    if data is None:
+        with open(path, "rb") as fh:
+            data = fh.read(16)
+            if data[8:12] == b"WAVE" or data[:8] == b"\x89PNG\r\n\x1a\n":
+                data += fh.read()
     if data[8:12] == b"WAVE":
         return sound(data, what)
-    if data[:8] != b"\x89PNG\r\n\x1a\n":
-        sys.exit(f"receipt: {what} isn't a PNG or a WAV; save it as one")
-    return pixels(data, what), None
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return pixels(data, what), None
+    ext = os.path.splitext(path)[1].lower()
+    kind = ("a video" if ext in VIDEO_TYPES else "a sound" if ext in AUDIO_TYPES else
+            "a picture" if ext in IMAGE_TYPES and ext != ".svg" else None)  # fmt: skip
+    if not kind:
+        sys.exit(f"receipt: {what} isn't a PNG or a WAV, or a picture, sound or video ffmpeg could read; save it as one")
+    if not ffmpeg():
+        sys.exit(f"receipt: {what} is {kind}; receipt.py reads PNGs and WAVs itself and needs ffmpeg for others: "
+                 "install it, or set RECEIPT_FFMPEG to where it is")  # fmt: skip
+    if kind == "a video":
+        return frames(path, what)
+    tmp = tempfile.mkdtemp(prefix="receipt-")
+    try:
+        out = os.path.join(tmp, "x.wav" if kind == "a sound" else "x.png")
+        if kind == "a sound":
+            run_ffmpeg(["-i", path, "-vn", "-ac", "1", "-c:a", "pcm_s16le", out], f"a WAV of {what}")
+        else:
+            run_ffmpeg(["-i", path, "-frames:v", "1", "-pix_fmt", "rgb24", out], f"a PNG of {what}")
+        with open(out, "rb") as fh:
+            data = fh.read()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return sound(data, what) if kind == "a sound" else (pixels(data, what), None)
+
+
+def shot_picture(outputs, tmp):
+    """-> (picture, note) of what the run made, for --shot on a .png: a screenshot of the page it made; with no
+    page, frames of its video or its sound's spectrogram"""
+    kinds = [os.path.splitext(o["name"])[1].lower() for o in outputs]
+    if any(k in (".html", ".htm", ".svg") for k in kinds) or not outputs:
+        return pixels(shot(outputs, tmp), "the screenshot"), None
+    for want in (VIDEO_TYPES, AUDIO_TYPES):
+        these = [(o, k) for o, k in zip(outputs, kinds) if k in want]
+        if these:
+            (o, k), n = these[0], len(these)
+            pic, note = look(o["path"], o["name"], o["body"] if k == ".wav" else None)
+            return pic, note + (f" (the first of {n})" if n > 1 else "")
+    sys.exit("receipt: --shot found no page (.html or .svg), video or sound among the files the run made")
 
 
 PNG_COLS = 62  # narrow enough to stay legible when a feed shrinks the picture to a phone's width
@@ -5163,7 +5559,7 @@ def picture(s, table=False, pic=None, total=None, note=None):
         else:
             entries.append((line[:9], [line[9:]]))
     asked = [e for e in entries if e[0].strip() in ("prompt", "prompts")]
-    made = [e for e in entries if e[0].strip() in ("files", "page")]
+    made = [e for e in entries if e[0].strip() in ("files", "made", "page")]
     took = [e for e in entries if e not in asked and e not in made]
     rule = ("-", 3)  # drawn as wide as the widest line
     rows = [(x, 1) for x in fold(head, PNG_COLS)] + [rule]
@@ -5182,7 +5578,7 @@ def picture(s, table=False, pic=None, total=None, note=None):
             if note:
                 rows += [(x, 3) for x in textwrap.wrap(note, PNG_COLS)]
         for label, values in made:
-            rows += [(x, 1 if label.strip() == "files" else 3) for x in fold(" ".join(v.strip() for v in values), PNG_COLS)]
+            rows += [(x, 3 if label.strip() == "page" else 1) for x in fold(" ".join(v.strip() for v in values), PNG_COLS)]
         rows.append(rule)
     if asked or made or pic:
         rows.append(("IT TOOK", 3))
@@ -5372,8 +5768,7 @@ def main():
     pic = note = None
     if a.picture:  # read it now, so a file it can't use stops it before anything is made
         try:
-            with open(os.path.expanduser(a.picture), "rb") as fh:
-                pic, note = look(fh.read(), a.picture)
+            pic, note = look(os.path.expanduser(a.picture), a.picture)
         except OSError as e:
             sys.exit(f"receipt: can't read --picture {a.picture} ({e.strerror})")
     if a.bundle and (many_in or a.list):
@@ -5535,6 +5930,7 @@ def main():
             if use:
                 r["plan_use"] = use
         check(r)
+        made_part(r, folder_of(tool, path))
         rows = []
         if (
             "output" not in hide
@@ -5567,6 +5963,7 @@ def main():
         counts_only(r)
     if not a.file_names:
         r.pop("file_names", None)
+        r.pop("made_names", None)
     if r.get("first_prompt") and (a.prompt or a.prompt_id) and "prompt_id" not in r:
         r["prompt_id"] = prompt_id(r["first_prompt"])
     if not a.prompt_id and not a.prompt:
@@ -5592,9 +5989,10 @@ def main():
         s = text(r, hide, a.prompt, width=PNG_COLS - 9)
     outputs = r.pop("_outputs", [])
     paths, texts = r.pop("_written", ([], {}))
+    made = r.pop("_made", [])
     if a.page:
         pp = os.path.expanduser(a.page)
-        page = output_page(r, text(r, hide, a.prompt), rows, page_files(paths, texts, a.file_names), a, hide)
+        page = output_page(r, text(r, hide, a.prompt), rows, page_files(paths, texts, a.file_names, made), a, hide)
         page = page.encode("utf-8")  # bytes, so Windows doesn't turn its line ends into others the hash didn't see
         before = None
         if a.output_url and os.path.isfile(pp):  # the gist route uploads the page, then makes it again with its address
@@ -5637,10 +6035,10 @@ def main():
         )
         if not a.json:
             payload = None
-    if a.png and a.shot and not pic:  # a screenshot of the page the run made, on the receipt
+    if a.png and a.shot and not pic:  # a picture of what the run made, on the receipt
         tmp = tempfile.mkdtemp(prefix="receipt-")
         try:
-            pic = pixels(shot(outputs, tmp), "the screenshot")
+            pic, note = shot_picture(outputs, tmp)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     saved = [emit(a, r, s, payload, pic=pic, note=note)]
