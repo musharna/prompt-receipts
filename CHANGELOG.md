@@ -1,5 +1,12 @@
 # Changelog
 
+## receipt.py 7.5 (2026-10-10)
+
+- Files a run's programs made are counted: a new `made` line lists the files that changed in the run's folder while it ran and that its own tools didn't write (a script's sound, ffmpeg's video), with their size and, for sounds and videos, how long they are. They go in the record, the bundle and the page too. Hidden folders, `node_modules`, `__pycache__`, virtual environments and the home folder aren't looked in.
+- `--page` plays sounds and videos: the files list has players for them, and a page the run made gets the sounds and videos it names put inside it. Pictures, sounds and videos go in up to 16 MB in all; past that, with ffmpeg installed, a sound or video is a smaller copy, made the same way each time so a page made again matches its gist copy. A bundle's page plays them from its `outputs/` folder.
+- With ffmpeg (on the PATH, or `RECEIPT_FFMPEG`): `--picture` takes other pictures, other sounds (shown as spectrograms) and videos (shown as 4 frames), and `--shot` on a `.png` shows a run's video or sound when it made no page.
+- Fixed: `--page` looked for keys and emails in the base64 of the pictures put inside a page, so a page with a picture or sound could stop with "key-like strings" it didn't have, and `--redact` could break the picture.
+
 ## receipt.py 7.4 (2026-10-10)
 
 - `--picture` takes a `.wav` too, and puts its spectrogram on the receipt: time across, pitch up (on the mel scale, as ears hear it), louder brighter, with a line saying how long it is and the pitches it shows. It reads the WAVs most programs save (whole-number samples of 8 to 32 bits, or floats), any number of channels, and still needs no extra packages.
