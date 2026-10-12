@@ -1,0 +1,320 @@
+{
+ "cards": {
+  "p1": "Image",
+  "p2": "Print and craft",
+  "p3": "Interactive",
+  "p4": "Interactive",
+  "p5": "3D",
+  "p6": "Image",
+  "p7": "3D",
+  "p8": "Video",
+  "p9": "Interactive",
+  "p10": "Game art",
+  "p11": "Type and text",
+  "p12": "Game art",
+  "p13": "Print and craft",
+  "p14": "Audio",
+  "p15": "Type and text",
+  "p16": "Web effects"
+ },
+ "prompts": [
+  {
+   "id": "498f4cca-191",
+   "title": "Gouache farmhouse",
+   "what": "Image",
+   "prompt": "a gouache painting of a farmhouse under hills",
+   "runs": [
+    {
+     "name": "Claude Opus 5.5",
+     "effort": "medium effort",
+     "verdict": "partly",
+     "made": "a flat vector drawing (SVG): the scene, but no paint texture",
+     "thumb": {
+      "kind": "image",
+      "src": "m/498f4cca-191_opus_0.webp",
+      "full": "m/498f4cca-191_opus_0_full.webp"
+     },
+     "link": "r1.fVNNb9s4EL3rV7xDgNqA7UqKo0TZXtp0D4vG2GDRe0GLI4swRQokFde_pD-l9_aP7ZCyN0ZTLA8SP-Zx3rx5_IcaUkPA8-2qxo_veNBilIQHy59yVazKuorbRYm_m4AyL6sFyvvrCk8b_PnxczwzdoVbWdKyLopt1jNSg0eTblraYfTLm-VNjKS2tS4wIMBRY50kmQXVUwxHVcFjNsEP1u2V2aFaw89TfgzO9syz5R96yhrrQ4Jd5atyjdkF7zce9mAQbBAaIuD901-MVg35PxA6glaGPLak7QFCSowDx0KFeYbz-IX7ywGgzDAGvBpFjp_fcLVe5fnbDa_fMa-8uAQ2ouHkjoS8xNX5PgG5igkYp3n5GnhwKhBmBbr5lLCcgHfnjAlYXwLtGH7DtZpwZX4JLK4z-hqc8LwMnTJJ_aKAzybleDvKqBWrftoZyKFXWisbtd6T4e5dvd3MF1OPHpnu4-MG-U1RVVQuUP_noGwbYZwAG_EVgxbmHgKt5l61RIvkj6YTbkcyZXGjwexoRwfRNHY0gfNJcZxnp7SxKdwAFmQW5Ux6yWQbVoDrzaKdUu1rRlrNEVr7Ba7hO9K8tH0vjPQRcaAt8slxrVCaGcTgrOWpT7IjTlM3AhlYB5JcqcSsFa7v7Ojpy86OkcLKP-8m897eTKZb4A6fPmSOBq3idQXi9Mgvii3MJKXP2JBLG2vyexbJsxaGu25bFDXEMzMSW03p1s3D08tpzkUYQ004FT7ocafMCc5rP27FjkzwyLPO2n2qJerMyk1mx3I4GSbrqbfu-D8BnkLg_vEjOg7C-ydyvfKejeAzdXb3ur5r100jirpgiufXyyhybCDDr-20B-79STEMgk-iM7gkdsRZUYxGsg-6qEi2U88sPI_tMT1nT-nwoEKH5VL4Pcn7V5QhLXnzJqCzWibYlP1f",
+     "time": "69 s"
+    },
+    {
+     "name": "Claude Sonnet 5.5",
+     "effort": "medium effort",
+     "verdict": "partly",
+     "made": "a flat vector drawing (SVG): the scene, but no paint texture",
+     "thumb": {
+      "kind": "image",
+      "src": "m/498f4cca-191_sonnet_0.webp",
+      "full": "m/498f4cca-191_sonnet_0_full.webp"
+     },
+     "link": "r1.fVPBbhMxEL3vV7xDpSZSku5u04QULlA4IBpRIe7IWc9mrXjtle1tyJfwKdzhxxh7ExpUVB-S9Xie582b5y9UkeoCHpezFX79xJ0WvSTcWf4pZ8WsXC1iuCjxuQoo83IxQXl7vcDDGh_ef41nxs5QVmI1XZHIs5aRGryqdNPUW2MoTG-mNzGX6tq6wJAAR5V1kmQWVEsRgGIJj9Fwwd66nTLbFBsnBuicbZlpzX9oKausDwl2kc_yBUZnzC897N4g2CA0RMDbh4-MVhX51wgNQStDHhvSdg8hJfqOc6HCOMNpPWP_dAQo0_UBz9ccv3_gopzl-dWat28is-IcWImKyzsS8hxWLncJmM-Kl4F7pwJhVKAZD-EjcH6qmLS4PgfaPvyHazngivwfYJnR9-CE521olBn0h88G6TgaddSKZT9GOnJoldbKRrF3ZHh8F1fr8WQY0j2zvb9fI78pFgsqJ1j9NVG2iTC-H2vxHZ0W5hYCteZh1USTZJCqEW5LMlVxvcHoYHsHUVW2N4HrSXEYZ8eycSa4nu8wimImtWSyDffP3WbRToPHGGg1Z2g9QQ7fkOadbVthpI-APW2QZ7XSqWPOj59J-UAG1oEktyUxqoVrG9t7-ra1fSw484_bVHNZDg6b4Bqf3mWOOq3ibQXi52GC4mYeDS59xu6b2sjf71gQz30bHrCtUawgHoXSYqMpXbq-e3g6zZkyG7MKxy473W-VOcJ57_uN2JIJnltprN2lVqKmrNLgbEy7ozeyllrrDi8keAqBZ8Uv5tAJ7x_Itcp7HrrP1MnI89Wrel5VolgVTPH0VBlFjs1i-GkdY-A5HwVDJ_gkuoBb4umfBEVvJM-8iYpkW_XIuvPaHNLb9ZQO9yo0mE6F35G8fUYZ0pI3lwGN1TLBhup_AA",
+     "time": "19 s"
+    },
+    {
+     "name": "Claude Haiku 5.5",
+     "effort": "medium effort",
+     "verdict": "partly",
+     "made": "a flat vector drawing (SVG): the scene, but no paint texture",
+     "thumb": {
+      "kind": "image",
+      "src": "m/498f4cca-191_haiku_0.webp",
+      "full": "m/498f4cca-191_haiku_0_full.webp"
+     },
+     "link": "r1.fVPBctMwEL37K96hM01mktQ2SdoULlA4MDRDhuHOKNY61kSWPJLcNF_Cp3CHH2OlJG2hUB0Sa7VPu-_t0xeqSHUBd5eTBX7-wI0WvSTcWP4pJ8WkXMxjuCjxuQoo83I-Qnn9ao7VEh_ef41nxk5QVuvpmKp6mrWM1OBVpZvGjVDbfjwbz2Iq1bV1gREBjirrJMksqJZiPooreAwO-J11W2U2KTZMDaBztuVGa_5DS1llfUiwN2f5JC8weNL5uYfdGQQbhIYIeLv6yHBVkX-N0BC0MuSxJm13EFKi7zgXKgwznNbf3T-eAMp0fcDzNcev7-Buivxi-dDYU2AlKq7uSMinsFm-PQLz4kXgzqlAGBRohofw5QlY_q-i7cO_ep2egLM_gHQfnPC8D40ySf85fHZQjqNRRq1Y9mOkI4dWaa1s1HpLhsd3drEcjg5DuuVub2-XyGfFfE7lCIsHD2XrCOP7sRT36LQw1xCoNc-qJholg1SNcBuSqYrrDQZ72zuIqrK9CVxPiv0wO5aNM8GM5RhEMZNaMtmG-TPZLNopES8ZaDVnaO1HyOEb0ry1bSuM9BGxozXyrFY6UWbfxc8kfSAD60CSeUkMauHaxvaevm1sHytO_N0mFb2aHRw2whSf3mWOOq3ibQXi534E1iM6XPqM3Te2kYDfsiKeiRuesK1RLCDuhNJirSldurxZPZ7m3LIxVIUjzU73G2WOcN77fi02ZIJnKo2120QlisoyHZyNcXc0R9ZSa93-hQRPIfCw-MXsO-H9ilyrvOep-0ydnDxdXNXTqhLFouAWT2-VUeTYLYaf1jEGHvRRMHSCT6INmBKP_yQoeiN56E1UJNuoO9ad13qf3q6ndLhTocF4LPyW5PWzliEteXMe0FgtE-xQ_Tc",
+     "time": "20 s"
+    },
+    {
+     "name": "GPT-6-Astra",
+     "effort": "Codex's default model, effort not set",
+     "verdict": "worked",
+     "made": "a painted image of the farmhouse under hills",
+     "thumb": {
+      "kind": "image",
+      "src": "m/498f4cca-191_gpt_0.webp",
+      "full": "m/498f4cca-191_gpt_0_full.webp"
+     },
+     "link": "r1.jVPBjtowEL37K-aAtCABm6DAEm4Vh2olUFHVHzD2hLg4dmQ7y_Il_ZTe2x_r2AQtrFTtziWxPW9m3puZ7yhQtQFenqYl_PkNayvxFdab53gwdgrLcllOFkVWsoaeNJAd2jBZTLgPjsMw1AgejUT34OFknRzDSYUaJpPkv6IgAZQBkQLjKwp6-umtAduFtgujmAiryrqQXB0KCoKSBdVgzPZRgIjPoXW2IRoVfaBBJqwPCTzIpvkchlTYEWVEXFxi1doeDnQX7BGNBx7gy-6Z4iiBHqic5HPhfLYdGN6gHDG42o0Ib5dAhcaS3lt5hL-_YJBn0yx73PZ1kaQ3LoILyueQy1tgkfXIO2BxC-xVuLdZsUy4-X3GnPX8IJHVilTqb1p00CitFQnbSzIcPG5H44tgGxVws9lCNs8XC5yNoYRvIsAsmy3YPsLMAWBd8_B19wN2uqOAmpsVcKg0SVshjlMjRc1dVD2mc52BIWnrgAthOxMoseTnEevzRzWhIO2GUYYkkEzjEttIDFnsaqKbE9JqctF6TAdfo6aTbRpuZASccA8Zq5RO1CGDy-_JqRCQBskBSiIomcNWq-iUQ_w9U7SnNNWecSknNlblj8TXExuDMfZ2vUv_rLb26D8xsKzBxrrzJxw9hkDC-g8d1XVoinJZFULwvMwRhteloBjoqM8mjFh_B9SZg-3S0LWcXmIDbRX7xV1T284jdHGroY5s2UG9kFBk-zO8rfx11bmn7Vr9f0WlRW8eAtRWywS_VPEP",
+     "time": "42 s"
+    },
+    {
+     "name": "GPT-5.6-Sol",
+     "effort": "medium effort",
+     "verdict": "worked",
+     "made": "a painted image of the farmhouse under hills",
+     "thumb": {
+      "kind": "image",
+      "src": "m/498f4cca-191_gpt-sol_0.webp",
+      "full": "m/498f4cca-191_gpt-sol_0_full.webp"
+     },
+     "link": "r1.jVPBbtswDL3rK3go0ARIUjtz0iS3IYehQIIFw35AkWhbiywZktw0X7JP2X37sVGyg6YDhpYXWxIfyfdIfkOBqg3w_Dhbw-9fsLUSX2C7e4oHY2ewWn86TgspOWvoSQNZ1YbpYraceqthFGoEj0aiu_dwtk5O4KxCDdNp8t9QkADKgEiB8QUFPf3w1oDtQtuFcUyEZWldSK4OBQVByYJqMGZ7L0DE59A62xCNkj7QIBPWhwS-y2Z5BiMq7IQyInqXWLW2VUV3wZ7QeOABPh-eKI4S6IHKST4954vtwPAG5ZjB1W5EeL0EKjSW9K_lqxP8-Ql3xSzLHvZDXdnjLVBwQfkccnkLLPIemM2KG-D8Fjio8NaK5SLh5tmbjDkb-EEiqxWpNNy06KBRWisSdpBkdPewH096wXYq4G63h2yRL5c4n8AavooA82y-ZMcIMxXAtubhy-E7HHRHATU3G-BQapK2RJykRoqau6h6TOc6AyPS1gEXwnYmUGLJL2M25I9qwoKkG0UZkkAyjUtsIzFksau9voSkYRRc6wkdfI2aTrZpuJERcMYjZKxUOlGHDPrfs1MhIA2SA5REUDKHrVbRKYf4e5kQwzTVnnEppzZW5U_E1xMbgzH2fntI_6y29uQ_MLCswca6ywccPYZAwvp3HdV1aIr1qiyE4Pk6Rxhdl4JioKM-mzBmwx1QZyrbpaFrOb3EBtoy9ou7pradR-jiVkMd2bJKPZNQZMcLvK78ddW5p-3a_H9FpUVv7gPUVssE76v4Cw",
+     "time": "53 s"
+    },
+    {
+     "name": "GPT-5.6-Terra",
+     "effort": "medium effort",
+     "verdict": "worked",
+     "made": "a painted image of the farmhouse under hills",
+     "thumb": {
+      "kind": "image",
+      "src": "m/498f4cca-191_gpt-terra_0.webp",
+      "full": "m/498f4cca-191_gpt-terra_0_full.webp"
+     },
+     "link": "r1.jVPNbtswDL7rKXgI0ARIUtv5WR3sMuQwFEiwYNgLKBIda5ElQ5Kb5kn2KLtvLzZKTtYUw9DyYkviR_L7SH5FgaoN8PRhWsKvn7C2Ep9hvXmMB2OnIIsFTkRePrCGnjSQHdowWUyXk4DOcRiGGsGjkejuPJysk2M4qVDDZJIQKwoTQBkQKTQ-o6Cn794asF1ouzCKqbCqrAvJ1aGgIChZUA3GfG8FiPgcWmcbIlLRBxpkwvqQwINsms1gSIUdUUZE7xKr1vZwoLtgj2g88ACfdo8URwn0QOUkn5712XZgeINyxOBqr2R4uQYqNRb1j5VH-P0DBsU0y-6318qKW6DggjI65PIWN5v3wGxa3ADzW-BFh9c2K8uEy_9m_NgDLwwh0dWKdLrctOigUVorkvYiynBwvx2Ne8k2KuBms4VskS-XWIyhhC8iQJEVS7aPMHMAWNc8fN59g53uKKDmZgUcKk3iVojj1EpRcxd1j-lcZ2BI6jrgQtjOBEos-XnELvmjmjCfHWEYZUgCyTQwsZHEkMW-Jro5Ia0mF63HdPA1ajrZpuFGRsAJ95CxSulEHTLof09OhYA0Sg5QEkHJHLZaRacc4u95DIs01p5xKSc2FuWPRNcTGYMx9Ha9S_-stvbo3zGxrMHGuvM7HD2GQLr6Nx3VdWbm5UM1F4LnZY4wvG4FxUBHbTZhxC53QI052C7NXMvpJfbPVrFd3DW17TxCF9ca6siWHdQT6US2P8PLzl93nXtar9X_d1Ra9OYuQG21TPC-ij8",
+     "time": "43 s"
+    },
+    {
+     "name": "GPT-5.6-Luna",
+     "effort": "medium effort",
+     "verdict": "worked",
+     "made": "a painted image of the farmhouse under hills",
+     "thumb": {
+      "kind": "image",
+      "src": "m/498f4cca-191_gpt-luna_0.webp",
+      "full": "m/498f4cca-191_gpt-luna_0_full.webp"
+     },
+     "link": "r1.jVPNbtswDL7rKXgoUAeIUzvNzxLsMuQwFEiwYOgLKBJta5ElQ5Kb5kn2KLtvLzZKSdagQ9HyYkviR_L7SH5HgaoL8DQfLeD3L1hZic-wWj_Eg7EjmPJS5PNpMWUtPWkgq7uQT0ezXPeGQxYaBI9Gorv1cLBODuGgQgN5ngBLihJAGRApMj6joKcf3hqwfej6MIiZsKqsC8nVoaAgKFlQLcZ07wWI-BI6Z1viUdEHWmTC-pDAn2-KUVFCRpXtUUbIySeWrW1d012wezQeeIAv2wcKpAR6oHqSz4n10fZgeItywOBi1zK83AKVGov6zxZ7-PMTqJpxcbf5V9g1UHBBCR1yeY27Ly7AYvwG8KzDK5vMywQsX2U8E4TEVivS6XzToYNWaa1I2rMm2c3dZjA8KbZWAdfrDRTTcjbD8RAW8E0EGBfjGdtFmKkBVg0PX7ePsNU9BdTcLIFDpUnbCnGYWika7qLsMZ3rDWQkrgMuhO1NoMSSHwfsnD-qCfckXRZlSALJNDCxj0SQxbYmtiUhrSYXrYd08A1qOtm25UZGwAF3ULBK6UQdCjj9HpwKAWmUHKAkgpI57LSKTiXE3yNFK9Jce8alzG2syu-Jryc2BmPszWqb_llj7d5_YGRZi611xw84egyBhPXvOqrL0EwWn6qJELxclAjZZS0oBjrqswkDdr4D6kxt-zR0HaeX2EBbxX5x1za29wh93GtoIltWqycSimx3hJelvyw797Rey7eXVFr05jZAY7VM8FMVfwE",
+     "time": "32 s"
+    }
+   ]
+  },
+  {
+   "id": "461353bd-a2c",
+   "title": "ASMR toys: wax, soap, slime, bubble wrap",
+   "what": "Interactive",
+   "prompt": "ASMR reactive interactive toys: a slab of hardened candle wax I can press until it cracks and crumbles, a bar of dried soap I can crunch and carve, slime I can poke, stretch and squish, and bubble wrap I can pop, each with satisfying sounds.",
+   "runs": [
+    {
+     "name": "Claude Opus 5.5",
+     "effort": "medium effort",
+     "verdict": "worked",
+     "made": "all four toys respond, with sound",
+     "thumb": {
+      "kind": "image",
+      "src": "m/461353bd-a2c_opus_0.webp",
+      "full": "m/461353bd-a2c_opus_0_full.webp"
+     },
+     "link": "r1.fVRLjuM2EN3rFLVoYGzA0ujjbyebpJPFIG2kMckFKLFkEaZIhUW1xyfJUbJPLpYipR4b08BwYZPFevV59ajP2KAaPLzusgP8-w88aTFKhCfLP2VWZOVhG8xFCb83Hsq83K6gfKx28HKEX3_5M9wZm8EOD5sU14cq6RmpgVcTI6V2GCndpJvgiW1rnWeAB4eNdRJl4lWPwR120CsDiwl_se6szGkyLmMFMDjbc6Ut_0GPSWPJR-BDkVU5LO4q_0BgLwa89UKD8PDTyydGqwbpB_AdglYGCWrU9gJCShgH9gXllwm8rW-qv10AKDOMHt6vPfz3Nzysszz_eOTjjw95lhf3wEY0nNyhkHfGYr05R2CelRMwbPPqPfDilEdYFNAto3W9n4D7t4wBWO3vgXb072tdrydcmd8D9_sEv3gniI--UybSvw70JxN1bA88asW0z5YBHTtorWwg-4yGYPHw8bhcTUN65nqfn4-Qb4rtFssVHL6KKKkDjDPAUXyBQQvzCAJazcNqEVdRIk0n3AllzOJGlsbVjg5E09jReM4nxXWZzGnDVKA4VGfmJxAaGZNROMxBaDkJkor9V4y1ml20JhYzUIeaj7bvhZEUIBesIZ9E1wqluYbgnLS8pTgzCNs4EI8GrAOU3KuEhaDepd5eKet8r2P-3b6aBLcCfja__RxsIqYYxAkTh4NWIWwBYXsNXlXQv6SEtZna0B2dmS5iVgwLwLbcKYhXrkzUGmOS49PL7TbnZozBxs8MDHo8KTPD-UxjzZmNJ8iTztpz7CkwzhxOuod0mLWT9Nhbd_2OA6H3PEl-T9dBEL2g6xURS4IS9Sb09baoNlUtRdnUsHh7yIxCx1Iy_PBmG2vsj-Pn8EYar16RE3p08z7QGlRC3DZwmywPiSYOx8gwDlbSp3BgeSIRsEqUvr0GxYriUNwtu_N27Jk8HoqAWrgQTzrFwciKYQ7DPqbpJnfhXlmWpMPXKt7eAg8sQb7yDv3sTX-NirpV3NdjXUetfA072GEF3GAHF-U7IOEVtVcm4xaSWOKSsuTEfZtgqK_xw0VoJL-GiEtTQWeUj-8mAtIimQ8eOqtlhE3k_g8",
+     "time": "7 min"
+    },
+    {
+     "name": "Claude Sonnet 5.5",
+     "effort": "medium effort",
+     "verdict": "worked",
+     "made": "all four toys respond, with sound",
+     "thumb": {
+      "kind": "image",
+      "src": "m/461353bd-a2c_sonnet_0.webp",
+      "full": "m/461353bd-a2c_sonnet_0_full.webp"
+     },
+     "link": "r1.fVRLcts4EN3zFL1wVaQqieFHkiPPbBLPLFJjVVxOLgACLRElEOCgQcs6SY6SfXKxNEA6cso1g4UENPr15_UDH1Ci7gM8Xudb-P4Nbo0YFMKt458qL_Nqu4nmsoJPMkBVVJsFVDf1O7jfwd9_fYl31uXQlGq7rLfXmHWMNMBLpkhLctZiWK6X6-iL-73zgSEBPErnFaos6A4jAFbQaQuzMcLJ-aO2h9E4TzVA713Hte75DzrMpKOQgFdFvtrC7EXtbwjcyUJwQRgQAd7ff2S0lkh_QGgRjLZI0KBxJxBKwdCzL-gwz-B5var_cgWgbT8EeL028OMrXFV5Ubzd8fFPrqwoXwKlkJzeo1AvYdfXxwQs8nIEwn8AT14HhFkJ7TxZ6wm4es6YYvxWqhvC61rresSVxUtgXWf4FLwgPoZW2zSAKg4gG8lje2TSaCZ-svTo2cEY7SLdR7QEs6u3u_liHNMd13t3t4NiXW42WC1g-0tIWRNhnAF24gl6I-wNCNgbHtcecZFEIlvhD6hSFj-wOM5u8CCkdIMNnE-J8zyb0sapQFmujjCLfCbCVFIOUxA7zqKmUvsVQ51hF2NowcKiFg0fXdcJqyLihA0U2V6b1DN7xG1iP6AF5wEVN6Zgpq3Cp7wNnUmZ1tti1Ba_knfwz4doEylaLw6YeeyNjiFLiNvzAuqqjFJXlLEMly62QUfmhbh9y5N2eyi3IB6FNqIxmJLsbu8vtwWXzQqVYeq1N8NB2wnOZxoazmwDcT-tc8fUT6SWyRolDst-EknWYef8-X8cCEPgkfHTOfeC6B59p4l49pTpZ0WvNmW9rhslKtnA7PnNMgo9a8byG5tsLKbPu4f4GGTQj8gJA_ppH9yZohyI2wZuk3Wg0DLjkicUR8GS-RgPrEMkApaDNhfZa5YOh-Ju40ClHzomj4cioBE-xlNeczByop_CsI-V7egu_CPrj0z8MKXbS-CetcZXwWOYvOnfQVO7SPtmaJqkk19he9cvgBts4aRDCySCpv2ZybiEJNayojw7cN82Gppz-kYRsrb8iFsuBR1R3byaCCiHZN8EaJ1RCTaS-xM",
+     "time": "4 min"
+    },
+    {
+     "name": "Claude Haiku 5.5",
+     "effort": "medium effort",
+     "verdict": "no",
+     "made": "described the toys; made no files",
+     "thumb": {
+      "kind": "none",
+      "src": "",
+      "full": ""
+     },
+     "link": "r1.fVRBjuM2ELzrFX1YYG3A9kry2oOZ5BJMclhgjAx28wGKbFmEKVIhqfH6JXlK7snHUqTk9SSTRAebbHY1q6tL-syS9RDp5W5zT3_8To9GjIrp0eGn3lSb-n6fwlVNP8tIdVnvV1Q_bO_o-UA__fhLOrNuQ1uxrde7tpJFD6QhPDJXWndCn8b1br1Lqdy2zkcgInmWzitWRdQ9p_x0R6DFhD87f9L2mGPLTIAG73oQbfFHPRfShZhh378rN2VFi1fM3wdyZ0vRRWFIRPrh-RPgWnL4jmLHZLTlQA0bdyahFI0DcknHZUHX55_sbydE2g5jpLdPTX_-RmBTlR8OaZ-Ila-BUkjc7lmo17Bqe5qBZZWBU0dvgWevI9Oiom45hT9egXX5H0A3xn_jWl-Bu78B-Wv0ImAfO22z_pC_mJRDNMloNGSfIwN76rUx2iWtT2wxvncfDsvVNKQnsH16OlC5q_Z7rld0_81DRZNgqE8H8ZUGI-wDCWoNZtUyr7JBZCf8kVW-xY-WFhc3ehJSutFG3KfEZVnM16aZUHV3gjgQM6ulsm3QP5otkp1y4yWAziDDmLDCLnRssHV9L6wKCXHmhsqi1Sa3jJRpmbSPbMl5YoXGVOF5MDolVZSWlxXdbbfJuCoUMNXaJV7hhEYD-rEYnGupuifxIrQRjeFM8PD4fDstwcRalnFmP5jxqO0Mxz6MjTiyjQEMO-dOmWHSCt1PhqX1MM-86Ll3_vI_CYFjxAzwIlwGEcIz-16HgGGGQl8N-nFfbXfbRolaNrS4voJAsYcJLN6YOQZ3fDl8Tt6WUb8wLozs53V0l5DmG9A2oU0MVrHFaCVEN_A1PPApbWAsDoEwX21uLtbwAkqhW6RjOfYQD9MT1Aif6imvUSw4McxlkGNlN6UL_wJDBZO-Mvn0VniAeXAUPcc5O_w66tCt8roZmyaR89_KDm5YERrs6KxjR0FEHdoLxLiVDDCnCpviiL5tCjSX_MUJbBV8nHHrtQgnVg9vJkLKcbDvI3XOqAybxP0L",
+     "time": "13 s"
+    },
+    {
+     "name": "GPT-6-Astra",
+     "effort": "Codex's default model, effort not set",
+     "verdict": "worked",
+     "made": "all four toys respond, with sound (loads its files from a server's root, so it runs under its own server, not here)",
+     "thumb": {
+      "kind": "image",
+      "src": "m/461353bd-a2c_gpt_0.webp",
+      "full": "m/461353bd-a2c_gpt_0_full.webp"
+     },
+     "link": "r1.jVTBbtswDL3rK3go0ARwUjtp0qW3IYehQIIV235AluhYiyx5ktw0X7JP2X37sVGys6QFhlYXUxLfI_lI6wsKVG2Ap7vpCn7_grWV-AzrzUPcGDuFvOTlpMjLnDV0pYHWrg2T5YT74DiMQo3g0Uh01x4O1skMDirUMJkk_3siCaAMiESMzyjo6ru3BmwX2i6MYyCsKutCcnUoiAQlC6rBGO0tgogvoHW2oTIq-kCDTFgfEvgqn97dwogS26OMiN4lZq3tbkdnwe7ReOABPj4-EI8S6IHSST59zUfbgeENyjGD07oQ4XwIlGhM6dUq5nv48xOuinya5zfbIa9ifgkUXFA8h1xeAhf5gHwBXFwCBxVerVWPW7yIeLtgQ32QitWKVBpOWnTQKK0VCTtIMrq62Y6zXrCNCrjZbCFfFMslzjJYwWcRYJbPlqyMMLMDWNc8fHr8Bo-6I0LNzT1wqDRJWyFmqZGi5i6qHsO5zsCItHXAhbCdCRRY8uOYDfGjmlAsSbxREiJJJNPAxEau9iy2NZX7gaBWk4fWPqOdr1HT1jYNN9JHxAFLyKMxh4orTSkkZ1aRHUPRZW8enAoBabocoKSqJXPYahWdCojmMYP5XRp1z7iUExtT9XsSwVOJBmOQ7fox2ay2du_fMcWswca64zscPYZAavs3HdVpkm6XxXwxLyWfiRJGpz-FONBR800Ys-GMpuLr9kscQhHUExJ7QDfYwR59bKfXvARbAfVRokkyGqkRDvwZHuKGBgq9B2qn0uc5VdR6oiItyJ3MrilJ7IwIS-4in3SKyLzl7UBDPkbUvTt3TzQ_XscnId2eiVuaFboKDsPg7X90ytdZssuuLGNy7h9ta9sMqMC6f6Y8D8pXRxLjTOlpFqWfsh3VbeJBeYTzM3d63rinF-X-_8-StOjNdYDaapngvch_AQ",
+     "time": "4 min"
+    },
+    {
+     "name": "GPT-5.6-Sol",
+     "effort": "medium effort",
+     "verdict": "worked",
+     "made": "all four toys respond, with sound",
+     "thumb": {
+      "kind": "image",
+      "src": "m/461353bd-a2c_gpt-sol_0.webp",
+      "full": "m/461353bd-a2c_gpt-sol_0_full.webp"
+     },
+     "link": "r1.jVTNkts2DL7rKXDYmdgzsiLJP9vdW7uHzE7X0500L0CRkMWYIhWCWq-fpI_Se_tiBSlt7GSmk_AiEAI-AB8_8iNK1EOAl9viDv75Gx6cwld4eHqMG-sK2N4KtSrr-i7r-ZcBXochrLbFbkXOwCJ0CIRWoX9HcHJe5XDSoYPVKsXfM0gAbUEmYHxFyb8-k7PgxjCMYRkLYds6H1KoR8kgqLKge4zVfgQQ8ysYvOt5jJY_0GMmHYWUfFMW6x0suLEjqpgxhcSujTsc2BfcES2BCPDr8yPjaIkE3E6KmWY-uxGs6FEtM3hbVyRcnMCNxpa-X_XuCP_-BTeboizf7-e-qvI6UQrJ9TwKdeWsyvWUWBabS2K5uU6cWfh2VdWUV5fXFes6m-eDNKzRzNLsGdBDr43RTOxMyeLm_X6ZT4Q96YBPT3sot9Vuh3UOd_CHDFCX9S5rYpo9ADx0Inx4_gTPZmRAI-w9CGgNU9si5ukgZSd8ZD2W86OFBXPrQUjpRhu4sBLnZTbXj2xCVf9yhEUiIlGkkmDiQfKMWTzXNPCWc1mOUhhDOayBOjS8dX0vrKKYcsIGykksrdCGe4jBWctmLMU5k3nyOgRkdXlAxVMrWIhhKD4zrGaZvxZd6E0OFM4cXUii1NC2qphOixxVb-H336JPpJqDOGDmcTA61qkgmuccbjfptlAmlFq5OC0dmUdilizG7P3Dc7Kzzrkj_cRFyHrsnT__RCBhCHxg9MNA_SbGza5ab9eNErVsYPF22RgDPevHhmU2-1hYf-4_Rh3LoF-Q0QP62Q7uTFERZEQDrgWWgkKbDsIqg3ASr_AYN6xJJAJWhL66XJrVw1DMBYezOfaNiXwLaISPeMprBiMnhhmGY6zspnDhX1iCZOKrkv5egAeWWzxQj2GOpi-jpi5PdjM2TWzOf4Ud3JADD9hNLx2JoKk9MxkXSGI5KyqyA89to6M5w-WlfHshBfGjdP__L5tySPZdgM4ZldInkv8D",
+     "time": "2 min"
+    },
+    {
+     "name": "GPT-5.6-Terra",
+     "effort": "medium effort",
+     "verdict": "no",
+     "made": "a picture of the toys, not toys",
+     "thumb": {
+      "kind": "image",
+      "src": "m/461353bd-a2c_gpt-terra_0.webp",
+      "full": "m/461353bd-a2c_gpt-terra_0_full.webp"
+     },
+     "link": "r1.jVRLbtswEN3zFLMIEBuQHcmO3SS7wosigI0aaS9AkSOLNUWqJBXHJ-lRum8v1iEl1w6KIuFG_Mx7nHnzxCcUqNoAzx-m9_DrJ6ysxBdYrR_jwtgplFjdTe4WxZw1dKSBxq4Nk8V0OQnoHIdRqBE8Gonu2sPBOpnBQYUaJpOEeCCaAMqASNT4goKOvnlrwHah7cI4XoVVZV1IoQ4FkaBkQTUY73uLIOILaJ1tqJCKPtAgE9aHBL7Kp_kcRpTYHmVE9CExa213O9oLdo_GAw_wcftIPEqgB0onxfRVH20HhjcoxwxO45UM522gVGNS_4z7Pfz-AVezaZ7fbE6ZzS6Bggu60SGXl7j5bQ_Mp7MLYHEJHHR4PRbzZcIVr28s2FAhpHK1Ip2GnRYdNEprRdIOooyubjbjrJdsrQKu1xvIF8VyibMM7uGzCDDLZ0tWRpjZAaxqHj5tv8JWd0SouXkADpUmcSvELLVS1NxF3eN1rjMwInUdcCFsZwJdLPlxzIb7o5pwO9_DKMqQBJLJMLGRVCGLfU3lFoS0mkK0zmjha9S0sk3DjYyAA5aQs0rpVDrk0E8PToWAZCUHKKlAyRy2WsWgAuL0SGyL5GvPuJQTG7Pye6rXUzUGI_dmtU1zVlu79--wLGuwse74jkCPIZCw_s1AdTLN7bKYL-al5DNRwuj0WxAHOuqzCWM27JEBvmyeot9EUM9I7GTlYR7s0cfOec1LsBVQyyQaapogOTXCgb_AY1yQd9B7oM4pfbakoi4TFWkR1Reua0oSOyPCkrvIJ50iMm95O9BQjBF1H87dM1nF6_j_p9MzcUu2oKPgMAzR_nunfJ2ledmVZUzO_aVtbZsBFVj3b5LnQfnqSGKcKT3ZTvop21HdJm6URzi_aae3jHt6Ph7-_wZJi95cB6itlgnei_wH",
+     "time": "58 s"
+    },
+    {
+     "name": "GPT-5.6-Luna",
+     "effort": "medium effort",
+     "verdict": "worked",
+     "made": "all four toys respond, with sound",
+     "thumb": {
+      "kind": "image",
+      "src": "m/461353bd-a2c_gpt-luna_0.webp",
+      "full": "m/461353bd-a2c_gpt-luna_0_full.webp"
+     },
+     "link": "r1.jVRLbtswEN3rFLMIEBuQFcm_1EE3rRdFUBs10l6AEkcWY4pUSSq2TtKjdN9erENKroMAQcKNqNG8NzOPT3zAAkXj4Ok2WcGf37DWHE-w3tz7F6UTKKd5OlnNPsyjmj5JoLVv3GSRLCeyVQxGrkKwqDiaawtHbXgMR-EqmEwC4I5YHAgFRWDGExb06dFqBbp1TevGvhKWpTYupBosiAR55ESNvtxbBB6fQWN0TXOU9IAao0JbF8BXaZJmMKLGDsg9ok_xXUu931PM6QMqC8zBp9098YgCLVA7IacfutMtKFYjH0dwXs9VuESBOvU9vVzZ8gB_f_lupunNlgIfQ2PPgQUrqKBBxp8DV_MzMJ2-AhxkeLmGitm5Yi9FNAwIYVopSKYh0qCBWkgpSNlBk9HVzXYc94pthMPNZgvpIlsucRrDCr4VDqbpdBnlHqb2AOuKuS-7H7CTLRFKpu6AQSlJ2xIxDidZVMx42X050yoYkbgGWFHoVjkqzFk3job6Xk3IsuwAI69DUIgHw_iDXB4if6xh2DkhtaQMKW0MM7AVSnrVdc0Utx5xxBzS3islE5I68MlRSVtfiDD99miEc0jmMoCcZuYwYk2TPBKtIJefksrVMgbrOspOCmtDP7cr0lIhJWVz-PrZh1go2bA9RgYbKXyZDPy2i2GRhX_FRozzifaj2gOJaEkihR69Xe_CPqq0Pth3_AZRjbU23TsSLTpHp2XfTBRnJ86X2WwxyzmbFjmMzr8acaAh8yg3joYYuer79sGbuHDiCYndoRn2TnfW28FKloMugXzAUYVzUFwiHNkJ7v0LGRKtBbKDkBefC7IOUZEWlE7bts6l15tBzozn40YQmdWsGWgoRxVVn87ME_nPSn-nhK8X4oa85s_ToBuy7c9W2CoO-7zNc9-c-U_b6CYGGrDq7znLnLBlR2JcKC15mdsk2tPcygfyDi735Pl-ZJaupLvX7zWu0aprB5WWPMB7kf8B",
+     "time": "39 s"
+    }
+   ],
+   "note": "Reworded for this page to ask for today's popular ASMR textures."
+  },
+  {
+   "id": "c6706b00-d24",
+   "title": "Crystal grower in 3D",
+   "what": "3D",
+   "prompt": "a photorealistic crystal simulation / grower in 3D: watch crystals grow and look at them from any angle",
+   "runs": [
+    {
+     "name": "Claude Opus 5.5",
+     "effort": "medium effort",
+     "verdict": "partly",
+     "made": "something grows, but blobby rather than photorealistic",
+     "thumb": {
+      "kind": "image",
+      "src": "m/c6706b00-d24_opus_0.webp",
+      "full": "m/c6706b00-d24_opus_0_full.webp"
+     },
+     "link": "r1.fVTBbts4EL3rK94hQGzAciTFVuJ0L9ukh8XGaLDYH6DFsUWYIgWSiusv2U_Ze_tjHVJ2YzRoCdgmh_M4M2_e-B9qSPUBr3fzFb7-j0ctBkl4tPxVzct5taqjuazwuQmoiqqeoXpYLPCyxqenf-OdsXPIxarMy81SZh0jNXg16aXc9oPPl_kyetJ2a11gQICjxjpJMguqo-iOBTplMBnxB-v2yuxG4zRlgN7ZjjPd8g86yhrrQwJeFfP7JSYXmV972INBsEFoiIA_X_5itGrIf0BoCVoZ8tiQtgcIKTH07AsVphnO66fs3y4AZfoh4P2q8e0_XC3mRXGz5uMfnFdRXgIb0XBwR0Jewu7KfQIW82oE4hfAg1OBMCnRTpP1thqB9-eI6Y36EmiH8D7XajXiquISuLzP6EtwwvMxtMok-qtIfzZSx_bIo1ZM-8nSk2MHrZWNZO_JeEyubtbT2dikZ873-XmNYlnWNVUzrH6IKNtEGEfAWnxBr4V5gMBWc7O2RLMkkaYVbkcyRXEDS-NoBwfRNHYwgeNJcZxmp7CxKyiL2z0mkc9EmEy6YQpixVlU1Fg-Q61mF639jGXlW9J8tF0njIyIA21QjJLbCqU5g-ibbXkbA0Uzb1M7AhlYB5JcqcSkcUfPkst3zh7IzdvQ6ZRDvaxGzc1wW-Dvj9EmUpxe7Chz1GsV3y4Rt8cZFtVdHAHpM5ZnbmOBfs-MeSbGsAbsFuUK4pXTExtNKcj68eXttuCCjKEmnFjo9bBT5gTnsx82HNkEjyJrrd2nwiLpTOMofeT9ST5ZR511x984eAqBm8kjdeyF9y_kOuU9q8Jn6qz1pr4r6k1RyGpRYHKeZUaRYzUZnr2TDUxN39pgeVCi2FSDE6_wqhtYIlFuNxhJjvncPj3gIELTnh19ukTsp-bi3iaC5cXz343yFObIn52mbKdeuZG8Nsf0_-DJSH76oEKLPBd-T_LhXdWQlry5Dmitlgk2FvAd",
+     "time": "5 min"
+    },
+    {
+     "name": "Claude Sonnet 5.5",
+     "effort": "medium effort",
+     "verdict": "partly",
+     "made": "something grows, but blobby rather than photorealistic",
+     "thumb": {
+      "kind": "image",
+      "src": "m/c6706b00-d24_sonnet_0.webp",
+      "full": "m/c6706b00-d24_sonnet_0_full.webp"
+     },
+     "link": "r1.fVRBbtswELzrFXMIUBuwHUmx5TrtpU16KBqjQdEP0OLaIkyRAknF8Uv6lN7bj3VJ2Y2BoCUgWVxyuDuzQ3-jmlQX8LScrfDrJ-606CXhzvKrnBWzclXFcFHiax1Q5mU1QXk7n-NxjU_33-OasTNUy201zedylbWM1OBRp5Om3hpDYbqYLuJe2m6tCwwJcFRbJ0lmQbUUAXg7h8doOOBg3V6ZXYqNUwXonG250i3_oKWstj4k2FU-K95idFH5Gw97MAg2CA0R8OHxM6NVTf4dQkPQypDHhrQ9QEiJvuO9UGGc4TxeVf-yBCjT9QGvR4XfP3BVzvL8es3T91xZXlwCa1FzekdCXsIWi30CMo8BiH8AD04FwqhAM07R4gScnzMmYHUJtH14XWtRDrgivwQWZUbPwQnP09Aok_Sf38Bng3YcjkJqxbqfIh05tEprZaPaezLcv6vr9XgydOmBy314WCNfFFVF5QSrvy7KNhHGCbAWz-i0MLcQ2Gru1pZokhxSN8LtSKYsrjcYHW3vIOra9iZwPimO4-yUNjYFy3yPUVQzySWTb1iAyDeLhkrkS0ZazVu09hPk8A1pntq2FUb6CDnQBnm2VTpxZufFzyR-IAPrQJKJSYxqd_RsMT9rQqtTtnK5GNw1QVHgy8cYE-nATuwoc9RpFU8tED-PE9zwNi5N-oyNOLWRid-zNJ4VMNxru0WxgngSSouNppRkfff4sppz6ezROpz4drrfKXOC89z3G85sgmdKjbX7RCmqy3oNJse0O9kka6m17vifDZ5C4K7x5Tl2wvtHcq3yntvvM3X2dF0t82qT57Kc5xidby2jyLFtDN-yUwwsTdfYYPlCRFepGidF4VXbsxeir66xc_bAFuB6bu5vcRChbs4bfVoEdw6ayb04n33EN70dfCjMkZ-dpmynnriFPDbH9E_gyUg--qBCg-lU-D3J21esIS158yagsVom2EDgDw",
+     "time": "88 s"
+    },
+    {
+     "name": "Claude Haiku 5.5",
+     "effort": "medium effort",
+     "verdict": "partly",
+     "made": "something grows, but blobby rather than photorealistic",
+     "thumb": {
+      "kind": "image",
+      "src": "m/c6706b00-d24_haiku_0.webp",
+      "full": "m/c6706b00-d24_haiku_0_full.webp"
+     },
+     "link": "r1.fVTBbhMxEL3vV7wDUhMpSXeX3S0pXKDlgGhEhfgBZz3JWvHaK9vbNF_Cp3CHH2PsJGqhCEtJ7PE8z8ybN_lKLakh4OFqscTPH7jRYpSEG8tf5aJYlMsmmosSX9qAMi-bGcrrqsL9Ch9vv8U7YxeoSlHPqamusp6RGrza9NK8E2o3zut5HV1ps7EuMCLAUWudJJkF1VP0xxK9MpgcH9hbt1NmiyoapykFDM72nOqGf9BT1lofEvBVvshrTJ6lfuFh9wbBBqEhAt7ff2K0asm_RegIWhnyWJO2ewgpMQ7sCxWmGc7r7_SfbgBlhjHgxapL_PoesynyyxWf38XEiufAVrQc3ZGQz4zFol6dgHmRgGlbvgTunQqESYFumqxNvjsBy_wJ-EdEO4Z_5Fotz8A6fx6RHoMTno-hUybxX0b-syN3bI9EasW8nywDOXbQWtnI9o6Mx-TV5Wo6O3bpjvO9u1shr4umoXLGPT7LKFtHGEfASjxi0MJcQ2CjuVsbolnSSNsJtyWZoriRtXGwo4NoWzuawPGkOEyzU9jYFaayWTE_kdDEmEzKYQ5ixVnUVCq_rBhsNfto7Wco3sB3pPls-14Y6SNoT2vkcdNgI5TmLJJ3tuG9T21D3KaeBDKwDiS5XImJMpIeF13odQpf1c1RcBzpCp8_RJtI7w9iS5mjQav4ZIG4PbBXVUf9S5-xNuc2Fud3zJZnUgz3325QLCEeOC2x1pSCrG7un25zrsQYasOJgEGPW2VOcD77cc2RTfDIs87aXaonEs4UHnWP-XCSTtZTb93hPw6eQuBG8jwdBuH9Pbleec-K8Jk667xtrvJmneeyrHJMzoPMKHKsJMODd7KBqRk6GywPSRSaatG6g49z7FU_sjyi1C6xdXbPquB8Xt9eYy9C250dfboENxKai3uaBpYWD39_lKYwB_5sNWVb9cD947U-pD8HT9w_h70KHeZz4Xckr19UDWnJm4uAzmqZYMcCfgM",
+     "time": "10 min"
+    },
+    {
+     "name": "GPT-6-Astra",
+     "effort": "Codex's default model, effort not set",
+     "verdict": "worked",
+     "made": "crystal clusters grow; orbit and growth controls (loads its files from a server's root, so it runs under its own server, not here)",
+     "thumb": {
+      "kind": "image",
+      "src": "m/c6706b00-d24_gpt_0.webp",
+      "full": "m/c6706b00-d24_gpt_0_full.webp"
+     },
+     "link": "r1.jVTtbtowFP2fpzg_JhUkoCGD0PJvYtJUCbRq2gsY-0I8nDiynVKeZI-y_9uL7doQlU6aWksI27lf59xz_Y0k6TbgaTG5x-9fWFlFz1itH-KhsROUs8VivJ3fFVnNnwx47dswLsfCBycwCBXBU6PI3XgcrVMjHHWoMB4n-yUHCdANZApMzyT50w9vG9gutF0YxkS021kXkqkjyUFIZUHXFLO9FSD6T9E6WzOMHf-hpkxaH5Lzh-nkLseACzuQih5nk1i1sfs93wV7oMZDBHx6fOA4WpIHl5NszphPtkMjamJsbKaDhw-iUcIpOBFo2YeDUMqja9PZdQ0zIoUxfgRvoXewDeFITUDL5KFYFIc-uw5IJdfW0TBDv66YfrkEsxFx_7PK_IA_PxlwPsnz200Cn0_K_NpRChkrI6GuHWeLi-crx_m144Xq12s6PfvNX2Wcl9mFRCRGjWZcl5uWHGptjObuXZAPPtxuhqNzV9Y60Hq9QT6fliUVI9zjq2Si8qLMttGt2QOrSoQvj9_xaDoOaESzhMDOcGN2RKOkFlkJF1sb03EbMOAGOggpbcfkB6vEaZhd8kc2scjLAwaJiESRSqqMamGMWRRPAlwU7GxN31Q--ooMn21dsx58dDrSFnnS5BQ7oQ2XkcyzHe9jOv563h6dDoFYxg6kGLnKHLVGR6Mp4vY0wmyWZspnrKyxjeX6AxPhGSZribNsVo9pn1XWHvw7xiWriUV2eoehpxCYcf-moe7VJEsmcpvnqpjxzPUjyTHIsQCaMMwud-CWtZUNrHYR9aElpDvxUBl4XXfczKiQW-ydPXIPOfnHz0scRZBVb-jTRzDtPHn28CJWFgKPX31WlGhO_Nsbyvb6ibnmtT3h5c3q3yrh-XlY_v-NUZZ8cxNQWaOS-xnIXw",
+     "time": "6 min"
+    },
+    {
+     "name": "GPT-5.6-Sol",
+     "effort": "medium effort",
+     "verdict": "worked",
+     "made": "crystal clusters grow; orbit and growth controls",
+     "thumb": {
+      "kind": "image",
+      "src": "m/c6706b00-d24_gpt-sol_0.webp",
+      "full": "m/c6706b00-d24_gpt-sol_0_full.webp"
+     },
+     "link": "r1.jVRdjtowEH7PKeZhpQUJsk5gQ5e3lkpVVVZFVS9g7EnixbEj2yzLSXqUvrcX69gBQStVu5YQzni--fn8jb-hQNUHeF7kD_DrJ6ysxBdYrT_HD2NzmNcP9VTOWJV1dKSBVtOH6X1eTb3VMAotgkcj0d16OFgnJ3BQoYXpNPkvKUgAZUCkwPiCgo6evDVg96Hfh3FMhHVtXUiuDgUFQZkF1WHM9lqAiC-gd7ajNmr6gw4zYX1I4BuWzxYwosJ2KCNicIlVa9s0ZAt2h8YDD_B-85niKIEeqJzkM_R8tHswvEM5zuC8rki4GIEKjSX9u8pqB79_wM08Z-zu8VRXwa6BggvK55DLK2PB5gOQ5fMLkM2vgScW_l5FMeBKdp2xnGWn_iA1qxWxdLL06KBTWisi9kTJ6ObucTwZCFurgOv1I7D7oqqwnMADfBUBSlZW2TbCTAOwann4tPkOG72ngJqbJXCoNVFbI07SRYqWu8h6TOf2BkbErQMuhN2bQIklP46zU_7IJhQztoNRIiJRJJNg4kVSj1m819RwRViSo-Ba-wncg29R06ftOm6kj5ADboHFTQk1V5pqSM5ZTfuYC2YwbA9OhYAkLwcoqW0JI973-RPFVaTzl7wNnZ6AD0fyzoX3qaJ5URKfBsmrXMCXD9HGU9KeN5g57LWKeQqI2-ME3s3SuPiMSzm1sV2_IyI90WQwoh9Xm7TPWmt3_g2TkHXYWXd8g6PHEOjG_KuO6qxGUS1YtWVMlnMGo_O0UQx0JCATxtnJBtR139pgScpRX0qAcEcfuAavuj2JISrsDhpnD6QBSj77uIQDD6I9O_p0CHRxNKN2dxE7CYmGshsUyc2Rfo3GrFHPdF20tke4PEfnZ4h7mvzl_58PadGb2wCt1TLBh0b-AA",
+     "time": "5 min"
+    },
+    {
+     "name": "GPT-5.6-Terra",
+     "effort": "medium effort",
+     "verdict": "partly",
+     "made": "something grows, but blobby rather than photorealistic",
+     "thumb": {
+      "kind": "image",
+      "src": "m/c6706b00-d24_gpt-terra_0.webp",
+      "full": "m/c6706b00-d24_gpt-terra_0_full.webp"
+     },
+     "link": "r1.jVRdbhoxEH73KeYhUkCCze4GNg1vLZWqqKCiqhcw9rDrrtde2SaEk_QofW8v1rEXFBKpSiwhvPZ88_PNN_6OAlUf4PEuu4c_v2FpJT7BcvUQP4zNoCqFnM6KYsY6utJAq-7DdJ5V04DOcRiFBsGjkeiuPRyskxM4qNDAdJoQC3ITQBkQyTU-oaCrn94asPvQ78M4hsLdzrqQTB0KcoKSBdVhjPeWg4gvoHe2o0J29AcdMmF9SOCrPMvvYUSJtSgjYjCJWWtb13QWbIvGAw_wcfNAfpRAD5ROshmqPto9GN6hHDM4rxc0PB8DpRqTer2KvIW_v-CqzPL8Zn3OrLwECi4ookMuL4F35QDMs_ICWFwCTzy8WrMBV7yMOGenCiGVqxXxdDrp0UGntFZE7YmU0dXNejwZKFupgKvVGvJ5UVVYTuAevokAZV5WbBthpgZYNjx82fyAjd6TQ83NAjjsNJG7Q5ykVoqGu8h7DOf2BkbErgMuhN2bQIElP47ZKX5kEz4QA6NIQyJIJsHERs5aFtuaip0T0Gqy0NpPYAa-QU2ftuu4kT4iDriFfNDKjitNCURjtqOtTw2CuIWDUyEgacsBSqpYwkiRuJ-yJnQ6hZ7fEmsGKUxRwNdP8Ygn7z2vkTnstYoeC4jb4wTKeRoLz7iUUxuL8i3R5YkMgxG9Xm7SnjXWtv4dimcddtYd32HoMQTqi3_TUJ01J6q7vNrmuSxnOYzOU0U-0JFMTBiz0xlQ1X1jgyXBRhUpAcIdfeAavOr21PKooxuonT1Qpyn47ecFHHgQzdnQp0ugDtEs2vZZ0iQXGr5u0B03R_rVGlmtHqkztLZHeH52zs8N9zThi_8_E9KiN9cBGqtlgg-F_AM",
+     "time": "2 min"
+    },
+    {
+     "name": "GPT-5.6-Luna",
+     "effort": "medium effort",
+     "verdict": "no",
+     "made": "blank page: it imports three.js by a bare name that needs a build step",
+     "thumb": {
+      "kind": "image",
+      "src": "m/c6706b00-d24_gpt-luna_0.webp",
+      "full": "m/c6706b00-d24_gpt-luna_0_full.webp"
+     },
+     "link": "r1.jVTdatswFL7XU5yLQRNIUttNnTbsZstglCUsjL2AKh3bmmXJSHLTPMkeZffbi-1ITmgplFYQIh-d7_x855N-oEDVB3hYLW7h7x_YWImPsNnexQ9jF7AssZoX5apgHR1poFX3YX69KOd6MBwmoUHwaCS6Cw8H6-QMDio0MJ8nwJqiBFAGRIqMjyjo6Je3BuwQ-iFMYyasKutCcnUoKAhKFlSHMd1bASI-h97Zjvqo6A86ZML6kMAfskWWw4QKa1FGxOgSq9a2rskWbIvGAw_waX9HcZRAD1RO8hmbPtoBDO9QThmc13MWnqxAlcaaXq78qoV_v2M1RXa5I8PHVNhzoOCCEjrk8jnwpjgDs-IV4ImGl2s1AvNzxpEKdmoQUrdaEU0nS48OOqW1ImZPnEw-XO6ms5GxrQq43e4gu87LEosZ3MJ3EaDIipLdR5ipATYND1_3P2GvBwqouVkDh0oTtxXiLE1SNNxF2mM6NxiYELkOuBB2MIESS36cslP-yCbcXrcwiTQkgmTSS5zjqmVxqqnXkoBWk4fWfgZL8A1q-rRdx430EXHAe8hGqVRcaSogOrOKtj4NCOIWDk6FgCQtByipYwkTRdp-XDSh0yl1WRBrBilNvoRvn6OJp-g9r5E57LWKEXOI2-MMbvJ0KzzjUs5tbMq3RJcnMgxG9G6zT3vWWNv6dwieddhZd3yHo8cQaC7-TUd11pwoV1l5n2WyWGYwOV8qioGOZGLClJ1sQF33jQ2WBBtVpAQId_SBa_CqG2jkUUeXUDt7oElT8qsvazjwIJqzo0-HQBOiq2jbJ0mTXOjudaPuuDnSr9bIavVAk6F1f4SnV-f82nBPF3z9-ishLXpzEaCxWib42Mh_",
+     "time": "44 s"
+    }
+   ]
+  }
+ ]
+}

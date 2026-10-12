@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Crystal Grower — 3D</title>
+<style>
+  :root { --fg:#e8e6e3; --dim:#9aa0a8; --accent:#b99cff; --panel:rgba(16,18,24,.78); }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#0d0f13; color:var(--fg);
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  canvas { display:block; }
+  #title { position:fixed; top:16px; left:18px; pointer-events:none; }
+  #title h1 { margin:0; font-size:20px; font-weight:600; letter-spacing:.5px; }
+  #title .sub { color:var(--dim); }
+  #stats { position:fixed; left:18px; bottom:16px; background:var(--panel); padding:10px 14px; border-radius:10px;
+    backdrop-filter: blur(8px); min-width:230px; }
+  #stats .row { display:flex; justify-content:space-between; gap:16px; }
+  #stats .k { color:var(--dim); }
+  .bar { height:5px; background:#2a2e36; border-radius:3px; margin-top:6px; overflow:hidden; }
+  .bar > div { height:100%; width:0; background:linear-gradient(90deg,#6ad1ff,var(--accent)); transition:width .2s; }
+  #panel { position:fixed; top:14px; right:14px; width:270px; background:var(--panel); padding:14px 16px;
+    border-radius:12px; backdrop-filter: blur(8px); max-height:calc(100% - 28px); overflow:auto; }
+  #panel h2 { margin:0 0 10px; font-size:12px; text-transform:uppercase; letter-spacing:1.5px; color:var(--dim); font-weight:600; }
+  label { display:block; margin:9px 0 3px; color:var(--dim); }
+  label span { float:right; color:var(--fg); font-variant-numeric: tabular-nums; }
+  select, input[type=range] { width:100%; }
+  select { background:#1d2028; color:var(--fg); border:1px solid #333845; border-radius:6px; padding:5px; }
+  input[type=range] { accent-color: var(--accent); }
+  .check { display:flex; align-items:center; gap:8px; margin-top:10px; color:var(--fg); }
+  .btns { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:14px; }
+  button { background:#262a35; color:var(--fg); border:1px solid #383e4c; border-radius:7px; padding:7px 6px;
+    cursor:pointer; font:inherit; }
+  button:hover { background:#313644; }
+  button.primary { background:#4b3a7a; border-color:#6a55a8; }
+  button.primary:hover { background:#5a4692; }
+  #info { position:fixed; pointer-events:none; background:var(--panel); padding:8px 12px; border-radius:8px;
+    display:none; backdrop-filter: blur(8px); border:1px solid #3a3f4d; }
+  #info b { color:var(--accent); }
+  #hint { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); color:var(--dim); font-size:12px;
+    pointer-events:none; text-align:center; }
+  #err { position:fixed; inset:0; display:none; align-items:center; justify-content:center; text-align:center; padding:40px; }
+  @media (max-width: 700px) { #panel { width:220px; } #hint { display:none; } }
+</style>
+</head>
+<body>
+<div id="title"><h1>Crystal Grower</h1><div class="sub" id="mineralName">Clear Quartz on matrix</div></div>
+
+<div id="panel">
+  <h2>Growth</h2>
+  <label>Mineral</label>
+  <select id="mineral"></select>
+  <label>Companion mineral</label>
+  <select id="companion"></select>
+  <label>Time-lapse speed <span id="speedV"></span></label>
+  <input id="speed" type="range" min="0" max="6" step="0.1" value="1.5" />
+  <label>Solution concentration <span id="concV"></span></label>
+  <input id="conc" type="range" min="0.3" max="2.5" step="0.05" value="1.2" />
+  <label>Nucleation density <span id="densV"></span></label>
+  <input id="dens" type="range" min="10" max="320" step="5" value="120" />
+  <label>Irregularity <span id="irrV"></span></label>
+  <input id="irr" type="range" min="0" max="1" step="0.01" value="0.45" />
+  <h2 style="margin-top:16px">Lighting &amp; view</h2>
+  <label>Light angle <span id="lightV"></span></label>
+  <input id="light" type="range" min="0" max="360" step="1" value="35" />
+  <label>Exposure <span id="expV"></span></label>
+  <input id="exp" type="range" min="0.4" max="2.2" step="0.05" value="1.0" />
+  <div class="check"><input id="bloom" type="checkbox" checked /> Glints (bloom)</div>
+  <div class="check"><input id="rotate" type="checkbox" checked /> Auto-rotate</div>
+  <div class="btns">
+    <button id="regrow" class="primary">Regrow</button>
+    <button id="pause">Pause</button>
+    <button id="finish">Finish growth</button>
+    <button id="shot">Screenshot</button>
+  </div>
+</div>
+
+<div id="stats">
+  <div class="row"><span class="k">Elapsed</span><span id="sTime">0 kyr</span></div>
+  <div class="row"><span class="k">Crystals</span><span id="sCount">0</span></div>
+  <div class="row"><span class="k">Still growing</span><span id="sActive">0</span></div>
+  <div class="row"><span class="k">Crystal mass</span><span id="sMass">0 g</span></div>
+  <div class="row" style="margin-top:6px"><span class="k">Supersaturation</span><span id="sS">—</span></div>
+  <div class="bar"><div id="sBar"></div></div>
+</div>
+
+<div id="info"></div>
+<div id="hint">Drag to orbit · scroll to zoom · right-drag to pan · click a crystal to inspect · double-click to focus</div>
+<div id="err"><div><h2>WebGL couldn't start</h2><p id="errMsg"></p></div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+
+// ---------------------------------------------------------------------------
+// Mineral catalogue
+// habit: prism (hexagonal, quartz-family), cube, octa
+// ---------------------------------------------------------------------------
+const MINERALS = {
+  quartz:   { name:'Clear Quartz', habit:'prism', term:'pyramid', aspect:0.26, size:1.0, ior:1.544, dispersion:0.2,
+              roughness:0.015, attDist:2.5, tints:[0xf6f9ff,0xffffff,0xeef4ff], rock:'crust' },
+  amethyst: { name:'Amethyst', habit:'prism', term:'pyramid', aspect:0.42, size:0.65, ior:1.544, dispersion:0.2,
+              roughness:0.02, attDist:0.32, tints:[0x8a4cc4,0x7a3fb0,0x9d6ad0,0x6c3aa0], rock:'crust' },
+  citrine:  { name:'Citrine', habit:'prism', term:'pyramid', aspect:0.3, size:0.85, ior:1.544, dispersion:0.2,
+              roughness:0.02, attDist:0.45, tints:[0xe8a030,0xf0b848,0xd88a22], rock:'crust' },
+  smoky:    { name:'Smoky Quartz', habit:'prism', term:'pyramid', aspect:0.24, size:1.15, ior:1.544, dispersion:0.2,
+              roughness:0.02, attDist:0.35, tints:[0x6b5848,0x584838,0x7a6656], rock:'dark' },
+  emerald:  { name:'Emerald', habit:'prism', term:'flat', aspect:0.3, size:0.8, ior:1.58, dispersion:0.15,
+              roughness:0.05, attDist:0.28, tints:[0x1f9f62,0x15905a,0x2bb374], rock:'dark' },
+  fluorite: { name:'Fluorite', habit:'cube', size:1.0, ior:1.434, dispersion:0.05, roughness:0.04, attDist:0.35,
+              tints:[0x7a52d8,0x45b38a,0x5c8fe0,0x9a5ccf], rock:'crust' },
+  pyrite:   { name:'Pyrite', habit:'cube', size:0.9, metal:true, color:0xd8b866, roughness:0.2, rock:'dark' },
+  diamond:  { name:'Diamond (octahedral)', habit:'octa', size:0.8, ior:2.417, dispersion:1.0, roughness:0.01,
+              attDist:4, tints:[0xffffff,0xfffaf0,0xf4fbff], rock:'dark' },
+  halite:   { name:'Halite (rock salt)', habit:'cube', size:1.1, ior:1.544, dispersion:0.05, roughness:0.12,
+              attDist:1.2, tints:[0xffffff,0xffe6ee,0xf2f0ff], rock:'crust' },
+};
+
+// ---------------------------------------------------------------------------
+// Seeded RNG + noise
+// ---------------------------------------------------------------------------
+let seed = (Math.random() * 1e9) | 0;
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+let rand = mulberry32(seed);
+const gauss = () => { let u = 0, v = 0; while (!u) u = rand(); while (!v) v = rand();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+function hash(x, y, z) { const h = Math.sin(x * 127.1 + y * 311.7 + z * 74.7 + (seed % 1000) * 0.137) * 43758.5453; return h - Math.floor(h); }
+function vnoise(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const fx = x - xi, fy = y - yi, fz = z - zi;
+  const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy), w = fz * fz * (3 - 2 * fz);
+  const c = (i, j, k) => hash(xi + i, yi + j, zi + k);
+  return lerp(lerp(lerp(c(0,0,0), c(1,0,0), u), lerp(c(0,1,0), c(1,1,0), u), v),
+              lerp(lerp(c(0,0,1), c(1,0,1), u), lerp(c(0,1,1), c(1,1,1), u), v), w);
+}
+function fbm(x, y, z, oct = 5) { let a = 0.5, f = 1, s = 0;
+  for (let i = 0; i < oct; i++) { s += a * (vnoise(x * f, y * f, z * f) * 2 - 1); f *= 2.03; a *= 0.5; } return s; }
+
+// ---------------------------------------------------------------------------
+// Renderer / scene
+// ---------------------------------------------------------------------------
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+} catch (e) {
+  document.getElementById('err').style.display = 'flex';
+  document.getElementById('errMsg').textContent = e.message;
+  throw e;
+}
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.prepend(renderer.domElement);
+
+const BG = 0x0d0f13;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(BG);
+scene.fog = new THREE.Fog(BG, 9, 24);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 1.0;
+
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.02, 100);
+camera.position.set(4.6, 3.3, 4.8);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.9, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.minDistance = 0.4;
+controls.maxDistance = 16;
+controls.maxPolarAngle = Math.PI * 0.53;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.6;
+
+const key = new THREE.DirectionalLight(0xfff4e6, 3.0);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 0.5, far: 25 });
+key.shadow.bias = -0.0004;
+key.shadow.normalBias = 0.02;
+scene.add(key, key.target);
+
+const rim = new THREE.SpotLight(0x9fc4ff, 60, 20, Math.PI / 5, 0.6, 1.5);
+scene.add(rim, rim.target);
+scene.add(new THREE.HemisphereLight(0xbcc8ff, 0x201810, 0.25));
+
+const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 64),
+  new THREE.MeshStandardMaterial({ color: 0x1a1c22, roughness: 0.55, metalness: 0.0 }));
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// Post-processing (MSAA target so edges stay crisp)
+const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });
+const composer = new EffectComposer(renderer, rt);
+composer.setPixelRatio(Math.min(devicePixelRatio, 2));
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.35, 0.92);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+function setLightAngle(deg) {
+  const a = THREE.MathUtils.degToRad(deg);
+  key.position.set(Math.cos(a) * 5, 7, Math.sin(a) * 5);
+  rim.position.set(-Math.cos(a) * 6, 3.5, -Math.sin(a) * 6);
+  rim.target.position.set(0, 1, 0);
+  scene.environmentRotation.set(0, a, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Materials
+// ---------------------------------------------------------------------------
+const matCache = new Map();
+let striationTex = null;
+function getStriation() {
+  if (striationTex) return striationTex;
+  const c = document.createElement('canvas'); c.width = 8; c.height = 256;
+  const g = c.getContext('2d');
+  for (let y = 0; y < 256; y++) { const v = 128 + 90 * Math.sin(y * 0.9) * (0.5 + 0.5 * Math.random()); g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(0, y, 8, 1); }
+  striationTex = new THREE.CanvasTexture(c);
+  striationTex.wrapS = striationTex.wrapT = THREE.RepeatWrapping;
+  striationTex.repeat.set(1, 3);
+  return striationTex;
+}
+function materialsFor(id) {
+  if (matCache.has(id)) return matCache.get(id);
+  const d = MINERALS[id];
+  let mats;
+  if (d.metal) {
+    mats = [0, 1, 2].map(i => new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(d.color).offsetHSL(0, 0, (i - 1) * 0.03), metalness: 1, roughness: d.roughness + i * 0.04,
+      bumpMap: getStriation(), bumpScale: 0.6, envMapIntensity: 1.2,
+    }));
+  } else {
+    mats = d.tints.map(t => new THREE.MeshPhysicalMaterial({
+      color: 0xffffff, metalness: 0, roughness: d.roughness, transmission: 1, thickness: 0.6,
+      ior: d.ior, dispersion: d.dispersion, attenuationColor: new THREE.Color(t),
+      attenuationDistance: d.attDist * (0.8 + Math.random() * 0.5), specularIntensity: 1, envMapIntensity: 1.25,
+    }));
+  }
+  matCache.set(id, mats);
+  return mats;
+}
+
+// ---------------------------------------------------------------------------
+// Matrix rock
+// ---------------------------------------------------------------------------
+let rock = null, rockSites = null;
+function buildRock(mineralId) {
+  if (rock) { scene.remove(rock); rock.geometry.dispose(); rock.material.dispose(); }
+  let geo = new THREE.IcosahedronGeometry(1, 6);
+  geo.deleteAttribute('normal'); geo.deleteAttribute('uv');
+  geo = mergeVertices(geo);
+  const pos = geo.attributes.position, p = new THREE.Vector3();
+  const sx = 1.55 + rand() * 0.3, sy = 0.7 + rand() * 0.2, sz = 1.25 + rand() * 0.3;
+  for (let i = 0; i < pos.count; i++) {
+    p.fromBufferAttribute(pos, i);
+    const big = fbm(p.x * 1.1 + 3, p.y * 1.1, p.z * 1.1, 4);
+    const fine = fbm(p.x * 7, p.y * 7, p.z * 7, 3);
+    p.multiplyScalar(1 + big * 0.35 + fine * 0.035);
+    p.set(p.x * sx, p.y * sy, p.z * sz);
+    if (p.y < -0.25) p.y = -0.25 + (p.y + 0.25) * 0.12;   // flat-ish base so it sits on the table
+    pos.setXYZ(i, p.x, p.y, p.z);
+  }
+  geo.computeBoundingBox();
+  geo.translate(0, -geo.boundingBox.min.y - 0.02, 0);
+  geo.computeVertexNormals();
+
+  const nrm = geo.attributes.normal, col = new Float32Array(pos.count * 3);
+  const d = MINERALS[mineralId];
+  const base1 = new THREE.Color(d.rock === 'dark' ? 0x2a2622 : 0x3d342c);
+  const base2 = new THREE.Color(d.rock === 'dark' ? 0x4a4038 : 0x76675a);
+  const crust = new THREE.Color(d.rock === 'dark' ? 0x5c574f : 0xc4c0bb);
+  const c = new THREE.Color();
+  rockSites = [];
+  for (let i = 0; i < pos.count; i++) {
+    p.fromBufferAttribute(pos, i);
+    const ny = nrm.getY(i);
+    const n = 0.5 + 0.5 * fbm(p.x * 3, p.y * 3, p.z * 3, 4);
+    c.copy(base1).lerp(base2, n);
+    const k = smooth(0.15, 0.65, ny) * (0.55 + 0.45 * n);
+    c.lerp(crust, k * 0.8);
+    col.set([c.r, c.g, c.b], i * 3);
+    if (ny > 0.2) rockSites.push(i);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  rock = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 }));
+  rock.castShadow = rock.receiveShadow = true;
+  scene.add(rock);
+}
+
+// ---------------------------------------------------------------------------
+// Crystal geometry
+// ---------------------------------------------------------------------------
+const MAX_TRIS = 36;
+const UP = new THREE.Vector3(0, 1, 0);
+
+// Writes a distorted hexagonal prism (+ termination) into a position array, in local space (+Y = c-axis).
+function fillPrism(arr, c) {
+  const R = c.R, L = c.L, j = c.j;
+  const y0 = -R * 0.6 - 0.04;
+  const B = [], T = [];
+  for (let i = 0; i < 6; i++) {
+    const a = i * Math.PI / 3 + j.twist[i];
+    const rb = R * j.r[i], rt = rb * (1 - j.taper);
+    B.push([Math.cos(a) * rb, y0, Math.sin(a) * rb]);
+    T.push([Math.cos(a) * rt * j.top[i], L, Math.sin(a) * rt * j.top[i]]);
+  }
+  let k = 0;
+  const tri = (a, b, d) => { arr.set(a, k); arr.set(b, k + 3); arr.set(d, k + 6); k += 9; };
+  const rt = R * (1 - j.taper);
+  for (let i = 0; i < 6; i++) { const n = (i + 1) % 6; tri(B[i], T[i], B[n]); tri(B[n], T[i], T[n]); }
+  if (c.term === 'pyramid') {
+    const h = rt * 1.1 * j.h;
+    const A = [j.ax * rt, L + h, j.az * rt];
+    for (let i = 0; i < 6; i++) tri(T[i], A, T[(i + 1) % 6]);
+    c.cap = h;
+  } else {
+    const bh = R * 0.12, E = T.map(t => [t[0] * 0.8, L + bh, t[2] * 0.8]), C = [0, L + bh, 0];
+    for (let i = 0; i < 6; i++) { const n = (i + 1) % 6; tri(T[i], E[i], T[n]); tri(T[n], E[i], E[n]); }
+    for (let i = 0; i < 6; i++) tri(E[i], C, E[(i + 1) % 6]);
+    c.cap = bh;
+  }
+  const Cb = [0, y0, 0];
+  for (let i = 0; i < 6; i++) tri(B[(i + 1) % 6], Cb, B[i]);
+  return k / 3;
+}
+
+// Unit cube / octahedron with slightly displaced corners — no two crystals identical.
+function jitteredSolid(habit, amt) {
+  let g = habit === 'cube' ? new THREE.BoxGeometry(1, 1, 1).toNonIndexed() : new THREE.OctahedronGeometry(0.62, 0);
+  const pos = g.attributes.position, map = new Map();
+  for (let i = 0; i < pos.count; i++) {
+    const key = `${pos.getX(i).toFixed(2)},${pos.getY(i).toFixed(2)},${pos.getZ(i).toFixed(2)}`;
+    if (!map.has(key)) map.set(key, [gauss() * amt, gauss() * amt, gauss() * amt]);
+    const o = map.get(key);
+    pos.setXYZ(i, pos.getX(i) + o[0], pos.getY(i) + o[1], pos.getZ(i) + o[2]);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// Simulation
+// ---------------------------------------------------------------------------
+const params = { speed: 1.5, S0: 1.2, density: 120, irr: 0.45, mineral: 'quartz', companion: 'none' };
+const crystalGroup = new THREE.Group();
+scene.add(crystalGroup);
+let crystals = [], pending = [], pendingIdx = 0, simT = 0, S = 1.2, paused = false;
+const FEED = 0.045, CONSUME = 0.55;
+
+function resetSim(newSeed = true) {
+  if (newSeed) seed = (Math.random() * 1e9) | 0;
+  rand = mulberry32(seed);
+  for (const c of crystals) { c.mesh.geometry.dispose(); crystalGroup.remove(c.mesh); }
+  crystals = []; pending = []; pendingIdx = 0; simT = 0; S = params.S0;
+  buildRock(params.mineral);
+
+  const pos = rock.geometry.attributes.position, nrm = rock.geometry.attributes.normal;
+  const n = Math.round(params.density);
+  for (let i = 0; i < n; i++) {
+    const vi = rockSites[(rand() * rockSites.length) | 0];
+    const mineral = params.companion !== 'none' && rand() < 0.18 ? params.companion : params.mineral;
+    pending.push({
+      mineral,
+      p: new THREE.Vector3().fromBufferAttribute(pos, vi),
+      n: new THREE.Vector3().fromBufferAttribute(nrm, vi),
+      // Most nuclei form early; a long tail forms late and stays small (druzy between big points).
+      tNuc: -Math.log(1 - rand() * 0.999) * 5,
+    });
+  }
+  pending.sort((a, b) => a.tNuc - b.tNuc);
+  document.getElementById('mineralName').textContent =
+    MINERALS[params.mineral].name + (params.companion !== 'none' ? ` with ${MINERALS[params.companion].name}` : '') + ' on matrix';
+}
+
+function spawn(site) {
+  const d = MINERALS[site.mineral];
+  // Don't nucleate inside an existing crystal
+  for (const o of crystals) if (distPointSeg(site.p, o.p0, o.p1) < o.r * 1.05) return;
+
+  const irr = params.irr;
+  const dir = site.n.clone().addScaledVector(UP, 0.35)
+    .add(new THREE.Vector3(gauss(), gauss(), gauss()).multiplyScalar(0.25 + irr * 0.45)).normalize();
+  if (dir.dot(site.n) < 0.35) dir.lerp(site.n, 0.6).normalize();
+
+  const mats = materialsFor(site.mineral);
+  const c = {
+    mineral: site.mineral, habit: d.habit, term: d.term, born: simT, active: true, blockedL: false, blockedR: false,
+    base: site.p.clone().addScaledVector(site.n, -0.03), dir, n: site.n.clone(),
+    rate: Math.exp(gauss() * 0.45), V: 0, dirty: true,
+    p0: new THREE.Vector3(), p1: new THREE.Vector3(), r: 0,
+  };
+  const sizeRoll = Math.pow(rand(), 1.6);
+  let mesh;
+  if (d.habit === 'prism') {
+    c.L = 0.004; c.R = 0.003; c.aspect = d.aspect * (0.75 + rand() * 0.5);
+    c.maxL = lerp(0.18, 1.7, sizeRoll) * d.size;
+    c.maxR = c.maxL * c.aspect * 1.25;
+    const ji = 0.04 + irr * 0.22;
+    c.j = {
+      r: Array.from({ length: 6 }, () => 1 + gauss() * ji * 0.6),
+      top: Array.from({ length: 6 }, () => 1 + gauss() * ji * 0.25),
+      twist: Array.from({ length: 6 }, () => gauss() * ji * 0.12),
+      taper: Math.max(-0.05, 0.04 + gauss() * ji * 0.3),
+      h: 1 + gauss() * ji * 0.4, ax: gauss() * ji * 0.9, az: gauss() * ji * 0.9,
+    };
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_TRIS * 9), 3));
+    mesh = new THREE.Mesh(geo, mats[(rand() * mats.length) | 0]);
+    mesh.position.copy(c.base);
+    mesh.quaternion.setFromUnitVectors(UP, dir)
+      .multiply(new THREE.Quaternion().setFromAxisAngle(UP, rand() * Math.PI * 2));
+  } else {
+    c.s = 0.004;
+    c.maxS = lerp(0.12, 0.62, sizeRoll) * d.size;
+    mesh = new THREE.Mesh(jitteredSolid(d.habit, 0.012 + irr * 0.05), mats[(rand() * mats.length) | 0]);
+    mesh.quaternion.setFromUnitVectors(UP, dir)
+      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(rand() * 6.3, rand() * 6.3, rand() * 6.3)));
+  }
+  mesh.castShadow = !!d.metal;
+  mesh.receiveShadow = true;
+  mesh.frustumCulled = false;
+  mesh.userData.crystal = c;
+  c.mesh = mesh;
+  updateCollider(c);
+  crystals.push(c);
+  crystalGroup.add(mesh);
+}
+
+function updateCollider(c) {
+  if (c.habit === 'prism') {
+    c.p0.copy(c.base);
+    c.p1.copy(c.base).addScaledVector(c.dir, c.L + (c.cap ?? c.R));
+    c.r = c.R * 0.95;
+  } else {
+    c.p0.copy(c.base).addScaledVector(c.n, c.s * 0.18);
+    c.p1.copy(c.p0);
+    c.r = c.s * (c.habit === 'cube' ? 0.6 : 0.55);
+  }
+}
+
+const _v = new THREE.Vector3(), _w = new THREE.Vector3();
+function distPointSeg(p, a, b) {
+  _v.subVectors(b, a); const l2 = _v.lengthSq();
+  const t = l2 > 1e-12 ? Math.min(1, Math.max(0, _w.subVectors(p, a).dot(_v) / l2)) : 0;
+  return _w.copy(a).addScaledVector(_v, t).distanceTo(p);
+}
+const _q = new THREE.Vector3();
+function distSegSeg(a0, a1, b0, b1) { // sampled approximation — plenty for crystal contacts
+  let m = Infinity;
+  for (let i = 0; i <= 4; i++) { _q.lerpVectors(a0, a1, i / 4); m = Math.min(m, distPointSeg(_q, b0, b1)); }
+  return m;
+}
+
+function step(dt) {
+  simT += dt;
+  while (pendingIdx < pending.length && pending[pendingIdx].tNuc <= simT) {
+    // Nucleation needs supersaturation: depleted solution suppresses new nuclei.
+    if (rand() < Math.min(1, S / params.S0 + 0.15)) spawn(pending[pendingIdx]);
+    pendingIdx++;
+  }
+  let dV = 0;
+  const drive = Math.max(0, S - 0.05);
+  for (const c of crystals) {
+    if (!c.active) continue;
+    const g = 0.034 * c.rate * drive * dt;
+    let V;
+    if (c.habit === 'prism') {
+      if (!c.blockedL) c.L = Math.min(c.maxL, c.L + g);
+      if (!c.blockedR) c.R = Math.min(c.maxR, c.R + g * c.aspect * (c.blockedL ? 0.4 : 1));
+      V = 2.598 * c.R * c.R * c.L;
+      if ((c.blockedL || c.L >= c.maxL) && (c.blockedR || c.R >= c.maxR)) c.active = false;
+    } else {
+      c.s = Math.min(c.maxS, c.s + g * 0.55);
+      V = c.s ** 3 * (c.habit === 'cube' ? 1 : 0.3);
+      if (c.s >= c.maxS) c.active = false;
+    }
+    dV += V - c.V; c.V = V; c.dirty = true;
+    updateCollider(c);
+
+    // Competitive growth: a face that runs into a neighbour stops advancing.
+    for (const o of crystals) {
+      if (o === c) continue;
+      if (c.habit === 'prism') {
+        if (!c.blockedL && distPointSeg(c.p1, o.p0, o.p1) < o.r * 0.9) c.blockedL = true;
+        if (!c.blockedR && c.L > c.R * 2 && distSegSeg(_tmpA.copy(c.p0).addScaledVector(c.dir, c.R), c.p1, o.p0, o.p1) < (c.r + o.r) * 0.55) c.blockedR = true;
+      } else if (distSegSeg(c.p0, c.p1, o.p0, o.p1) < (c.r + o.r) * 0.7 && c.V < o.V * 1.5) {
+        c.active = false;
+      }
+    }
+  }
+  S += dt * FEED * (params.S0 - S) - dV * CONSUME;
+  S = Math.max(0, S);
+}
+const _tmpA = new THREE.Vector3();
+
+function syncMeshes() {
+  for (const c of crystals) {
+    if (!c.dirty) continue;
+    c.dirty = false;
+    if (c.habit === 'prism') {
+      const g = c.mesh.geometry;
+      const n = fillPrism(g.attributes.position.array, c);
+      g.setDrawRange(0, n);
+      g.attributes.position.needsUpdate = true;
+      g.computeVertexNormals();
+    } else {
+      c.mesh.scale.setScalar(c.s);
+      c.mesh.position.copy(c.p0);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// UI
+// ---------------------------------------------------------------------------
+const $ = id => document.getElementById(id);
+for (const [id, d] of Object.entries(MINERALS)) {
+  $('mineral').add(new Option(d.name, id));
+  $('companion').add(new Option(d.name, id));
+}
+$('companion').add(new Option('None', 'none'), 0);
+$('companion').value = 'none';
+
+function bindRange(id, fmt, fn) {
+  const el = $(id), out = $(id + 'V');
+  const upd = () => { out.textContent = fmt(+el.value); fn(+el.value); };
+  el.addEventListener('input', upd); upd();
+  return el;
+}
+bindRange('speed', v => v.toFixed(1) + '×', v => params.speed = v);
+bindRange('conc', v => v.toFixed(2), v => params.S0 = v);
+bindRange('dens', v => v.toFixed(0), v => params.density = v).addEventListener('change', () => resetSim());
+bindRange('irr', v => (v * 100).toFixed(0) + '%', v => params.irr = v).addEventListener('change', () => resetSim());
+bindRange('light', v => v + '°', setLightAngle);
+bindRange('exp', v => v.toFixed(2), v => renderer.toneMappingExposure = v);
+$('bloom').onchange = e => bloom.enabled = e.target.checked;
+$('rotate').onchange = e => controls.autoRotate = e.target.checked;
+$('mineral').onchange = e => { params.mineral = e.target.value; resetSim(); };
+$('companion').onchange = e => { params.companion = e.target.value; resetSim(); };
+$('regrow').onclick = () => resetSim();
+$('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? 'Play' : 'Pause'; };
+$('finish').onclick = () => {
+  for (let i = 0; i < 6000; i++) {
+    step(0.1);
+    if (pendingIdx >= pending.length && !crystals.some(c => c.active)) break;
+  }
+};
+$('shot').onclick = () => {
+  composer.render();
+  const a = document.createElement('a');
+  a.href = renderer.domElement.toDataURL('image/png');
+  a.download = `crystals-${seed}.png`;
+  a.click();
+};
+
+function updateStats() {
+  const active = crystals.filter(c => c.active).length;
+  const mass = crystals.reduce((s, c) => s + c.V, 0) * 64000 * 2.65 / 1000; // 1 unit = 4 cm, ρ≈2.65
+  $('sTime').textContent = (simT * 0.8).toFixed(1) + ' kyr';
+  $('sCount').textContent = crystals.length;
+  $('sActive').textContent = active;
+  $('sMass').textContent = mass < 1000 ? mass.toFixed(0) + ' g' : (mass / 1000).toFixed(2) + ' kg';
+  $('sS').textContent = S.toFixed(2);
+  $('sBar').style.width = Math.min(100, (S / 2.5) * 100) + '%';
+}
+
+// Click to inspect, double-click to focus
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let downXY = null, focusTarget = null;
+function pick(ev, objects) {
+  ndc.set((ev.clientX / innerWidth) * 2 - 1, -(ev.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  for (const c of crystals) if (c.habit === 'prism') c.mesh.geometry.computeBoundingSphere();
+  return ray.intersectObjects(objects, false)[0];
+}
+renderer.domElement.addEventListener('pointerdown', e => downXY = [e.clientX, e.clientY]);
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downXY || Math.hypot(e.clientX - downXY[0], e.clientY - downXY[1]) > 4) return;
+  const hit = pick(e, crystalGroup.children);
+  const info = $('info');
+  if (!hit) { info.style.display = 'none'; return; }
+  const c = hit.object.userData.crystal, d = MINERALS[c.mineral];
+  const mm = v => (v * 40).toFixed(1) + ' mm';
+  const dims = c.habit === 'prism' ? `${mm(c.L + c.cap)} long × ${mm(c.R * 2)} wide` : `${mm(c.s)} edge`;
+  const state = c.active ? 'growing' : (c.blockedL || c.blockedR ? 'stopped by neighbour' : 'complete');
+  info.innerHTML = `<b>${d.name}</b><br>${dims}<br>nucleated at ${(c.born * 0.8).toFixed(1)} kyr · ${state}`;
+  info.style.left = Math.min(innerWidth - 240, e.clientX + 14) + 'px';
+  info.style.top = e.clientY + 14 + 'px';
+  info.style.display = 'block';
+});
+renderer.domElement.addEventListener('dblclick', e => {
+  const hit = pick(e, [...crystalGroup.children, rock]);
+  if (hit) focusTarget = hit.point.clone();
+});
+controls.addEventListener('start', () => { focusTarget = null; });
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+
+// ---------------------------------------------------------------------------
+// Loop
+// ---------------------------------------------------------------------------
+resetSim(false);
+const clock = new THREE.Clock();
+let statT = 0;
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (!paused && params.speed > 0) {
+    const simDt = dt * params.speed;
+    const sub = Math.ceil(simDt / 0.05);
+    for (let i = 0; i < sub; i++) step(simDt / sub);
+  }
+  syncMeshes();
+  if (focusTarget) {
+    controls.target.lerp(focusTarget, 0.08);
+    if (controls.target.distanceTo(focusTarget) < 0.002) focusTarget = null;
+  }
+  controls.update(dt);
+  if ((statT += dt) > 0.2) { statT = 0; updateStats(); }
+  composer.render();
+});
+</script>
+</body>
+</html>

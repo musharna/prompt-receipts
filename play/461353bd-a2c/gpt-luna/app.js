@@ -1,0 +1,17 @@
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audio, soundOn = true;
+const toys = document.querySelectorAll('.toy-card');
+
+function ensureAudio(){ if(!audio) audio = new AudioContext(); if(audio.state === 'suspended') audio.resume(); }
+function tone(type='soft'){ if(!soundOn) return; ensureAudio(); const now=audio.currentTime, osc=audio.createOscillator(), gain=audio.createGain(), filter=audio.createBiquadFilter();
+  const settings={crack:[95,.1,'sawtooth'],scratch:[180,.06,'triangle'],squish:[110,.2,'sine'],pop:[410,.08,'sine']}[type]||[170,.08,'triangle'];
+  osc.type=settings[2]; osc.frequency.setValueAtTime(settings[0],now); osc.frequency.exponentialRampToValueAtTime(settings[0]*.55,now+settings[1]); gain.gain.setValueAtTime(.0001,now); gain.gain.exponentialRampToValueAtTime(type==='pop'?.18:.1,now+.008); gain.gain.exponentialRampToValueAtTime(.0001,now+settings[1]); filter.type='lowpass'; filter.frequency.value=type==='scratch'?950:1800; osc.connect(filter).connect(gain).connect(audio.destination); osc.start(now); osc.stop(now+settings[1]+.02);
+  if(type==='crack'){ const buf=audio.createBuffer(1,audio.sampleRate*.08,audio.sampleRate), data=buf.getChannelData(0); for(let i=0;i<data.length;i++) data[i]=(Math.random()*2-1)*(1-i/data.length); const src=audio.createBufferSource(), g=audio.createGain(); g.gain.value=.15; src.buffer=buf; src.connect(g).connect(audio.destination); src.start(); }
+}
+function setProgress(card, amount){card.querySelector('.progress span').style.width=Math.min(amount,100)+'%';}
+
+document.querySelectorAll('.wrap').forEach(wrap=>{ for(let i=0;i<28;i++){const b=document.createElement('span'); b.className='bubble'; b.addEventListener('pointerdown',e=>{ if(b.classList.contains('popped')) return; b.classList.add('popped'); tone('pop'); const card=wrap.closest('.toy-card'), count=card.querySelector('.pop-count b'), n=Number(count.textContent)+1; count.textContent=String(n).padStart(2,'0'); setProgress(card,n/28*100); }); wrap.appendChild(b); }});
+
+toys.forEach(card=>{let pressure=0,last=0; const toy=card.dataset.toy; card.addEventListener('pointerdown',e=>{if(e.target.classList.contains('bubble'))return; card.setPointerCapture(e.pointerId); pressure=0;}); card.addEventListener('pointermove',e=>{if(!card.hasPointerCapture(e.pointerId))return; pressure=Math.min(100,pressure+Math.abs(e.movementX)+Math.abs(e.movementY)*.7); setProgress(card,pressure); const object=card.querySelector('.wax-object,.soap-object,.slime-object'); if(object){object.style.transform=toy==='slime'?`rotate(${e.movementX*.5-5}deg) scale(${1+pressure/420},${1-pressure/700})`:`rotate(${toy==='wax'?-9:8}deg) scale(${1+pressure/450})`;} if(Date.now()-last>115){tone(toy==='wax'?'crack':toy==='soap'?'scratch':'squish');last=Date.now();}}); card.addEventListener('pointerup',()=>{const object=card.querySelector('.wax-object,.soap-object,.slime-object'); if(object)object.style.transform=''; if(pressure>12){ if(toy==='wax') document.querySelector('.wax-card').classList.add('used'); if(toy==='soap') card.querySelectorAll('.soap-shaving').forEach((s,i)=>{s.style.opacity=1;s.style.transitionDelay=i*50+'ms'}); } });});
+
+document.getElementById('sound-toggle').addEventListener('click',()=>{soundOn=!soundOn; document.getElementById('sound-toggle').setAttribute('aria-pressed',soundOn); document.getElementById('session-label').textContent=soundOn?'sound on':'sound off'; document.querySelector('.live-dot').style.background=soundOn?'#77a35f':'#b0a79d';});

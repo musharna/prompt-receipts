@@ -32,5 +32,14 @@
 {"card": "p16", "name": "GPT-5.6-Sol", "no": "dd45-5517", "page": "play/b8088611-a3d/gpt-sol/index.html"},
 {"card": "p16", "name": "GPT-5.6-Terra", "no": "78d2-949d", "page": "play/b8088611-a3d/gpt-terra/index.html"},
 {"card": "p16", "name": "GPT-5.6-Luna", "no": "baf4-219f", "page": "play/b8088611-a3d/gpt-luna/index.html"},
-{"card": "p16", "name": "GPT-6-Astra", "no": "91c0-49a7", "page": "play/b8088611-a3d/index.html"}
+{"card": "p16", "name": "GPT-6-Astra", "no": "91c0-49a7", "page": "play/b8088611-a3d/index.html"},
+{"card": "461353bd-a2c", "name": "Claude Opus 5.5", "no": "7e95-e493", "page": "play/461353bd-a2c/opus/asmr-toys.html"},
+{"card": "461353bd-a2c", "name": "Claude Sonnet 5.5", "no": "b1d9-397e", "page": "play/461353bd-a2c/sonnet/index.html"},
+{"card": "461353bd-a2c", "name": "GPT-5.6-Sol", "no": "57ad-0229", "page": "play/461353bd-a2c/gpt-sol/index.html"},
+{"card": "461353bd-a2c", "name": "GPT-5.6-Luna", "no": "f2b0-9384", "page": "play/461353bd-a2c/gpt-luna/index.html"},
+{"card": "c6706b00-d24", "name": "Claude Opus 5.5", "no": "d491-1b5d", "page": "play/c6706b00-d24/opus/crystal-grower.html"},
+{"card": "c6706b00-d24", "name": "Claude Sonnet 5.5", "no": "67f6-04d9", "page": "play/c6706b00-d24/sonnet/crystals.html"},
+{"card": "c6706b00-d24", "name": "Claude Haiku 5.5", "no": "42a5-e647", "page": "play/c6706b00-d24/haiku/index.html"},
+{"card": "c6706b00-d24", "name": "GPT-5.6-Sol", "no": "4f9f-d306", "page": "play/c6706b00-d24/gpt-sol/index.html"},
+{"card": "c6706b00-d24", "name": "GPT-5.6-Terra", "no": "62cd-4114", "page": "play/c6706b00-d24/gpt-terra/index.html"}
 ]

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f5efe4" />
+    <title>Quietly — tactile sound toys</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Quietly home">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>quietly</span>
+        </a>
+        <button class="sound-toggle" type="button" aria-pressed="true">
+          <span class="sound-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+          sound on
+        </button>
+      </header>
+
+      <section class="intro">
+        <p class="eyebrow">A SMALL SENSORY BREAK</p>
+        <h1>What feels good<br />right now?</h1>
+        <p class="lede">Choose a texture. Take your time.<br />Headphones make it better.</p>
+      </section>
+
+      <nav class="toy-tabs" aria-label="Choose a sensory toy">
+        <button class="toy-tab active" data-toy="wax" type="button">
+          <span class="tab-swatch wax-swatch" aria-hidden="true"></span>
+          <span><b>Candle wax</b><small>press &amp; crack</small></span>
+        </button>
+        <button class="toy-tab" data-toy="soap" type="button">
+          <span class="tab-swatch soap-swatch" aria-hidden="true"></span>
+          <span><b>Dried soap</b><small>crunch &amp; carve</small></span>
+        </button>
+        <button class="toy-tab" data-toy="slime" type="button">
+          <span class="tab-swatch slime-swatch" aria-hidden="true"></span>
+          <span><b>Soft slime</b><small>poke &amp; stretch</small></span>
+        </button>
+        <button class="toy-tab" data-toy="bubbles" type="button">
+          <span class="tab-swatch bubble-swatch" aria-hidden="true"></span>
+          <span><b>Bubble wrap</b><small>pop &amp; repeat</small></span>
+        </button>
+      </nav>
+
+      <section class="play-card" aria-live="polite">
+        <div class="card-copy">
+          <div>
+            <span class="material-number">01 / 04</span>
+            <h2>Hardened candle wax</h2>
+          </div>
+          <p class="instruction"><span aria-hidden="true">↘</span> Press anywhere. Hold for a deeper crack.</p>
+        </div>
+
+        <div class="stage" id="stage">
+          <canvas id="toy-canvas" aria-label="Interactive hardened candle wax"></canvas>
+          <div class="bubble-grid" id="bubble-grid" aria-label="Interactive bubble wrap"></div>
+          <div class="pointer-hint" aria-hidden="true"><span></span></div>
+          <div class="stage-label">PRESS TO CRACK</div>
+        </div>
+
+        <div class="card-footer">
+          <button class="reset-button" type="button"><span aria-hidden="true">↻</span> start fresh</button>
+          <p class="counter"><span id="counter-value">0</span> <span id="counter-label">cracks made</span></p>
+        </div>
+      </section>
+
+      <footer>
+        <p>Made for slow moments.</p>
+        <p>Take a breath <span aria-hidden="true">·</span> there’s no rush.</p>
+      </footer>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f5ede3" />
+    <title>Soft Crash — ASMR tactile toys</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="#top" aria-label="Soft Crash home"><span class="brand-mark"></span>soft crash</a>
+        <div class="session"><span class="live-dot"></span><span id="session-label">sound on</span><button class="sound-toggle" id="sound-toggle" aria-label="Toggle sound" aria-pressed="true">⌁</button></div>
+      </header>
+
+      <section class="intro" id="top">
+        <p class="eyebrow">// a little sensory reset</p>
+        <h1>Make a <em>nice</em><br />little mess.</h1>
+        <p class="lede">Press, crumble, stretch, and pop your way through a pocket-sized collection of tactile sounds.</p>
+        <div class="intro-meta"><span><b>04</b> objects</span><span class="slash">/</span><span>headphones recommended</span></div>
+      </section>
+
+      <section class="toy-grid" aria-label="Interactive ASMR toys">
+        <article class="toy-card wax-card" data-toy="wax">
+          <div class="card-top"><span class="number">01</span><span class="hint">press + crack</span></div>
+          <div class="toy-stage"><div class="wax-object"><span class="wax-ridge one"></span><span class="wax-ridge two"></span><span class="wax-ridge three"></span><i class="wax-crack crack-a"></i><i class="wax-crack crack-b"></i></div><div class="crumb crumb-1"></div><div class="crumb crumb-2"></div><div class="crumb crumb-3"></div></div>
+          <div class="card-bottom"><div><h2>Hardened wax</h2><p>Push until it gives.</p></div><span class="arrow">↗</span></div>
+          <div class="progress"><span></span></div>
+        </article>
+
+        <article class="toy-card soap-card" data-toy="soap">
+          <div class="card-top"><span class="number">02</span><span class="hint">crunch + carve</span></div>
+          <div class="toy-stage"><div class="soap-object"><span class="soap-line line-1"></span><span class="soap-line line-2"></span><span class="soap-line line-3"></span></div><div class="soap-shaving shave-1"></div><div class="soap-shaving shave-2"></div><div class="soap-shaving shave-3"></div></div>
+          <div class="card-bottom"><div><h2>Dry soap</h2><p>Scratch a soft edge.</p></div><span class="arrow">↗</span></div>
+          <div class="progress"><span></span></div>
+        </article>
+
+        <article class="toy-card slime-card" data-toy="slime">
+          <div class="card-top"><span class="number">03</span><span class="hint">poke + squish</span></div>
+          <div class="toy-stage"><div class="slime-object"><span class="slime-glint"></span><span class="slime-bubble bubble-one"></span><span class="slime-bubble bubble-two"></span><span class="slime-bubble bubble-three"></span></div></div>
+          <div class="card-bottom"><div><h2>Cloud slime</h2><p>Stretch it slowly.</p></div><span class="arrow">↗</span></div>
+          <div class="progress"><span></span></div>
+        </article>
+
+        <article class="toy-card bubble-card" data-toy="bubble">
+          <div class="card-top"><span class="number">04</span><span class="hint">tap + pop</span></div>
+          <div class="toy-stage bubble-stage"><div class="wrap" aria-label="Bubble wrap sheet"></div><span class="pop-count">pops <b>00</b></span></div>
+          <div class="card-bottom"><div><h2>Bubble wrap</h2><p>One at a time, please.</p></div><span class="arrow">↗</span></div>
+          <div class="progress"><span></span></div>
+        </article>
+      </section>
+
+      <footer><span>take your time</span><span>© 2026 soft crash studio</span><span class="footer-mark">● ● ●</span></footer>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
