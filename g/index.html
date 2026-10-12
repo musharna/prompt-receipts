@@ -41,6 +41,7 @@ th{background:#f7f4ec;font-weight:600}
 .v{display:inline-block;font-size:.85em;padding:0 .45em;border-radius:4px;vertical-align:1px}
 .v.worked{background:#dcefd9;color:#1d5a17}.v.partly{background:#fbeccb;color:#7a5200}.v.no{background:#f6d5d5;color:#8a1c1c}
 .v.said{border:1px dashed currentColor}
+.play{align-self:flex-start;margin:4px 0 2px;font-size:.85em;padding:.2em .7em}
 .kind{display:inline-block;font-size:.78em;padding:0 .45em;border-radius:4px;border:1px solid #7a9a6e;background:#e7f0e3}
 .kind.reported{background:#222;color:#fff;border-color:#222}
 #add{background:#fffdf8;border:1px solid #ddd;border-radius:6px;padding:4px 16px 14px;margin:30px 0}
@@ -124,11 +125,14 @@ function median(xs) {
   const m = xs.length >> 1;
   return xs.length % 2 ? xs[m] : (xs[m - 1] + xs[m]) / 2;
 }
+// the page a site run made, from its card's Play button; never anything a sender wrote
+const page = e => e.kind === 'site' && typeof e.play === 'string' && e.play.startsWith('play/') ? '../' + e.play : null;
 const nameOf = e => e.name || names[e.model] || (known(e.model) ? e.model : 'model not stated');
 function picture(e) {
   const box = el('div', 'pic'), t = e.thumb;
   if (t && t.kind === 'image') {
-    const a = link('../' + t.full, ''); a.target = '_blank'; a.rel = 'noopener'; a.title = 'Open full size';
+    const a = link(page(e) || '../' + t.full, ''); a.target = '_blank'; a.rel = 'noopener';
+    a.title = page(e) ? 'Open the page it made' : 'Open full size';
     const img = el('img'); img.loading = 'lazy'; img.src = '../' + t.src; img.alt = nameOf(e) + ': ' + (e.made || 'what it made');
     a.append(img); box.append(a);
   } else if (t && (t.kind === 'video' || t.kind === 'audio')) {
@@ -156,6 +160,7 @@ function tile(e, flat) {
   if (e.effort) eff.append(e.effort.startsWith("Codex's default") ? 'default effort' : e.effort);
   if (eff.childNodes.length) b.append(eff);
   if (e.made) b.append(el('div', 'made', e.made));
+  if (page(e)) { const a = link(page(e), 'Play it', 'btn play'); a.target = '_blank'; a.rel = 'noopener'; b.append(a); }
   if (e.kind !== 'site') {
     const from = el('div', 'dim');
     from.append(el('span', 'kind ' + e.kind, e.kind === 'reported' ? 'reported' : 'sent in'), ' by ', link(ISSUES + e.issue, '@' + e.by));

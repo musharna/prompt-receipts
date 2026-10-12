@@ -229,6 +229,9 @@ def site_run(row):
     return dim.group(2), dict(name=name, effort=effort, verdict=verdict, made=cut(made), thumb=thumb, card_time=time)
 
 
+PLAY = re.compile(r'<a class="btn" href="(play/[^"]+)"[^>]*>Play the (.+?) version</a>')
+
+
 def seed(index_html, path):
     """the site's own runs: one entry a run, from its receipt and what its card says"""
     with open(index_html, encoding="utf-8") as fh:
@@ -237,6 +240,7 @@ def seed(index_html, path):
     for card in page.split("<article ")[1:]:
         card_id = re.match(r'id="([\w-]+)"', card).group(1)
         title = re.sub(r"^\d+\.\s*", "", text_of(re.search(r"<h2>(.*?)</h2>", card).group(1)))
+        runs = []
         for row in re.split(r'(?=<div class="row(?: extra)?">)', card)[1:]:
             token, said = site_run(row)
             e = entry(token)
@@ -246,7 +250,13 @@ def seed(index_html, path):
             else:
                 e["time_from"] = "receipt"
             e.update(said, kind="site", card=card_id, title=title, by="Prompt Receipts")
-            entries.append(e)
+            runs.append(e)
+        for page, who in PLAY.findall(card):  # "Play the Opus 5.5 version": the page that run made
+            named = [e for e in runs if e["name"] == who or e["name"].endswith(" " + who)]
+            if len(named) != 1:
+                raise SystemExit(f"gallery: {card_id}'s Play button names {who!r}, which is {len(named)} runs")
+            named[0]["play"] = html.unescape(page)
+        entries += runs
     save(path, entries)
     return entries
 

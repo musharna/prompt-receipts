@@ -101,6 +101,13 @@ class Gallery(unittest.TestCase):
         self.assertEqual(p1["time_from"], "receipt")  # a Claude run's own log has its time
         self.assertEqual({e["verdict"] for e in entries}, {"worked", "partly", "no"})
         self.assertEqual({e["thumb"]["kind"] for e in entries}, {"image", "none", "audio", "video"})
+        # a card's "Play the X version" button: the page that run made, on its own run
+        played = {(e["card"], e["name"]): e["play"] for e in entries if "play" in e}
+        self.assertEqual(len(played), 5)
+        self.assertEqual(played[("p16", "GPT-6-Astra")], "play/b8088611-a3d/index.html")  # the ASCII fog
+        self.assertEqual({name for _, name in played}, {"Claude Opus 5.5", "GPT-6-Astra"})
+        for path in played.values():
+            self.assertTrue(os.path.exists(os.path.join(HERE, "..", path)), path)
         self.assertTrue(all(e["title"] and e["name"] and e["made"] and e["time"] for e in entries))
         for e in entries:
             if e["thumb"]["kind"] != "none":
@@ -112,6 +119,18 @@ class Gallery(unittest.TestCase):
         )  # one entry per line, so each addition is a one-line diff
         with open(out, encoding="utf-8") as fh:
             self.assertEqual(json.load(fh), entries)
+
+    def test_a_play_button_must_name_one_run_on_its_card(self):
+        with open(INDEX, encoding="utf-8") as fh:
+            page = fh.read()
+        for who in ("GPT-9", "5.5", "Astra"):  # no run, every Claude run, and part of a name
+            bad = os.path.join(self.dir, "index.html")
+            with open(bad, "w", encoding="utf-8") as fh:
+                fh.write(page.replace("Play the GPT-6-Astra version", f"Play the {who} version"))
+            with self.assertRaises(SystemExit) as no:
+                gallery.seed(bad, os.path.join(self.dir, "g.json"))
+            self.assertIn(f"p16's Play button names {who!r}", str(no.exception))
+        self.assertEqual(len(gallery.seed(INDEX, os.path.join(self.dir, "g.json"))), 112)
 
     def test_what_a_receipt_shows(self):
         e = gallery.entry(pack(RECEIPT))
