@@ -1,0 +1,148 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Receipt gallery · Prompt Receipts</title>
+<meta name="description" content="Receipts for AI coding runs: what each run cost and how long it took, from this site's runs and ones people sent in.">
+<meta property="og:title" content="Receipt gallery"><meta property="og:description" content="What AI coding runs cost and how long they took, from this site's runs and ones people sent in.">
+<meta property="og:image" content="https://musharna.github.io/prompt-receipts/og.png">
+<style>
+body{font:16px/1.5 system-ui,sans-serif;margin:0;background:#f4f2ee;color:#222}
+main{max-width:1100px;margin:auto;padding:16px}
+.dim{color:#555;font-size:.9em}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
+.bar input,.bar select{font:inherit;font-size:.92em;padding:.3em .5em;border:1px solid #999;border-radius:6px;background:#fff}
+.bar input{flex:1 1 220px}
+.wrap{overflow-x:auto;background:#fffdf8;border:1px solid #ddd;border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:.92em}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #eee;vertical-align:top}
+th{background:#f7f4ec;font-weight:600;white-space:nowrap}
+td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td.p{min-width:260px;max-width:460px}
+td a{color:#222}
+td.same a{color:#888;text-decoration:none}
+th.num{text-align:right}
+.kind{display:inline-block;font-size:.78em;padding:0 .5em;border-radius:4px;border:1px solid #888;white-space:nowrap}
+.kind.reported{background:#222;color:#fff;border-color:#222}
+.kind.sent{background:#e7f0e3;border-color:#7a9a6e}
+td.nw{white-space:nowrap}
+tr.hit td{background:#fff3c4}
+@media (max-width:640px){
+  thead{display:none}
+  table,tbody,tr{display:block}
+  tr{padding:9px 12px;border-bottom:1px solid #eee}
+  td{display:inline;border:0;padding:0;font-size:.9em;color:#444}
+  td.p{display:block;min-width:0;margin-bottom:3px;font-size:1em;color:#222}
+  td:nth-child(n+3):nth-child(-n+5)::before{content:" · ";color:#999;font-weight:400}
+  td.missing,td.blank{display:none}
+  td:last-child{display:block;margin-top:3px}
+  td.num{text-align:left;color:#222;font-weight:600}
+}
+.err{background:#f6d5d5;padding:10px 14px;border-radius:6px}
+footer{color:#555;font-size:.88em;margin:24px 0}
+</style></head><body>
+<main>
+<h1>Receipt gallery</h1>
+<p>What AI coding runs cost and how long they took, one row per run. Click a prompt for its full receipt.
+Costs are at API list prices, as the receipts give them; on a flat-fee plan a run isn't charged on its own.</p>
+<p class="dim">Unmarked rows are this site's own runs, read from their logs. <span class="kind sent">sent in</span> rows
+were sent by someone and can't be checked against a log. <span class="kind reported">reported</span> rows are what
+someone's post said. A dash means the receipt doesn't say (Codex runs here don't record a time).
+To add yours, run <code>receipt.py --share</code>, or open your receipt's link and press <b>Add to the gallery</b>;
+it goes in once the site's owner approves it.</p>
+<div class="bar">
+<input id="q" type="search" placeholder="Search prompts, models, tools" aria-label="Search">
+<select id="tool" aria-label="Tool"><option value="">All tools</option></select>
+<select id="model" aria-label="Model"><option value="">All models</option></select>
+<select id="kind" aria-label="Kind"><option value="">All receipts</option><option value="site">This site's runs</option>
+<option value="sent">Sent in</option><option value="reported">Reported</option></select>
+<select id="sort" aria-label="Sort"><option value="new">Newest first</option><option value="cheap">Cheapest first</option>
+<option value="dear">Dearest first</option></select>
+</div>
+<p id="count" class="dim">Loading…</p>
+<div class="wrap"><table><thead><tr><th>Prompt</th><th>Tool</th><th>Model</th><th class="num">Cost at API prices</th><th class="num">Time</th><th>From</th></tr></thead>
+<tbody id="rows"></tbody></table></div>
+<footer><a href="../">Prompt Receipts</a> · <a href="https://github.com/musharna/prompt-receipts#the-gallery">how the gallery works</a></footer>
+</main>
+<script>
+// everything from gallery.json goes in as text, never HTML: nothing a sender wrote can run on this page
+const $ = id => document.getElementById(id);
+const NEW = 'https://github.com/musharna/prompt-receipts/issues/';
+let all = [];
+function cell(tr, text, cls) {
+  const td = document.createElement('td');
+  if (cls) td.className = cls;
+  if (text instanceof Node) td.append(text); else td.textContent = text;
+  tr.append(td);
+  return td;
+}
+function link(href, text) {
+  const a = document.createElement('a');
+  a.href = href; a.textContent = text;
+  return a;
+}
+// a part the receipt doesn't have shows as a dash, with what the receipt said about it on hover
+function shown(tr, value, what, cls) {
+  const missing = !value || value.startsWith('not ');
+  const td = cell(tr, missing ? '—' : value, cls);
+  if (missing) { td.title = value ? value : what + ' not on the receipt'; td.classList.add('missing'); }
+  return td;
+}
+function from(e) {
+  if (e.kind === 'site') return '';
+  const span = document.createElement('span');
+  const k = document.createElement('span');
+  k.className = 'kind ' + e.kind;
+  k.textContent = e.kind === 'reported' ? 'reported' : 'sent in';
+  span.append(k, ' ', link(NEW + e.issue, '@' + e.by));
+  return span;
+}
+function render() {
+  const q = $('q').value.trim().toLowerCase(), tool = $('tool').value, model = $('model').value, kind = $('kind').value;
+  let rows = all.filter(e => (!tool || e.tool === tool) && (!model || e.model === model) && (!kind || e.kind === kind)
+    && (!q || [e.prompt, e.model, e.tool, e.by].join(' ').toLowerCase().includes(q)));
+  const s = $('sort').value;
+  if (s === 'new') rows = rows.slice().reverse();
+  else rows = rows.filter(e => e.usd !== null).sort((a, b) => s === 'cheap' ? a.usd - b.usd : b.usd - a.usd)
+    .concat(rows.filter(e => e.usd === null));
+  const body = $('rows');
+  body.replaceChildren();
+  let last = null;
+  for (const e of rows) {
+    const tr = document.createElement('tr');
+    if (e.issue) tr.id = 'i' + e.issue;
+    // runs of one prompt sit together on the site's own order: name it once, then say it's the same
+    const same = e.prompt && e.prompt === last;
+    cell(tr, link('../r/#' + e.link, same ? '″ same prompt' : e.prompt || '(the receipt leaves out the prompt)'),
+      same ? 'p same' : 'p');
+    last = e.prompt;
+    cell(tr, e.tool, 'nw');
+    shown(tr, e.model, 'model', 'nw');
+    const cost = shown(tr, e.cost, 'cost', 'num');
+    if (e.kind === 'reported' && e.cost) { cost.textContent += ' (post)'; cost.title = 'the post’s own figure'; }
+    shown(tr, e.time, 'time', 'num');
+    cell(tr, from(e), e.kind === 'site' ? 'blank' : '');
+    body.append(tr);
+  }
+  $('count').textContent = rows.length === all.length ? `${all.length} receipts.` : `${rows.length} of ${all.length} receipts.`;
+}
+function options(id, values) {
+  for (const v of [...new Set(values)].filter(v => v && !v.startsWith('not ')).sort()) {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    $(id).append(o);
+  }
+}
+fetch('../gallery.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(g => {
+  all = g;
+  options('tool', all.map(e => e.tool));
+  options('model', all.map(e => e.model));
+  for (const id of ['q', 'tool', 'model', 'kind', 'sort']) $(id).addEventListener('input', render);
+  render();
+  // the reply to a sent-in receipt links to g/#i<issue>; that row is drawn after load, so :target can't see it
+  const hit = location.hash && document.getElementById(location.hash.slice(1));
+  if (hit) { hit.classList.add('hit'); hit.scrollIntoView({block: 'center'}); }
+}).catch(err => {
+  $('count').className = 'err';
+  $('count').textContent = 'The gallery didn’t load (' + err.message + '). Try again in a minute.';
+});
+</script>
+</body></html>

@@ -14,6 +14,8 @@ main{max-width:860px;margin:auto;padding:16px}
 .paper pre{margin:0;font:14px/1.45 ui-monospace,monospace;white-space:pre}
 .dim{color:#555;font-size:.9em}
 .err{background:#f6d5d5;padding:10px 14px;border-radius:6px}
+a.btn{text-decoration:none;display:inline-block;margin-left:6px}
+[hidden]{display:none!important}
 .btn{font:inherit;font-size:.92em;padding:.35em .9em;border:1px solid #333;border-radius:6px;background:#fff;color:#222;cursor:pointer}
 footer{color:#555;font-size:.88em;margin:24px 0}
 #made{width:100%;height:80vh;border:1px solid #bbb;border-radius:4px;background:#fff}
@@ -23,7 +25,8 @@ footer{color:#555;font-size:.88em;margin:24px 0}
 <main>
 <h1>A prompt receipt</h1>
 <div class="paper"><pre id="receipt">Opening the receipt…</pre></div>
-<p><button class="btn" id="copy" hidden>Copy the receipt</button></p>
+<p><button class="btn" id="copy" hidden>Copy the receipt</button>
+<a class="btn" id="add" hidden target="_blank" rel="noopener" title="Opens a GitHub issue with this link filled in. It goes in the gallery once the site’s owner approves it.">Add to the gallery</a></p>
 <section id="output" hidden>
 <h2>What the run made</h2>
 <p id="check" class="dim"></p>
@@ -41,6 +44,7 @@ checkable version.</p>
 const out = document.getElementById('receipt');
 function fail(why) {
   out.parentElement.classList.add('err');
+  document.getElementById('add').hidden = true;
   out.textContent = 'This link has no receipt in it that can be read (' + why + '). It may have been cut off when it was pasted.';
 }
 async function show() {
@@ -59,6 +63,12 @@ async function show() {
     const copy = document.getElementById('copy');
     copy.hidden = false;
     copy.onclick = () => navigator.clipboard.writeText(text).then(() => copy.textContent = 'Copied');
+    // a GitHub issue with this link filled in; it goes in the gallery once the site's owner approves it
+    const add = document.getElementById('add');
+    add.href = 'https://github.com/musharna/prompt-receipts/issues/new?template=receipt.yml&title='
+      + encodeURIComponent('Receipt: ' + first.replace(/^(Receipt|Reported) v[\d.]+ · /, '').split(' · ')[0])
+      + '&link=' + encodeURIComponent('https://musharna.github.io/prompt-receipts/r/#' + h);
+    add.hidden = false;
     checkPage(text);
   } catch (e) {
     fail(e.name === 'InvalidCharacterError' ? 'it is not in the expected form' : 'it does not unpack');

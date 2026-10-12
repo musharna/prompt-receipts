@@ -4,7 +4,7 @@
 
 Prompts for making things with Claude Code and Codex, each shown with a receipt: what it cost, how long it took and what was switched on. Plus a script that prints the same receipt for your own runs in Claude Code, Codex, OpenCode, Qwen Code, Gemini CLI or GitHub Copilot CLI.
 
-**[Browse the prompts](https://musharna.github.io/prompt-receipts/)** · **[Make a receipt for your own run](#make-a-receipt-for-your-own-run)** · [What's new](CHANGELOG.md)
+**[Browse the prompts](https://musharna.github.io/prompt-receipts/)** · **[Browse receipts](https://musharna.github.io/prompt-receipts/g/)** · **[Make a receipt for your own run](#make-a-receipt-for-your-own-run)** · [What's new](CHANGELOG.md)
 
 ```
 $ python3 receipt.py --prompt
@@ -144,6 +144,7 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 | `--theme THEME` | With a `.png`: the paper and ink, `paper` (the default), `night`, `terminal`, `blueprint` or `pink`. The barcode stays dark on light, so it scans on dark paper too |
 | `--report` | Also print a link to [the report form](https://musharna.github.io/prompt-receipts/) with this receipt filled in |
 | `--link` | Also print a link that shows this receipt on the site. The receipt rides in the part after `#`, which your browser never sends, so nothing is uploaded. Long receipts make links too long for some chats; it warns over 2,000 characters |
+| `--share` | `--link`, and a link that sends the receipt to [the gallery](#the-gallery): a GitHub issue with the link filled in |
 | `--bundle FILE.zip` | Save one zip with the receipt, its JSON, a record, and the files the run wrote, plus [RO-Crate](https://www.researchobject.org/ro-crate/) metadata and a page that shows the receipt |
 | `--shot` | With `--bundle` or a `.png`: add a screenshot of the web page the run made (on a `.png`, it goes where `--picture` would), taken with Chrome, Edge or Chromium if one is installed. It shows the files in the bundle, served to the browser from your own computer only while the picture is taken; pictures the run didn't make aren't in it. On a `.png`, a run that made no page but a video or a sound gets its frames or its spectrogram instead, with no browser |
 
@@ -197,7 +198,7 @@ Found a post that shares a prompt, what it cost and what it made? `--reported FI
 
 ```
 $ receipt --reported post.txt
-Reported v7.8 · Claude Code · 7 Oct 2026
+Reported v7.9 · Claude Code · 7 Oct 2026
 REPORTED from a post, not read from a log: what it says, unchecked; no receipt number or
          record
 post     https://musharna.github.io/prompt-receipts/#p1 · by Prompt Receipts
@@ -212,7 +213,7 @@ prompt   A three-panel comic page, drawn as a finished image file, about a pigeo
          convinced he's the town postman, for the kids' corner of our local newsletter.
 ```
 
-Every look carries a REPORTED stamp, and anything the post leaves out reads "not stated". With a model and tokens, they are priced next to the post's own figure. That price is the least the run could have cost, since posts rarely say which tokens were cache writes. The receipt has no number, barcode or record, because there's no log to vouch for. It goes with `--out`, `--look`, `--theme`, `--picture`, `--link` and `--redact`.
+Every look carries a REPORTED stamp, and anything the post leaves out reads "not stated". With a model and tokens, they are priced next to the post's own figure. That price is the least the run could have cost, since posts rarely say which tokens were cache writes. The receipt has no number, barcode or record, because there's no log to vouch for. It goes with `--out`, `--look`, `--theme`, `--picture`, `--link`, `--share` and `--redact`.
 
 ### More than one run
 
@@ -317,6 +318,14 @@ echo "$(echo "$input" | ~/.claude/my-statusline.sh) · $(echo "$input" | python3
 Each prompt on [the site](https://musharna.github.io/prompt-receipts/) was run once on plain Claude Code (Opus, Sonnet and Haiku 5.5) and on GPT-5.6 Sol, Terra and Luna in Codex, all at medium effort, plus GPT-6-Astra, Codex's default model. Every run shows what came out, what it cost and how long it took, and links to its receipt.
 
 Tried one? Use the "Tell us how it went" button on its card. Runs that didn't work are as useful as ones that did.
+
+## The gallery
+
+[The gallery](https://musharna.github.io/prompt-receipts/g/) lists the site's receipts and ones people send in, to search and sort by tool, model and cost.
+
+To add yours, run receipt.py with `--share`, or open your `--link` and press **Add to the gallery**. Either opens a GitHub issue with the link filled in. A bot replies with the receipt as the gallery will show it, or says why it can't go in, and it goes in when the site's owner adds the `gallery` label. Everything in it is public, so leave out anything private first (`--redact`, `--hide prompt`).
+
+The gallery can't check a receipt against the log it came from, since a link can be edited, so receipts sent in are marked as sent. Reported ones keep their REPORTED badge. `tools/gallery.py` does the checking.
 
 ## License
 

@@ -1,0 +1,28 @@
+name: Add a receipt to the gallery
+description: Send a receipt link made with receipt.py --link, to show it in the gallery
+title: "Receipt: "
+labels: ["receipt"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A bot checks the link and replies with what the gallery will show. It goes in once the repo's owner adds the `gallery` label. Everything here is public, so check the prompt has nothing private in it first (`receipt.py --redact` or `--hide prompt` help).
+  - type: input
+    id: link
+    attributes:
+      label: Receipt link
+      description: The link `receipt.py --link` printed (it starts https://musharna.github.io/prompt-receipts/r/#r1.)
+    validations:
+      required: true
+  - type: textarea
+    id: note
+    attributes:
+      label: Anything to add
+      description: What you made, or where the output is. Optional.
+  - type: checkboxes
+    id: public
+    attributes:
+      label: Public
+      options:
+        - label: I'm happy for this receipt to be public in the gallery
+          required: true

@@ -21,12 +21,22 @@ import tempfile
 import textwrap
 import time
 import unittest
+import urllib.parse
 import zipfile
 import zlib
 
 RECEIPT = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "tools", "receipt.py"
 )
+
+
+def gallery():
+    """tools/gallery.py, which reads the links people send to the gallery"""
+    path = os.path.join(os.path.dirname(RECEIPT), "gallery.py")
+    spec = importlib.util.spec_from_file_location("gallery", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 T0 = "2026-10-09T14:00:00.000Z"
 
 
@@ -283,7 +293,7 @@ class Receipts(Base):
     def test_claude_code_receipt(self):
         self.claude_log()
         out = self.ok().stdout
-        self.assertIn("Receipt v7.8 · Claude Code 2.1.300", out)
+        self.assertIn("Receipt v7.9 · Claude Code 2.1.300", out)
         self.assertIn(
             "2 prompts from me", out
         )  # the "[Request interrupted" line isn't a prompt
@@ -338,7 +348,7 @@ class Receipts(Base):
     def test_opencode(self):
         self.opencode_db()
         out = self.ok("--opencode").stdout
-        self.assertIn("Receipt v7.8 · OpenCode 1.18.31", out)
+        self.assertIn("Receipt v7.9 · OpenCode 1.18.31", out)
         self.assertIn("qwen3:8b (ollama, on this computer)", out)
         self.assertIn("2 prompts from me", out)
         self.assertIn("1 failed call", out)
@@ -412,7 +422,7 @@ class Receipts(Base):
             "prompt_id",
         ):
             self.assertNotIn(k, r)
-        self.assertEqual(r["receipt_version"], "7.8")
+        self.assertEqual(r["receipt_version"], "7.9")
         self.assertEqual(r["tool_errors"], 1)
         names = json.loads(self.ok("--json", "--file-names").stdout)["file_names"]
         self.assertEqual(names, ["index.html"])
@@ -426,7 +436,7 @@ class Receipts(Base):
         self.assertIn("warning  found your prompts but no model reply", p.stdout)
 
     def test_version(self):
-        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.8")
+        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.9")
 
     # ---------- output ----------
 
@@ -462,7 +472,7 @@ class Receipts(Base):
         url = out.strip().split("\n")[-1]
         self.assertTrue(url.startswith("https://docs.google.com/forms/"), url)
         self.assertIn("entry.349092046=tool", url)
-        self.assertIn("entry.1393206370=Receipt%20v7.8", url)
+        self.assertIn("entry.1393206370=Receipt%20v7.9", url)
 
     def test_hook_saves_a_receipt(self):
         log = self.claude_log()
@@ -479,7 +489,7 @@ class Receipts(Base):
         saved = os.listdir(folder)
         self.assertEqual(len(saved), 1)
         with open(os.path.join(folder, saved[0]), encoding="utf-8") as f:
-            self.assertIn("Receipt v7.8 · Claude Code", f.read())
+            self.assertIn("Receipt v7.9 · Claude Code", f.read())
 
     def test_combine_and_compare(self):
         self.claude_log()
@@ -1055,6 +1065,31 @@ class Sharing(Base):
         p = self.ok("--link", "--prompt")
         self.assertIn("Discord cuts messages at 2,000", p.stderr)
 
+    def test_share_opens_a_gallery_issue_with_the_link(self):
+        self.claude_log()
+        out = self.ok("--share").stdout
+        url = re.search(r"^https://musharna\.github\.io/prompt-receipts/r/#r1\.\S+$", out, re.M).group(0)
+        issue = re.search(r"^https://github\.com/musharna/prompt-receipts/issues/new\?\S+$", out, re.M).group(0)
+        q = urllib.parse.parse_qs(urllib.parse.urlsplit(issue).query)
+        self.assertEqual(q["template"], ["receipt.yml"])
+        self.assertEqual(q["title"], ["Receipt: Claude Code 2.1.300"])
+        self.assertEqual(q["link"], [url])  # the issue form's link field gets the link, whole
+        e = gallery().entry(url.split("#")[1])  # and the gallery takes it
+        self.assertEqual((e["tool"], e["model"], e["kind"]), ("Claude Code", "claude-opus-5-5", "sent"))
+        self.assertNotIn("issues/new", self.ok("--link").stdout)  # only --share asks
+        p = self.run_receipt("--share", "--totals", "day")
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("--share", p.stderr)  # the gallery takes one run, not totals
+        p = self.run_receipt("--share", "--compare", "a.json", "b.json")
+        self.assertIn("--share sends one run", p.stderr)  # nor a comparison
+        post = os.path.join(self.home, "post.txt")
+        with open(post, "w", encoding="utf-8") as fh:
+            fh.write("post: https://example.com/p/1\ntool: Claude Code\nmodel: claude-opus-5-5\nprompt: a fox\n")
+        out = self.ok("--reported", post, "--share").stdout
+        q = urllib.parse.parse_qs(urllib.parse.urlsplit(out.rstrip().rpartition("\n")[2]).query)
+        self.assertEqual(q["title"], ["Receipt: Claude Code"])
+        self.assertEqual(gallery().entry(q["link"][0].split("#")[1])["kind"], "reported")
+
     def test_bundle(self):
         self.claude_log(rich=True)
         zp = os.path.join(self.home, "b.zip")
@@ -1231,7 +1266,7 @@ class Totals(Base):
 
     def test_by_day_in_this_folder(self):
         out = self.ok("--totals").stdout
-        self.assertIn("Totals v7.8 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
+        self.assertIn("Totals v7.9 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
         self.assertRegex(out, r"\nThu 1 Oct 2026 +\$4\.00 +1 +1 ")
         self.assertRegex(out, r"\nSat 3 Oct 2026 +\$2\.00 +1 +2 ")
         self.assertRegex(out, r"\ntotal +\$6\.00 +1 +3 ")
@@ -1418,7 +1453,7 @@ class Qwen(Base):
     def test_receipt(self):
         self.qwen_log()
         out = self.ok("--qwen").stdout
-        self.assertIn("Receipt v7.8 · Qwen Code 0.25.0", out)
+        self.assertIn("Receipt v7.9 · Qwen Code 0.25.0", out)
         self.assertIn("2 prompts from me", out)  # Qwen Code's own notice isn't a prompt
         # all three calls, the memory extractor's too: 46k in (20k cached), 320 out
         self.assertIn("tokens   in 46k (20k cached) · out 320", out)
@@ -1519,7 +1554,7 @@ class Gemini(Base):
     def test_receipt(self):
         self.gemini_log()
         out = self.ok("--gemini").stdout
-        self.assertIn("Receipt v7.8 · Gemini CLI · ", out)  # no version is logged
+        self.assertIn("Receipt v7.9 · Gemini CLI · ", out)  # no version is logged
         self.assertIn("2 prompts from me", out)  # its opening message and the tool results aren't prompts
         # each reply once, and the subagent's: 36k in (18k cached); out counts the 40 tokens of reasoning
         self.assertIn("tokens   in 36k (18k cached) · out 186", out)
@@ -1613,7 +1648,7 @@ class Copilot(Base):
     def test_receipt(self):
         self.copilot_log()
         out = self.ok("--copilot").stdout
-        self.assertIn("Receipt v7.8 · Copilot CLI 1.0.95", out)
+        self.assertIn("Receipt v7.9 · Copilot CLI 1.0.95", out)
         self.assertIn("model    claude-opus-4.7 · effort high → xhigh", out)
         self.assertIn("2 prompts from me", out)  # the skill's message isn't one
         # the three calls only: the input counts include cache reads and writes, the output the reasoning
@@ -1906,7 +1941,7 @@ class ShopReceipt(Base):
     def test_its_parts_come_in_order(self):
         mod, drawn = self.module()
         s = "\n".join([
-            "Receipt v7.8 · Claude Code 2.1.300 · 9 Oct 2026",
+            "Receipt v7.9 · Claude Code 2.1.300 · 9 Oct 2026",
             "model    claude-opus-5-5 · effort high",
             "cost     $1.23 (Claude Code's own total at API prices)",
             "files    1 file written or edited (index.html) · 12 lines, 1 KB · a web page",
@@ -1934,7 +1969,7 @@ class ShopReceipt(Base):
             self.assertEqual(style[heading], 5)  # on a dark tag
         self.assertEqual(pic, (1, 1, [b"\xff\0\0"]))
         drawn.clear()
-        mod.picture("Receipt v7.8 · Claude Code\nmodel    m · effort high\nsettings default")
+        mod.picture("Receipt v7.9 · Claude Code\nmodel    m · effort high\nsettings default")
         texts = [t for t, _ in drawn[0][0]]
         for heading in ("ASKED FOR", "MADE", "IT TOOK", "TOTAL"):
             self.assertNotIn(heading, texts)  # nothing asked for or shown: the plain receipt
@@ -1943,7 +1978,7 @@ class ShopReceipt(Base):
     def test_a_given_prompt_says_so_faintly_under_asked_for(self):
         mod, drawn = self.module()
         s = "\n".join([
-            "Receipt v7.8 · Claude Code 2.1.300",
+            "Receipt v7.9 · Claude Code 2.1.300",
             "model    claude-opus-5-5",
             "prompt   A stretchy galaxy slime",
             "given    by the sender with --asked: claude -p output doesn't hold the prompt",
@@ -2068,7 +2103,7 @@ class ShopReceipt(Base):
         seen = rgb_pixels(out)
         self.assertGreater(sum(n for px, n in seen.items() if sum(px) > 600), 0)  # the tone, bright
         mod, drawn = self.module()
-        mod.picture("Receipt v7.8 · Claude Code\nmodel    m", pic=(1, 1, [b"\0\0\0"]), note="the sound, read so")
+        mod.picture("Receipt v7.9 · Claude Code\nmodel    m", pic=(1, 1, [b"\0\0\0"]), note="the sound, read so")
         texts = [t for t, _ in drawn[0][0]]
         i = texts.index(None)
         self.assertEqual(drawn[0][0][i + 1], ("the sound, read so", 3))  # faint, right under it
@@ -2207,7 +2242,7 @@ class Looks(Base):
     """--look card and print, --theme, the barcode and the alt text"""
 
     SAYS = "\n".join([
-        "Receipt v7.8 · Claude Code 2.1.300 · 9 Oct 2026 · no. 1a2b-3c4d",
+        "Receipt v7.9 · Claude Code 2.1.300 · 9 Oct 2026 · no. 1a2b-3c4d",
         "model    claude-opus-5-5 · effort high",
         "time     11 min (model working 9 min) · 1 prompt from me",
         "cost     $1.23 (Claude Code's own total at API prices)",
@@ -2569,7 +2604,7 @@ class ExecJson(Base):
     def test_a_receipt_from_codex_exec_output(self):
         p = self.ok(self.save(), "--file-names")
         out = p.stdout
-        self.assertIn("Receipt v7.8 · Codex CLI · no. ", out)  # no version, no date
+        self.assertIn("Receipt v7.9 · Codex CLI · no. ", out)  # no version, no date
         self.assertIn("model    not in codex exec --json output · effort not recorded", out)
         self.assertIn("time     not in codex exec --json output · 1 prompt from me", out)
         self.assertIn("cost     no model in codex exec --json output, so no price (--model names it)", out)
@@ -2660,7 +2695,7 @@ class Reported(Base):
         rate = self.module().rates_for("claude-opus-5-5")
         api = (300_000 * rate[0] + 900_000 * rate[1] + 40_000 * rate[4]) / 1e6
         lines = out.split("\n")
-        self.assertEqual(lines[0], "Reported v7.8 · Claude Code · 3 Oct 2026")  # no receipt number: no log to number
+        self.assertEqual(lines[0], "Reported v7.9 · Claude Code · 3 Oct 2026")  # no receipt number: no log to number
         self.assertTrue(lines[1].startswith("REPORTED from a post, not read from a log"), lines[1])
         self.assertIn("post     https://x.com/someone/status/123 · by @someone", out)
         self.assertIn("model    claude-opus-5-5 · effort not stated", out)
@@ -2680,7 +2715,7 @@ class Reported(Base):
 
     def test_what_it_leaves_out_is_said(self):
         out = self.ok("--reported", self.post("post: https://bsky.app/p/1\nprompt: a slime\n")).stdout
-        self.assertTrue(out.startswith("Reported v7.8 · tool not stated\nREPORTED "), out[:80])
+        self.assertTrue(out.startswith("Reported v7.9 · tool not stated\nREPORTED "), out[:80])
         self.assertNotIn("effort", out)  # "model not stated", not a second "not stated" for its effort
         for line in ("model    not stated\n", "cost     not stated", "tokens   not stated",
                      "made     not stated", "prompt   a slime"):  # fmt: skip

@@ -47,6 +47,7 @@ usage: python3 receipt.py [SESSION] [options]
   --theme THEME    with --png: paper (the default), night, terminal, blueprint or pink
   --link           also print a link that shows the receipt on the site; the receipt is inside the link, so
                    nothing is uploaded
+  --share          --link, and a link to send it to the gallery (a GitHub issue with the link filled in)
   --report         also print a link to the Prompt Receipts form with this receipt filled in
   --hook           read a Claude Code hook's input from stdin (for a SessionEnd hook; needs --out)
   --statusline     be Claude Code's status line: print a one-line receipt (model, cost, time, plan limits) and
@@ -110,7 +111,7 @@ import urllib.parse
 import zipfile
 import zlib
 
-VERSION = "7.8"
+VERSION = "7.9"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 SITE = "https://musharna.github.io/prompt-receipts/"
 LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters
@@ -6287,6 +6288,7 @@ def main():
     ap.add_argument("--outcome", metavar="TEXT")
     ap.add_argument("--recipe", action="store_true")
     ap.add_argument("--link", action="store_true")
+    ap.add_argument("--share", action="store_true")
     ap.add_argument("--bundle", metavar="FILE.zip")
     ap.add_argument("--shot", action="store_true")
     ap.add_argument("--picture", metavar="FILE.png")
@@ -6314,9 +6316,10 @@ def main():
         return
     if a.signers:
         sys.exit("receipt: --signers goes with --verify")
+    a.link = a.link or a.share
     if a.reported:  # no log: only what makes, shows or signs the receipt goes with it
-        keep = ("reported", "out", "png", "json", "md", "look", "theme", "picture", "link", "redact", "prices", "sign",
-                "report")  # fmt: skip
+        keep = ("reported", "out", "png", "json", "md", "look", "theme", "picture", "link", "share", "redact", "prices",
+                "sign", "report")  # fmt: skip
         clash = ["a session" if k == "session" else "--" + k.replace("_", "-")
                  for k, v in vars(a).items() if k not in keep and v not in (None, False, [], "")]  # fmt: skip
         if clash:
@@ -6395,6 +6398,8 @@ def main():
             "receipt: --hook needs --out (a file or folder), since hooks' output isn't shown"
         )
     many_in = a.combine or a.compare
+    if a.share and a.compare:
+        sys.exit("receipt: --share sends one run to the gallery, so it can't go with --compare")
     if a.combine and a.compare:
         sys.exit("receipt: pick one of --combine and --compare")
     if many_in and (
@@ -6434,7 +6439,7 @@ def main():
         if a.sign and saved:
             sign(a.sign, saved)
         if a.link:
-            print(link(reported_text(r)))
+            print(link(reported_text(r), a.share))
         return
     if a.bundle and (many_in or a.list):
         sys.exit(
@@ -6466,7 +6471,8 @@ def main():
                  ("--turns", a.turns), ("--prompt", a.prompt), ("--reply", a.reply), ("--recipe", a.recipe),
                  ("--outcome", a.outcome), ("--record", a.record), ("--bundle", a.bundle), ("--hook", a.hook),
                  ("--report", a.report), ("--combine", a.combine), ("--compare", a.compare), ("--rename", a.rename),
-                 ("--counts", a.counts), ("--prompt-id", a.prompt_id), ("--file-names", a.file_names))
+                 ("--counts", a.counts), ("--prompt-id", a.prompt_id), ("--file-names", a.file_names),
+                 ("--share (the gallery takes one run)", a.share))
                  if v]  # fmt: skip
         if clash:
             sys.exit(f"receipt: --totals adds up many sessions, so it can't go with {', '.join(clash)}")
@@ -6744,12 +6750,13 @@ def main():
         if a.sign and p:
             sign(a.sign, p)
     if a.link:
-        print(link(text(r, hide, a.prompt)))
+        print(link(text(r, hide, a.prompt), a.share))
 
 
-def link(s):
+def link(s, share=False):
     """-> a link to the site that shows this receipt; the receipt rides in the part after #, which browsers
-    never send to the server, so nothing is uploaded"""
+    never send to the server, so nothing is uploaded. With share, also a link that opens a GitHub issue sending
+    it to the gallery (.github/ISSUE_TEMPLATE/receipt.yml)"""
     z = zlib.compressobj(
         9, zlib.DEFLATED, -15
     )  # raw deflate, which browsers unpack with DecompressionStream
@@ -6763,7 +6770,13 @@ def link(s):
             "not paste whole there. --hide parts or leave out --prompt to shorten it",
             file=sys.stderr,
         )
-    return f"\nlink (the receipt is inside the link; nothing is uploaded):\n{url}"
+    out = f"\nlink (the receipt is inside the link; nothing is uploaded):\n{url}"
+    if share:
+        title = "Receipt: " + s.split("\n")[0].split(" · ")[1]
+        q = urllib.parse.urlencode({"template": "receipt.yml", "title": title, "link": url}, quote_via=urllib.parse.quote)
+        out += ("\n\nto add it to the gallery, open this and press Create (everything in it will be public; it goes in "
+                f"once it's approved):\n{ISSUES}/new?{q}")
+    return out
 
 
 def add_turns(r, rows, a, hide):

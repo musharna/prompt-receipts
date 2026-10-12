@@ -1,0 +1,69 @@
+name: gallery
+# A receipt sent with the issue form gets a reply saying what the gallery will show, or why it can't go in.
+# When the repo's owner adds the `gallery` label, it is checked again and added to gallery.json.
+# The issue's text reaches tools/gallery.py only through $GITHUB_EVENT_PATH, never through ${{ }} in a script.
+on:
+  issues:
+    types: [opened, edited, labeled]
+permissions:
+  contents: read
+jobs:
+  check:
+    if: >-
+      github.event.action != 'labeled' &&
+      contains(github.event.issue.labels.*.name, 'receipt') &&
+      !contains(github.event.issue.labels.*.name, 'gallery')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/gallery.py check "$GITHUB_EVENT_PATH" > reply.md || true
+      - run: gh issue comment "$NUMBER" --body-file reply.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+  add:
+    if: >-
+      github.event.action == 'labeled' && github.event.label.name == 'gallery' &&
+      github.event.sender.login == github.repository_owner
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pages: write
+    steps:
+      - uses: actions/checkout@v4
+      # another receipt may land between our add and our push: start again from the newest main each time
+      - id: add
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp "$GITHUB_EVENT_PATH" "$RUNNER_TEMP/event.json"
+          for try in 1 2 3 4 5; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            if ! python3 tools/gallery.py add "$RUNNER_TEMP/event.json" gallery.json > "$RUNNER_TEMP/reply.md"; then
+              echo "added=0" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+            git commit -q -m "Gallery: receipt from issue #$NUMBER" gallery.json
+            if git push -q origin HEAD:main; then
+              echo "added=1" >> "$GITHUB_OUTPUT"
+              gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" > /dev/null ||
+                echo "::warning::added, but the Pages build request failed; the site updates on the next push"
+              exit 0
+            fi
+            sleep $((try * 3))
+          done
+          echo "gallery: couldn't push after 5 tries" >&2; exit 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+      - run: gh issue comment "$NUMBER" --body-file "$RUNNER_TEMP/reply.md"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+      - if: steps.add.outputs.added == '1'
+        run: gh issue close "$NUMBER"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}

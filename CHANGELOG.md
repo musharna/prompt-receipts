@@ -1,5 +1,10 @@
 # Changelog
 
+## receipt.py 7.9 (2026-10-11)
+
+- [The gallery](https://musharna.github.io/prompt-receipts/g/): the site's 113 receipts and ones people send in, to search and sort by tool, model and cost.
+- `--share` prints the receipt's link and a link that sends it to the gallery: a GitHub issue with the link filled in. A bot replies with what the gallery will show, and it goes in once the site's owner approves it. A receipt page on the site has an **Add to the gallery** button that does the same.
+
 ## receipt.py 7.8 (2026-10-11)
 
 - `--reported FILE` makes a receipt of what someone's post says about a run: its prompt, model, cost, tokens, time and what it made, with the post's address. Every look carries a REPORTED stamp. Anything the post doesn't give reads "not stated". Stated tokens are priced next to the post's own figure, as the least the run could have cost. It has no receipt number, barcode or record.
