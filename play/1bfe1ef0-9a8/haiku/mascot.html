@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Habit mascot</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: #fdf6ec;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  #blob {
+    width: 260px;
+    height: auto;
+    overflow: visible;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #blob:focus-visible { outline: 3px solid #5fb994; outline-offset: 8px; border-radius: 50%; }
+  .hint { margin: 0; color: #8a7f72; font-size: 15px; }
+  .moods { display: flex; gap: 8px; }
+  .moods button {
+    border: 1px solid #d9cfc0;
+    background: #fff;
+    border-radius: 999px;
+    padding: 8px 16px;
+    font: inherit;
+    color: #4a4339;
+    cursor: pointer;
+  }
+  .moods button[aria-pressed="true"] { background: #8fd9b6; border-color: #5fb994; color: #173d2b; }
+
+  #blob .layer { display: none; }
+  #blob.mood-idle .l-idle,
+  #blob.mood-happy .l-happy,
+  #blob.mood-sleepy .l-sleepy,
+  #blob.mood-surprised .l-surprised { display: inline; }
+
+  #blob .body {
+    transform-origin: 120px 150px;
+    animation: breathe 4s ease-in-out infinite;
+  }
+  #blob.mood-sleepy .body { animation-duration: 7s; }
+  #blob.mood-surprised .body { animation: none; }
+
+  #blob.giggling .layer { display: none; }
+  #blob.giggling .l-happy { display: inline; }
+  #blob.giggling .body { animation: giggle 0.9s ease-in-out; }
+
+  .l-idle .eye {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: blink 4.5s infinite;
+  }
+  .spark {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: twinkle 1.6s ease-in-out infinite;
+  }
+  .zzz {
+    font: 700 22px system-ui, sans-serif;
+    fill: #7a6fa8;
+    opacity: 0;
+    transform-box: fill-box;
+    animation: float 3s ease-in infinite;
+  }
+  .bang {
+    font: 800 44px system-ui, sans-serif;
+    fill: #ef6f7b;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pop 0.6s ease-in-out infinite alternate;
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1, 1); }
+    50% { transform: scale(1.035, 0.965); }
+  }
+  @keyframes blink {
+    0%, 92%, 100% { transform: scaleY(1); }
+    95% { transform: scaleY(0.1); }
+  }
+  @keyframes giggle {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    20% { transform: translateY(-12px) rotate(-6deg) scale(1.03, 0.97); }
+    40% { transform: translateY(0) rotate(6deg); }
+    60% { transform: translateY(-4px) rotate(-5deg); }
+    80% { transform: translateY(0) rotate(3deg); }
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0; transform: scale(0.4); }
+    50% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes float {
+    0% { opacity: 0; transform: translate(0, 0); }
+    20% { opacity: 1; }
+    100% { opacity: 0; transform: translate(14px, -30px); }
+  }
+  @keyframes pop {
+    from { transform: scale(1); }
+    to { transform: scale(1.15); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #blob .body, .l-idle .eye, .spark, .bang { animation: none !important; }
+    .zzz { opacity: 1; animation: none; }
+  }
+</style>
+</head>
+<body>
+<main class="stage">
+  <svg id="blob" class="mood-idle" viewBox="0 0 240 250" role="button" tabindex="0" aria-label="Habit mascot. Poke me.">
+    <defs>
+      <radialGradient id="bodyGrad" cx="40%" cy="35%" r="70%">
+        <stop offset="0" stop-color="#c9f5e0" />
+        <stop offset="1" stop-color="#7fd0ab" />
+      </radialGradient>
+    </defs>
+    <ellipse cx="120" cy="234" rx="78" ry="9" fill="#000" opacity="0.08" />
+
+    <g class="body">
+      <path d="M120 20 C180 18 222 64 220 124 C218 184 178 222 118 220 C58 218 20 180 22 118 C24 58 62 22 120 20 Z"
+            fill="url(#bodyGrad)" stroke="#5fb994" stroke-width="3" />
+
+      <g class="layer l-idle">
+        <g class="eye">
+          <ellipse cx="88" cy="110" rx="8" ry="11" fill="#2d2a32" />
+          <circle cx="91" cy="106" r="3" fill="#fff" />
+        </g>
+        <g class="eye">
+          <ellipse cx="152" cy="110" rx="8" ry="11" fill="#2d2a32" />
+          <circle cx="155" cy="106" r="3" fill="#fff" />
+        </g>
+        <path d="M106 142 Q120 152 134 142" fill="none" stroke="#2d2a32" stroke-width="4" stroke-linecap="round" />
+      </g>
+
+      <g class="layer l-happy">
+        <ellipse cx="66" cy="134" rx="11" ry="6" fill="#ff9aa2" opacity="0.7" />
+        <ellipse cx="174" cy="134" rx="11" ry="6" fill="#ff9aa2" opacity="0.7" />
+        <path d="M74 118 Q88 100 102 118 M138 118 Q152 100 166 118" fill="none" stroke="#2d2a32" stroke-width="5" stroke-linecap="round" />
+        <path d="M100 138 Q120 170 140 138 Z" fill="#2d2a32" stroke="#2d2a32" stroke-width="3" stroke-linejoin="round" />
+        <ellipse cx="120" cy="152" rx="8" ry="5" fill="#ef6f7b" />
+      </g>
+
+      <g class="layer l-sleepy">
+        <path d="M76 114 Q88 122 100 114 M140 114 Q152 122 164 114" fill="none" stroke="#2d2a32" stroke-width="4" stroke-linecap="round" />
+        <ellipse cx="120" cy="146" rx="6" ry="5" fill="#2d2a32" />
+      </g>
+
+      <g class="layer l-surprised">
+        <g class="eye">
+          <circle cx="88" cy="108" r="15" fill="#fff" stroke="#2d2a32" stroke-width="3" />
+          <circle cx="88" cy="110" r="5" fill="#2d2a32" />
+        </g>
+        <g class="eye">
+          <circle cx="152" cy="108" r="15" fill="#fff" stroke="#2d2a32" stroke-width="3" />
+          <circle cx="152" cy="110" r="5" fill="#2d2a32" />
+        </g>
+        <ellipse cx="120" cy="150" rx="9" ry="12" fill="#2d2a32" />
+      </g>
+    </g>
+
+    <g class="layer l-happy">
+      <g transform="translate(28 64)"><path class="spark" style="animation-delay: 0s" d="M0 -10 L2.5 -2.5 L10 0 L2.5 2.5 L0 10 L-2.5 2.5 L-10 0 L-2.5 -2.5 Z" fill="#ffd66b" /></g>
+      <g transform="translate(208 92)"><path class="spark" style="animation-delay: 0.5s" d="M0 -10 L2.5 -2.5 L10 0 L2.5 2.5 L0 10 L-2.5 2.5 L-10 0 L-2.5 -2.5 Z" fill="#ffd66b" /></g>
+      <g transform="translate(40 196)"><path class="spark" style="animation-delay: 1s" d="M0 -10 L2.5 -2.5 L10 0 L2.5 2.5 L0 10 L-2.5 2.5 L-10 0 L-2.5 -2.5 Z" fill="#ffd66b" /></g>
+    </g>
+
+    <g class="layer l-sleepy">
+      <text class="zzz" x="176" y="70" style="animation-delay: 0s">z</text>
+      <text class="zzz" x="194" y="50" style="font-size: 30px; animation-delay: 1s">z</text>
+      <text class="zzz" x="212" y="26" style="font-size: 36px; animation-delay: 2s">Z</text>
+    </g>
+
+    <g class="layer l-surprised">
+      <text class="bang" x="198" y="60">!</text>
+    </g>
+  </svg>
+
+  <p class="hint">Poke me!</p>
+
+  <div class="moods">
+    <button type="button" data-mood="idle" aria-pressed="true">Idle</button>
+    <button type="button" data-mood="happy" aria-pressed="false">Happy</button>
+    <button type="button" data-mood="sleepy" aria-pressed="false">Sleepy</button>
+    <button type="button" data-mood="surprised" aria-pressed="false">Surprised</button>
+  </div>
+</main>
+
+<script>
+  const blob = document.getElementById('blob');
+  const moodButtons = document.querySelectorAll('button[data-mood]');
+  const moods = ['idle', 'happy', 'sleepy', 'surprised'];
+  let giggleTimer;
+
+  function setMood(mood) {
+    blob.classList.remove(...moods.map(m => 'mood-' + m));
+    blob.classList.add('mood-' + mood);
+    moodButtons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mood === mood)));
+  }
+
+  function poke() {
+    blob.classList.remove('giggling');
+    void blob.getBoundingClientRect();
+    blob.classList.add('giggling');
+    clearTimeout(giggleTimer);
+    giggleTimer = setTimeout(() => blob.classList.remove('giggling'), 900);
+  }
+
+  blob.addEventListener('pointerdown', poke);
+  blob.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      poke();
+    }
+  });
+  moodButtons.forEach(b => b.addEventListener('click', () => setMood(b.dataset.mood)));
+</script>
+</body>
+</html>

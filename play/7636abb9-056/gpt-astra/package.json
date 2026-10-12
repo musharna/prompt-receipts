@@ -1,0 +1,1 @@
+{"name":"little-world","version":"1.0.0","type":"module","scripts":{"dev":"python3 -m http.server 5173 --bind 0.0.0.0","build":"node build.js","preview":"python3 -m http.server 4173 --directory dist --bind 0.0.0.0"}}

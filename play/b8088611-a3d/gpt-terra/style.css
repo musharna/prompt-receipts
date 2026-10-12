@@ -1,0 +1,38 @@
+:root { --paper:#e9e5dc; --ink:#171716; --line:rgba(23,23,22,.35); }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; min-height:100vh; background:var(--paper); color:var(--ink); font-family:"DM Mono", monospace; font-size:12px; letter-spacing:-.04em; }
+#fog { position:fixed; inset:0; width:100%; height:100%; z-index:0; opacity:.92; pointer-events:none; }
+.grain { pointer-events:none; position:fixed; z-index:1; inset:0; opacity:.13; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E"); mix-blend-mode:multiply; }
+.site-header, main, footer { position:relative; z-index:2; }
+.site-header { display:flex; justify-content:space-between; align-items:center; padding:22px 28px; mix-blend-mode:multiply; }
+.mark { color:inherit; font-size:19px; letter-spacing:-.12em; text-decoration:none; }
+.mark span { font-size:8px; vertical-align:top; margin-left:2px; }
+nav { display:flex; gap:27px; margin-left:70px; }
+a { color:inherit; }
+nav a { text-decoration:none; border-bottom:1px solid transparent; padding-bottom:2px; }
+nav a:hover { border-color:currentColor; }
+.sound { border:0; background:none; font:inherit; color:inherit; cursor:pointer; padding:4px 0; }
+.sound i { display:inline-block; width:7px; height:7px; margin-right:5px; border-radius:50%; border:1px solid currentColor; }
+.sound[aria-pressed="true"] i { background:currentColor; box-shadow:0 0 10px currentColor; }
+.hero { min-height:calc(100vh - 67px); padding:10.5vh 8vw 5.7vh; display:flex; flex-direction:column; justify-content:space-between; }
+.eyebrow { margin:0; text-transform:uppercase; font-size:10px; letter-spacing:.02em; line-height:1.4; }
+h1,h2 { margin:0; font-family:"Instrument Serif", Georgia, serif; font-weight:400; letter-spacing:-.07em; }
+h1 { font-size:clamp(76px, 12.9vw, 198px); line-height:.78; max-width:1000px; margin-left:-.045em; }
+h1 em { font-weight:400; }
+.hero-footer { display:flex; justify-content:space-between; align-items:end; }
+.hero-footer p { margin:0; line-height:1.5; }
+.scroll { text-decoration:none; border-bottom:1px solid var(--ink); padding-bottom:5px; }
+.scroll span { display:inline-block; margin-left:34px; font-size:18px; transition:transform .25s; }
+.scroll:hover span { transform:translateY(4px); }
+.work { padding:8vw; background:rgba(233,229,220,.3); backdrop-filter:blur(2px); }
+.section-top { display:flex; align-items:baseline; justify-content:space-between; border-bottom:1px solid var(--line); padding-bottom:28px; }
+h2 { font-size:clamp(47px,6.5vw,92px); line-height:.8; }
+.project-list { margin-top:3px; }
+.project { display:grid; grid-template-columns:8% 1.5fr 1fr 25px; align-items:center; text-decoration:none; padding:22px 0; border-bottom:1px solid var(--line); transition:padding .35s, color .35s; }
+.project:hover { padding-left:15px; color:#6539cf; }
+.project span { font-size:10px; }.project strong { font-family:"Instrument Serif",Georgia,serif; font-size:clamp(28px,4vw,57px); font-weight:400; letter-spacing:-.06em; }.project em { font-style:normal; font-size:10px; }.project b { font-size:18px; font-weight:400; text-align:right; }
+footer { padding:23px 28px; display:flex; justify-content:space-between; border-top:1px solid rgba(23,23,22,.2); }
+footer a { text-underline-offset:3px; }
+@media (max-width:650px) { .site-header { padding:18px; } nav { gap:14px; margin-left:0; } .sound { display:none; }.hero { padding:10vh 18px 30px; }.hero-footer { align-items:start; gap:30px; flex-direction:column; }.work { padding:72px 18px; }.section-top { align-items:start; flex-direction:column; gap:22px; }.project { grid-template-columns:28px 1fr 18px; gap:4px; }.project em { grid-column:2; }.project b { grid-column:3; grid-row:1; } footer { padding:18px; flex-wrap:wrap; gap:12px; } footer a { width:100%; }.project:hover { padding-left:5px; } }
+@media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } #fog { display:none; } }

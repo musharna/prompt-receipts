@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Galaxy Slime</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #070418; }
+  body { font-family: "Trebuchet MS", "Comic Sans MS", system-ui, sans-serif; color: #fff;
+         user-select: none; -webkit-user-select: none; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  canvas.holding { cursor: grabbing; }
+  #title { position: fixed; top: 18px; left: 24px; pointer-events: none; text-shadow: 0 2px 14px #7b3cff; }
+  #title h1 { margin: 0; font-size: clamp(26px, 4vw, 46px); letter-spacing: 1px; }
+  #title p { margin: 4px 0 0; font-size: clamp(14px, 1.8vw, 22px); opacity: .85; }
+  #buttons { position: fixed; top: 18px; right: 20px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  button { font: inherit; font-size: clamp(14px, 1.6vw, 20px); color: #fff; cursor: pointer;
+           background: rgba(120, 80, 255, .35); border: 2px solid rgba(255,255,255,.45);
+           border-radius: 999px; padding: 10px 20px; backdrop-filter: blur(6px);
+           transition: transform .1s, background .2s; }
+  button:hover { background: rgba(160, 110, 255, .55); }
+  button:active { transform: scale(.94); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">
+  <h1>✨ Galaxy Slime ✨</h1>
+  <p>Grab it, stretch it, pull it apart… then squish the bits back together!</p>
+</div>
+<div id="buttons">
+  <button id="colour">🎨 Change colours</button>
+  <button id="shake">🌀 Wobble</button>
+  <button id="reset">♻️ New slime</button>
+</div>
+
+<script>
+'use strict';
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// ---------- palettes ----------
+const PALETTES = [
+  ['#241263', '#5b2bd0', '#b23fd8', '#ff6fc2', '#3fc8ff'],   // galaxy
+  ['#08357f', '#1b9bc4', '#6ff0c4', '#a463ff', '#ff6bb0'],   // nebula
+  ['#3f1670', '#c02d6c', '#ff7a45', '#ffd166', '#7a4bff'],   // supernova
+  ['#0a2a4a', '#1fbf9a', '#a6f06a', '#3fa0ff', '#8a5bff'],   // aurora
+];
+let paletteIndex = 0;
+const hexToRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+function paletteColour(t) {
+  const pal = PALETTES[paletteIndex].map(hexToRgb);
+  t = Math.min(0.9999, Math.max(0, t)) * (pal.length - 1);
+  const i = Math.floor(t), f = t - i;
+  return [0, 1, 2].map(k => pal[i][k] + (pal[i + 1][k] - pal[i][k]) * f);
+}
+
+//<physics>
+// ---------- slime physics (soft particles with cohesion) ----------
+let w = 800, h = 600, s = 16, floorY = 560;      // s = natural particle spacing (px)
+let N = 0, px, py, vx, vy, ax, ay, pt, pr, pg, pb, starPhase, starSize;
+const grabs = new Map();                         // pointerId -> {x, y, tx, ty, items}
+
+const HC = 2.5;          // cohesion range (in spacings): beyond this, strands snap
+const KR = 0.8;          // push-apart stiffness
+const KA = 0.03;         // stickiness
+const VISC = 0.14;       // gooeyness (neighbours share velocity)
+const GRAVITY = 0.025;
+
+function initSlime(count) {
+  N = count;
+  px = new Float32Array(N); py = new Float32Array(N);
+  vx = new Float32Array(N); vy = new Float32Array(N);
+  ax = new Float32Array(N); ay = new Float32Array(N);
+  pt = new Float32Array(N); pr = new Float32Array(N);
+  pg = new Float32Array(N); pb = new Float32Array(N);
+  starPhase = new Float32Array(N); starSize = new Float32Array(N);
+  // hexagonal lattice, closest-to-centre first
+  const pts = [], sp = s * 0.95, rows = 40;
+  for (let j = -rows; j <= rows; j++)
+    for (let i = -rows; i <= rows; i++)
+      pts.push([(i + (j & 1) * 0.5) * sp, j * sp * 0.866]);
+  pts.sort((a, b) => (a[0] * a[0] + a[1] * a[1]) - (b[0] * b[0] + b[1] * b[1]));
+  const rad = Math.hypot(pts[N - 1][0], pts[N - 1][1]);
+  const cx = w / 2, cy = Math.max(rad + s, floorY - rad * 2 - s);
+  for (let k = 0; k < N; k++) {
+    px[k] = cx + pts[k][0] + (Math.random() - 0.5) * 2;
+    py[k] = cy + pts[k][1] + (Math.random() - 0.5) * 2;
+    // smooth swirl of colour across the blob so it looks like a galaxy
+    const u = pts[k][0] / rad, v = pts[k][1] / rad;
+    const ang = Math.atan2(v, u), r = Math.hypot(u, v);
+    pt[k] = 0.5 + 0.5 * Math.sin(ang * 2 + r * 4.5) * 0.7 + (r - 0.5) * 0.25;
+    starPhase[k] = Math.random() * 6.283;
+    starSize[k] = Math.random() < 0.55 ? 0.8 + Math.random() * 1.8 : 0;
+  }
+  grabs.clear();
+  recolour();
+}
+
+function recolour() {
+  for (let k = 0; k < N; k++) {
+    const c = paletteColour(pt[k]);
+    pr[k] = c[0]; pg[k] = c[1]; pb[k] = c[2];
+  }
+}
+
+function step(dt) {
+  ax.fill(0); ay.fill(GRAVITY);
+  const rc = HC * s, rc2 = rc * rc, span = HC - 1;
+  for (let i = 0; i < N; i++) {
+    const xi = px[i], yi = py[i];
+    for (let j = i + 1; j < N; j++) {
+      const dx = px[j] - xi;
+      if (dx > rc || dx < -rc) continue;
+      const dy = py[j] - yi;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > rc2 || d2 < 1e-6) continue;
+      const d = Math.sqrt(d2), x = d / s;
+      // radial acceleration; positive pulls i and j together
+      let f;
+      if (x < 1) f = -KR * s * (1 - x);
+      else { const q = (x - 1) / span; f = KA * s * (x - 1) * (1 - q * q); }
+      const nx = dx / d, ny = dy / d;
+      const wv = (1 - x / HC) * VISC;
+      const dvx = (vx[j] - vx[i]) * wv, dvy = (vy[j] - vy[i]) * wv;
+      ax[i] += nx * f + dvx; ay[i] += ny * f + dvy;
+      ax[j] -= nx * f + dvx; ay[j] -= ny * f + dvy;
+    }
+  }
+  // fingers / mouse
+  for (const g of grabs.values()) {
+    g.x += (g.tx - g.x) * 0.5; g.y += (g.ty - g.y) * 0.5;
+    for (const it of g.items) {
+      const i = it.i;
+      it.k = Math.max(0.45, it.k - 0.0004 * dt);          // holding squeezes the slime together
+      ax[i] += 0.12 * (g.x + it.ox * it.k - px[i]) - 0.28 * vx[i];
+      ay[i] += 0.12 * (g.y + it.oy * it.k - py[i]) - 0.28 * vy[i];
+    }
+  }
+  const vmax = s * 0.45;
+  for (let i = 0; i < N; i++) {
+    let u = vx[i] + ax[i] * dt, v = vy[i] + ay[i] * dt;
+    const sp = Math.hypot(u, v);
+    if (sp > vmax) { u *= vmax / sp; v *= vmax / sp; }
+    let x = px[i] + u * dt, y = py[i] + v * dt;
+    const m = s * 0.5;
+    if (y > floorY - m) { y = floorY - m; v = 0; u *= 0.85; }       // sticky floor
+    if (y < m) { y = m; if (v < 0) v *= -0.2; }
+    if (x < m) { x = m; if (u < 0) u *= -0.2; }
+    if (x > w - m) { x = w - m; if (u > 0) u *= -0.2; }
+    px[i] = x; py[i] = y; vx[i] = u; vy[i] = v;
+  }
+}
+
+function grabAt(id, x, y) {
+  const R = s * 2.6, items = [];
+  for (let i = 0; i < N; i++) {
+    const dx = px[i] - x, dy = py[i] - y;
+    if (dx * dx + dy * dy < R * R) items.push({ i, ox: dx, oy: dy, k: 1 });
+  }
+  if (items.length) grabs.set(id, { x, y, tx: x, ty: y, items });
+  return items.length > 0;
+}
+//</physics>
+
+// ---------- rendering ----------
+const CELL = 4;                        // metaball grid cell (css px)
+let gw, gh, dens, cw, cr, cgc, cb, img, field, fctx, dpr = 1;
+const LIGHT = (() => { const l = [-0.5, -0.6, 0.62], m = Math.hypot(...l); return l.map(v => v / m); })();
+const HALF = (() => { const l = [LIGHT[0], LIGHT[1], LIGHT[2] + 1], m = Math.hypot(...l); return l.map(v => v / m); })();
+let bgStars = [];
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  w = window.innerWidth; h = window.innerHeight;
+  canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  s = Math.max(10, Math.min(20, Math.min(w, h) / 36));
+  floorY = h - Math.max(28, h * 0.06);
+  gw = Math.ceil(w / CELL) + 2; gh = Math.ceil(h / CELL) + 2;
+  dens = new Float32Array(gw * gh); cw = new Float32Array(gw * gh);
+  cr = new Float32Array(gw * gh); cgc = new Float32Array(gw * gh); cb = new Float32Array(gw * gh);
+  field = document.createElement('canvas'); field.width = gw; field.height = gh;
+  fctx = field.getContext('2d'); img = fctx.createImageData(gw, gh);
+  bgStars = Array.from({ length: 160 }, () => ({
+    x: Math.random(), y: Math.random(), r: Math.random() * 1.4 + 0.3, p: Math.random() * 6.28, sp: 0.5 + Math.random() * 2
+  }));
+  initSlime(Math.round(Math.min(340, Math.max(160, (w * h) / 2600))));
+}
+
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+function buildField() {
+  dens.fill(0); cw.fill(0); cr.fill(0); cgc.fill(0); cb.fill(0);
+  const R = s * 1.9 / CELL, R2 = R * R, ri = Math.ceil(R);
+  for (let k = 0; k < N; k++) {
+    const gx = px[k] / CELL, gy = py[k] / CELL;
+    const x0 = Math.max(0, Math.floor(gx - ri)), x1 = Math.min(gw - 1, Math.ceil(gx + ri));
+    const y0 = Math.max(0, Math.floor(gy - ri)), y1 = Math.min(gh - 1, Math.ceil(gy + ri));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const dx = x - gx, dy = y - gy, q = (dx * dx + dy * dy) / R2;
+      if (q >= 1) continue;
+      const kern = (1 - q) * (1 - q), idx = y * gw + x;
+      dens[idx] += kern * 1.4; cw[idx] += kern;
+      cr[idx] += kern * pr[k]; cgc[idx] += kern * pg[k]; cb[idx] += kern * pb[k];
+    }
+  }
+  const data = img.data;
+  for (let y = 1; y < gh - 1; y++) for (let x = 1; x < gw - 1; x++) {
+    const idx = y * gw + x, o = idx * 4, d = dens[idx];
+    const alpha = smooth(1.0, 1.3, d);
+    if (alpha <= 0) { data[o + 3] = 0; continue; }
+    const inv = 1 / cw[idx];
+    let r = cr[idx] * inv, g = cgc[idx] * inv, b = cb[idx] * inv;
+    // surface normal from the density gradient
+    const gxv = (dens[idx + 1] - dens[idx - 1]) * 0.5, gyv = (dens[idx + gw] - dens[idx - gw]) * 0.5;
+    let nx = -gxv * 0.9, ny = -gyv * 0.9, nz = 1;
+    const nl = 1 / Math.hypot(nx, ny, nz); nx *= nl; ny *= nl; nz *= nl;
+    const diff = Math.max(0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]);
+    const spec = Math.pow(Math.max(0, nx * HALF[0] + ny * HALF[1] + nz * HALF[2]), 48);
+    const depth = smooth(1.2, 6, d);                 // edges look thin and glowy, middle looks deep
+    const shade = (0.62 + 0.55 * diff) * (0.78 + 0.22 * depth);
+    const rim = (1 - depth) * 0.35;
+    r = r * shade + 255 * rim + 255 * spec * 0.85;
+    g = g * shade + 255 * rim + 255 * spec * 0.85;
+    b = b * shade + 255 * rim + 255 * spec * 0.85;
+    data[o] = Math.min(255, r); data[o + 1] = Math.min(255, g); data[o + 2] = Math.min(255, b);
+    data[o + 3] = alpha * 235;                       // slightly see-through, like real slime
+  }
+  fctx.putImageData(img, 0, 0);
+}
+
+function drawStar(x, y, r, a) {
+  ctx.globalAlpha = a;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill();
+  if (r > 1.6 && a > 0.6) {                          // little 4-point glint on the big ones
+    ctx.fillRect(x - r * 3, y - 0.5, r * 6, 1);
+    ctx.fillRect(x - 0.5, y - r * 3, 1, r * 6);
+  }
+}
+
+function draw(time) {
+  const t = time / 1000;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.globalAlpha = 1;
+  const bg = ctx.createLinearGradient(0, 0, 0, h);
+  bg.addColorStop(0, '#0a0526'); bg.addColorStop(0.6, '#1a0b45'); bg.addColorStop(1, '#2a0f55');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+  for (const st of bgStars) drawStar(st.x * w, st.y * floorY, st.r, 0.35 + 0.35 * Math.sin(t * st.sp + st.p));
+
+  // table
+  ctx.globalAlpha = 1;
+  const tb = ctx.createLinearGradient(0, floorY, 0, h);
+  tb.addColorStop(0, '#3b2380'); tb.addColorStop(1, '#150a33');
+  ctx.fillStyle = tb; ctx.fillRect(0, floorY, w, h - floorY);
+  ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(0, floorY, w, 2);
+
+  // slime body with a soft glow
+  buildField();
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.shadowColor = 'rgba(170, 100, 255, .65)'; ctx.shadowBlur = 28;
+  ctx.drawImage(field, 0, 0, gw * CELL, gh * CELL);
+  ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+
+  // glitter inside the slime
+  for (let k = 0; k < N; k++) {
+    if (!starSize[k]) continue;
+    const a = 0.5 + 0.5 * Math.sin(t * 2.2 + starPhase[k] * 3);
+    if (a < 0.15) continue;
+    drawStar(px[k] + Math.cos(starPhase[k]) * s * 0.3, py[k] + Math.sin(starPhase[k]) * s * 0.3, starSize[k], a);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- input ----------
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  if (grabAt(e.pointerId, e.clientX, e.clientY)) canvas.classList.add('holding');
+});
+canvas.addEventListener('pointermove', e => {
+  const g = grabs.get(e.pointerId);
+  if (g) { g.tx = e.clientX; g.ty = e.clientY; }
+});
+const release = e => { grabs.delete(e.pointerId); if (!grabs.size) canvas.classList.remove('holding'); };
+canvas.addEventListener('pointerup', release);
+canvas.addEventListener('pointercancel', release);
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+document.getElementById('reset').onclick = () => initSlime(N);
+document.getElementById('colour').onclick = () => { paletteIndex = (paletteIndex + 1) % PALETTES.length; recolour(); };
+document.getElementById('shake').onclick = () => {
+  for (let i = 0; i < N; i++) { vx[i] += (Math.random() - 0.5) * s * 0.6; vy[i] -= Math.random() * s * 0.5; }
+};
+
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 150); });
+
+// ---------- main loop (fixed physics step, independent of screen refresh rate) ----------
+let last = performance.now(), acc = 0;
+function frame(now) {
+  acc += Math.min(100, now - last); last = now;
+  const SUB = 1 / 3, TICK = 1000 / 60;
+  while (acc >= TICK) { for (let k = 0; k < 3; k++) step(SUB); acc -= TICK; }
+  draw(now);
+  requestAnimationFrame(frame);
+}
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

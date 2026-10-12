@@ -1,0 +1,94 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Clockwork Crab — Boss Loop</title>
+<style>
+  html { color-scheme: dark; font: 16px system-ui, sans-serif; }
+  body { display:grid; place-items:center; min-height:100vh; margin:0; background:#101820; color:#f6d365; }
+  main { width:min(34rem, calc(100% - 2rem)); padding:2rem; border:2px solid #c34a36; border-radius:12px; background:#182a36; box-shadow:8px 8px 0 #071016; }
+  h1 { margin-top:0; font-size:1.4rem; } p { color:#b8cbd1; }
+  button { padding:.7rem 1rem; border:0; border-radius:6px; background:#e15b3d; color:white; font:inherit; font-weight:700; cursor:pointer; }
+  button:hover { background:#f0784f; } #status { margin-left:.75rem; color:#8ee3a1; }
+</style>
+<main>
+  <h1>⚙ Clockwork Crab — Boss Battle</h1>
+  <p>168 BPM · E minor · 16-bar loop · square-wave lead, bass, and noise drums</p>
+  <button id="toggle">Start loop</button><span id="status">stopped</span>
+</main>
+<script>
+/*
+  Original game-ready loop. The pattern is deliberately data-driven so it is
+  easy to port into a tracker, MIDI exporter, or your engine's music system.
+*/
+const BPM = 168, STEP = 60 / BPM / 4, BARS = 16, STEPS = BARS * 16;
+const A4 = 440;
+const hz = note => A4 * 2 ** ((note - 69) / 12);
+const N = { C2:36, D2:38, E2:40, F2:41, G2:43, A2:45, B2:47,
+  C3:48, D3:50, E3:52, F3:53, G3:55, A3:57, B3:59,
+  C4:60, D4:62, E4:64, F4:65, G4:67, A4:69, B4:71,
+  C5:72, D5:74, E5:76, F5:77, G5:79, A5:81, B5:83 };
+
+// Lead: jagged minor-third hook, with the last two bars acting as a turn-around.
+const lead = [
+  [N.E4,0,2],[N.G4,2,1],[N.A4,3,1],[N.B4,4,2],[N.A4,6,1],[N.G4,7,1],
+  [N.E4,8,2],[N.D4,10,1],[N.E4,11,1],[N.G4,12,2],[N.A4,14,1],[N.B4,15,1],
+  [N.E5,16,2],[N.D5,18,1],[N.B4,19,1],[N.A4,20,2],[N.G4,22,1],[N.E4,23,1],
+  [N.D4,24,2],[N.E4,26,1],[N.G4,27,1],[N.A4,28,2],[N.B4,30,1],[N.A4,31,1],
+  [N.G4,32,2],[N.A4,34,1],[N.B4,35,1],[N.D5,36,2],[N.B4,38,1],[N.A4,39,1],
+  [N.G4,40,2],[N.E4,42,1],[N.D4,43,1],[N.E4,44,4],[N.G4,48,2],[N.A4,50,1],[N.B4,51,1],
+  [N.D5,52,2],[N.B4,54,1],[N.A4,55,1],[N.G4,56,2],[N.E4,58,1],[N.G4,59,1],
+  [N.A4,60,2],[N.B4,62,1],[N.D5,63,1],[N.E5,64,2],[N.D5,66,1],[N.B4,67,1],
+  [N.A4,68,2],[N.G4,70,1],[N.E4,71,1],[N.D4,72,2],[N.E4,74,1],[N.G4,75,1],
+  [N.A4,76,2],[N.B4,78,1],[N.A4,79,1],[N.G4,80,2],[N.E4,82,1],[N.D4,83,1],
+  [N.E4,84,4],[N.B4,88,2],[N.A4,90,1],[N.G4,91,1],[N.E4,92,2],[N.D4,94,1],[N.E4,95,1],
+  [N.G4,96,2],[N.A4,98,1],[N.B4,99,1],[N.D5,100,2],[N.E5,102,1],[N.D5,103,1],
+  [N.B4,104,2],[N.A4,106,1],[N.G4,107,1],[N.E4,108,2],[N.G4,110,1],[N.A4,111,1],
+  [N.B4,112,2],[N.A4,114,1],[N.G4,115,1],[N.E4,116,2],[N.D4,118,1],[N.E4,119,1],
+  [N.G4,120,2],[N.E4,122,1],[N.D4,123,1],[N.E4,124,4]
+];
+
+const bassRoots = [N.E2,N.E2,N.C3,N.D3,N.E2,N.E2,N.C3,N.B2,
+                   N.E2,N.E2,N.C3,N.D3,N.E2,N.B2,N.C3,N.D3];
+let ctx, master, timer, nextStep = 0, startedAt = 0;
+
+function tone(note, when, length, type, gain, detune=0) {
+  const osc = ctx.createOscillator(), amp = ctx.createGain();
+  osc.type = type; osc.frequency.value = hz(note); osc.detune.value = detune;
+  amp.gain.setValueAtTime(0.0001, when);
+  amp.gain.exponentialRampToValueAtTime(gain, when + 0.008);
+  amp.gain.setValueAtTime(gain, when + Math.max(0.012, length - 0.025));
+  amp.gain.exponentialRampToValueAtTime(0.0001, when + length);
+  osc.connect(amp).connect(master); osc.start(when); osc.stop(when + length + 0.02);
+}
+function noise(when, length, gain, high=false) {
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i=0;i<data.length;i++) data[i] = Math.random()*2-1;
+  const src=ctx.createBufferSource(), filter=ctx.createBiquadFilter(), amp=ctx.createGain();
+  filter.type=high?'highpass':'lowpass'; filter.frequency.value=high?4200:900;
+  amp.gain.setValueAtTime(gain,when); amp.gain.exponentialRampToValueAtTime(.0001,when+length);
+  src.buffer=buffer; src.connect(filter).connect(amp).connect(master); src.start(when);
+}
+function schedule(step, when) {
+  const bar = Math.floor(step / 16), inBar = step % 16;
+  // Repeat the 8-bar hook in bars 9–16; the bass changes underneath it.
+  for (const [note, at, len] of lead) if (at === step || at + 128 === step) tone(note, when, len*STEP*.88, 'square', .075);
+  if (inBar % 2 === 0) tone(bassRoots[bar], when, STEP*1.7, 'triangle', .13);
+  if (inBar === 4 || inBar === 12) tone(bassRoots[bar]+12, when, STEP*.65, 'triangle', .06);
+  if (inBar % 4 === 0) noise(when, .07, .20); // kick-like metal thud
+  if (inBar === 4 || inBar === 12) noise(when, .045, .10, true); // snare/claw snap
+  if (inBar % 2 === 1) noise(when, .018, .035, true); // ticking hats
+}
+function tick() {
+  while (startedAt + nextStep*STEP < ctx.currentTime + .12) {
+    schedule(nextStep % STEPS, startedAt + nextStep*STEP); nextStep++;
+  }
+}
+function start() {
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  master = ctx.createGain(); master.gain.value=.72; master.connect(ctx.destination);
+  nextStep=0; startedAt=ctx.currentTime+.05; timer=setInterval(tick, 25); tick();
+  toggle.textContent='Stop loop'; status.textContent='playing';
+}
+function stop() { clearInterval(timer); if(ctx) ctx.close(); ctx=null; toggle.textContent='Start loop'; status.textContent='stopped'; }
+toggle.onclick=()=>ctx ? stop() : start();
+</script>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drifting Fog</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07090f; overflow: hidden; }
+  /* Drop this canvas into any page; content goes above it. */
+  #fog { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; display: block; }
+  main { position: relative; color: #e8ecf5; font: 1.2rem/1.5 system-ui, sans-serif;
+         display: grid; place-content: center; height: 100%; text-align: center; }
+  h1 { font-weight: 300; letter-spacing: .2em; margin: 0; }
+</style>
+</head>
+<body>
+<canvas id="fog" aria-hidden="true"></canvas>
+<main><h1>YOUR NAME</h1><p>Portfolio content goes here.</p></main>
+
+<script>
+(() => {
+  const CONFIG = {
+    cell: 14,                 // font size / cell height in px
+    ramp: " .·:-=+*#%@",      // sparse -> dense
+    speed: 0.00006,           // drift speed
+    scale: 0.07,              // noise zoom (smaller = bigger clouds)
+    fps: 30,
+    // colour stops by density (0..1): [r, g, b]
+    palette: [[10, 14, 40], [40, 60, 130], [30, 150, 170], [150, 110, 210], [235, 220, 250]],
+    maxAlpha: 0.85,
+  };
+
+  const canvas = document.getElementById("fog");
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+
+  // --- 3D value noise with fbm ---
+  const P = new Uint8Array(512);
+  for (let i = 0; i < 256; i++) P[i] = i;
+  for (let i = 255; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [P[i], P[j]] = [P[j], P[i]]; }
+  for (let i = 0; i < 256; i++) P[i + 256] = P[i];
+  const hash = (x, y, z) => P[P[P[x & 255] + (y & 255)] + (z & 255)] / 255;
+  const fade = t => t * t * (3 - 2 * t);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  function noise(x, y, z) {
+    const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+    const u = fade(x - xi), v = fade(y - yi), w = fade(z - zi);
+    return lerp(
+      lerp(lerp(hash(xi, yi, zi), hash(xi + 1, yi, zi), u), lerp(hash(xi, yi + 1, zi), hash(xi + 1, yi + 1, zi), u), v),
+      lerp(lerp(hash(xi, yi, zi + 1), hash(xi + 1, yi, zi + 1), u), lerp(hash(xi, yi + 1, zi + 1), hash(xi + 1, yi + 1, zi + 1), u), v),
+      w);
+  }
+  function fbm(x, y, z) {
+    let sum = 0, amp = 0.5, f = 1;
+    for (let o = 0; o < 4; o++) { sum += amp * noise(x * f, y * f, z * f); amp *= 0.5; f *= 2; }
+    return sum / 0.9375;
+  }
+
+  // --- colour lookup table ---
+  const LUT = [];
+  for (let i = 0; i < 256; i++) {
+    const t = (i / 255) * (CONFIG.palette.length - 1);
+    const k = Math.min(Math.floor(t), CONFIG.palette.length - 2), f = t - k;
+    const a = CONFIG.palette[k], b = CONFIG.palette[k + 1];
+    LUT.push(`rgb(${lerp(a[0], b[0], f) | 0},${lerp(a[1], b[1], f) | 0},${lerp(a[2], b[2], f) | 0})`);
+  }
+
+  let cols, rows, cw, dpr;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = innerWidth, h = innerHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = `${CONFIG.cell}px ui-monospace, Menlo, Consolas, monospace`;
+    ctx.textBaseline = "top";
+    cw = ctx.measureText("M").width;
+    cols = Math.ceil(w / cw); rows = Math.ceil(h / CONFIG.cell);
+    draw(performance.now());
+  }
+
+  function draw(now) {
+    const t = now * CONFIG.speed * 1000;
+    const { ramp, scale, maxAlpha } = CONFIG;
+    const n = ramp.length - 1;
+    ctx.fillStyle = "#07090f";
+    ctx.fillRect(0, 0, innerWidth, innerHeight);
+    // group by colour bucket would be faster, but per-cell fillStyle is fine at this size
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        // domain warp gives the swirling, drifting look; x drift dominates
+        const x = c * scale * 0.55 + t * 0.6;
+        const y = r * scale;
+        const warp = noise(x * 0.5 + 9, y * 0.5, t * 0.4) * 2;
+        let d = fbm(x + warp, y + warp * 0.6, t);
+        d = Math.min(1, Math.max(0, (d - 0.3) * 1.9));   // contrast: clear gaps + dense banks
+        const ch = ramp[Math.round(d * n)];
+        if (ch === " ") continue;
+        ctx.globalAlpha = 0.25 + d * (maxAlpha - 0.25);
+        ctx.fillStyle = LUT[(d * 255) | 0];
+        ctx.fillText(ch, c * cw, r * CONFIG.cell);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  let last = 0, raf = 0;
+  function loop(now) {
+    raf = requestAnimationFrame(loop);
+    if (now - last < 1000 / CONFIG.fps) return;
+    last = now;
+    draw(now);
+  }
+  function start() {
+    cancelAnimationFrame(raf);
+    if (!reduced.matches && !document.hidden) raf = requestAnimationFrame(loop);
+    else draw(performance.now());  // static frame
+  }
+
+  addEventListener("resize", resize);
+  document.addEventListener("visibilitychange", start);
+  reduced.addEventListener("change", start);
+  resize(); start();
+})();
+</script>
+</body>
+</html>

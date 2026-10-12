@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#e8eadc" />
+  <title>Nan's little woodland</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Terrarium planner home">
+        <span class="brand-mark">✣</span>
+        <span>TERRARIUM <i>planner</i></span>
+      </a>
+      <div class="occasion"><span></span> NAN'S BIRTHDAY · 22 NOV</div>
+      <button class="icon-button" id="sound" aria-label="Toggle ambient sound" title="Toggle ambience">
+        <svg viewBox="0 0 24 24"><path d="M5 9v6h4l5 4V5L9 9H5zm11.5 3a4.5 4.5 0 0 0-1.5-3.35v6.7A4.5 4.5 0 0 0 16.5 12z"/></svg>
+      </button>
+    </header>
+
+    <section class="hero">
+      <div class="intro">
+        <p class="eyebrow">A TINY WORLD FOR NAN</p>
+        <h1>Nan's little<br/><em>woodland.</em></h1>
+        <p class="lede">A quiet, green corner in a jar—with a little deer keeping watch.</p>
+        <div class="hint"><span class="mouse"><i></i></span><span><b>DRAG TO LOOK AROUND</b><small>SCROLL TO ZOOM</small></span></div>
+      </div>
+
+      <div class="scene-wrap" id="scene-wrap">
+        <canvas id="scene" aria-label="Interactive 3D terrarium in a glass jar"></canvas>
+        <div class="glow"></div>
+        <button class="hotspot fern-tag" data-view="fern"><span>01</span> Maidenhair fern</button>
+        <button class="hotspot deer-tag" data-view="deer"><span>02</span> Ceramic deer</button>
+        <div class="scale-tag"><i></i><span>24 CM<br/><small>JAR HEIGHT</small></span></div>
+      </div>
+
+      <aside class="details">
+        <p class="eyebrow">THE LAYERS</p>
+        <div class="layers">
+          <button class="layer active" data-focus="moss"><b>01</b><span><strong>Forest moss</strong><small>Soft, bright &amp; moisture-loving</small></span></button>
+          <button class="layer" data-focus="fern"><b>02</b><span><strong>Mini ferns</strong><small>Shade-tolerant &amp; delicate</small></span></button>
+          <button class="layer" data-focus="soil"><b>03</b><span><strong>Living soil</strong><small>Charcoal, compost &amp; drainage</small></span></button>
+          <button class="layer" data-focus="deer"><b>04</b><span><strong>Little guardian</strong><small>Glazed ceramic · 5 cm</small></span></button>
+        </div>
+        <div class="care-note">
+          <svg viewBox="0 0 24 24"><path d="M12 2C8 7 5 10.4 5 14a7 7 0 0 0 14 0c0-3.6-3-7-7-12zm0 17a5 5 0 0 1-5-5c0-2.2 1.7-4.7 5-9.1 3.3 4.4 5 6.9 5 9.1a5 5 0 0 1-5 5z"/></svg>
+          <span><b>CARE NOTE</b><small>Mist lightly every 2–3 weeks</small></span>
+        </div>
+      </aside>
+    </section>
+
+    <nav class="view-nav" aria-label="Camera views">
+      <button data-preset="front" class="active">FRONT</button>
+      <button data-preset="side">SIDE</button>
+      <button data-preset="top">TOP</button>
+      <span></span>
+      <button id="labels" class="labels active">LABELS <i></i></button>
+    </nav>
+
+    <footer><span>DESIGNED WITH LOVE</span><i>♥</i><span>FOR NAN · 2026</span></footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

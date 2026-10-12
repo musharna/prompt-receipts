@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Galaxy Slime Lab</title>
+  <style>
+    :root { --ink:#172047; --lav:#8573dd; --paper:#f8f7ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; overflow:hidden; color:var(--ink); font-family: ui-rounded, "Nunito", "Arial Rounded MT Bold", system-ui, sans-serif; background:radial-gradient(circle at 15% 10%,#fff 0 8%,transparent 24%),linear-gradient(135deg,#e9e5ff 0%,#fdfbff 49%,#dff5fa 100%); }
+    .top { position:fixed; z-index:3; top:0; left:0; right:0; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px clamp(18px,4vw,54px); pointer-events:none; }
+    h1 { margin:0; font-size:clamp(24px,3.2vw,42px); letter-spacing:-.06em; line-height:.9; }
+    h1 span { color:#705ed4; }
+    .hint { max-width:310px; margin:0; font-size:14px; font-weight:700; line-height:1.3; text-align:right; color:#4c5783; }
+    .panel { position:fixed; z-index:3; bottom:22px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid rgba(255,255,255,.8); border-radius:999px; background:rgba(255,255,255,.72); box-shadow:0 12px 34px rgba(58,48,125,.15); backdrop-filter:blur(14px); }
+    button { border:0; border-radius:999px; background:#252053; color:white; padding:10px 15px; font:800 13px/1 ui-rounded,system-ui,sans-serif; cursor:pointer; transition:transform .15s,background .15s; }
+    button:hover { transform:translateY(-2px); background:#5a46b8; }
+    button:active { transform:scale(.96); }
+    .meter { display:flex; align-items:center; gap:7px; color:#4d467e; font-size:12px; font-weight:800; white-space:nowrap; }
+    .dots { display:flex; gap:3px; } .dot { width:7px; height:7px; border-radius:50%; background:#d6d2ee; } .dot.on { background:#f39a72; }
+    canvas { display:block; width:100vw; height:100vh; cursor:grab; touch-action:none; }
+    canvas:active { cursor:grabbing; }
+    .tag { position:fixed; z-index:2; left:clamp(20px,4vw,54px); bottom:30px; color:#6b6693; font-size:12px; font-weight:800; opacity:.8; pointer-events:none; }
+    @media(max-width:600px) { .top { padding-top:18px; } .hint { font-size:12px; max-width:180px; } .tag { display:none; } }
+  </style>
+</head>
+<body>
+  <header class="top"><h1>GALAXY<br><span>SLIME</span> LAB</h1><p class="hint">Grab the slime. Pull it wide, squish it small, then let the cosmos bounce back.</p></header>
+  <canvas id="slime" aria-label="An interactive galaxy slime"></canvas>
+  <div class="tag">STRETCH • SQUISH • RELEASE</div>
+  <div class="panel"><button id="reset">↻ Re-form</button><div class="meter">STRETCH <span class="dots" id="dots"></span></div></div>
+  <script>
+  (() => {
+    const canvas=document.getElementById('slime'), ctx=canvas.getContext('2d');
+    const resetBtn=document.getElementById('reset'), dotsEl=document.getElementById('dots');
+    let w,h,dpr, pts=[], stars=[], held=null, pointer={x:0,y:0,down:false}, time=0;
+    for(let i=0;i<5;i++) dotsEl.insertAdjacentHTML('beforeend','<i class="dot"></i>');
+    const dots=[...dotsEl.children];
+    function resize(){ dpr=Math.min(devicePixelRatio||1,2); w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0); init(); }
+    function init(){
+      const cx=w*.5,cy=h*.54, rx=Math.min(w*.19,205),ry=Math.min(h*.20,165); pts=[];
+      for(let i=0;i<32;i++){let a=i/32*Math.PI*2;pts.push({a, x:cx+Math.cos(a)*rx,y:cy+Math.sin(a)*ry, vx:0,vy:0, bx:cx+Math.cos(a)*rx,by:cy+Math.sin(a)*ry});}
+      stars=Array.from({length:115},()=>({x:Math.random()*w,y:Math.random()*h,r:Math.random()*1.8+.2,p:Math.random()*6}));
+    }
+    function center(){return pts.reduce((s,p)=>({x:s.x+p.x/pts.length,y:s.y+p.y/pts.length}),{x:0,y:0});}
+    function reset(){ const c={x:w*.5,y:h*.54},rx=Math.min(w*.19,205),ry=Math.min(h*.20,165); pts.forEach(p=>{p.bx=c.x+Math.cos(p.a)*rx;p.by=c.y+Math.sin(p.a)*ry;p.vx+=(p.bx-p.x)*.07;p.vy+=(p.by-p.y)*.07;}); }
+    function move(e){let r=canvas.getBoundingClientRect(); pointer.x=e.clientX-r.left;pointer.y=e.clientY-r.top;}
+    canvas.addEventListener('pointerdown',e=>{move(e);pointer.down=true;canvas.setPointerCapture(e.pointerId); held=pts.reduce((best,p)=>Math.hypot(p.x-pointer.x,p.y-pointer.y)<Math.hypot(best.x-pointer.x,best.y-pointer.y)?p:best,pts[0]);});
+    canvas.addEventListener('pointermove',move); canvas.addEventListener('pointerup',()=>{pointer.down=false;held=null;}); canvas.addEventListener('pointercancel',()=>{pointer.down=false;held=null;}); resetBtn.onclick=reset;
+    function path(){ctx.beginPath(); pts.forEach((p,i)=>{let n=pts[(i+1)%pts.length], mx=(p.x+n.x)/2,my=(p.y+n.y)/2;i?ctx.quadraticCurveTo(p.x,p.y,mx,my):ctx.moveTo(mx,my);});ctx.closePath();}
+    function draw(){
+      ctx.clearRect(0,0,w,h); time+=.016;
+      stars.forEach(s=>{let a=.25+.35*Math.sin(time+s.p);ctx.fillStyle=`rgba(85,74,160,${a})`;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill();});
+      const c=center();
+      // physics: points are an elastic skin tethered to their original orbit, plus neighboring springs
+      pts.forEach((p,i)=>{let prev=pts[(i+pts.length-1)%pts.length],next=pts[(i+1)%pts.length];p.vx+=(p.bx-p.x)*.014+(prev.x+next.x-2*p.x)*.095;p.vy+=(p.by-p.y)*.014+(prev.y+next.y-2*p.y)*.095;if(held===p&&pointer.down){p.vx+=(pointer.x-p.x)*.17;p.vy+=(pointer.y-p.y)*.17;}p.vx*=.86;p.vy*=.86;p.x+=p.vx;p.y+=p.vy;});
+      ctx.save();path();ctx.shadowColor='rgba(51,37,135,.28)';ctx.shadowBlur=28;ctx.shadowOffsetY=16;ctx.fillStyle='#292159';ctx.fill();ctx.restore();
+      ctx.save();path();ctx.clip();
+      let g=ctx.createRadialGradient(c.x-40,c.y-50,10,c.x,c.y,Math.max(w,h)*.34);g.addColorStop(0,'#f5a9df');g.addColorStop(.25,'#896ee7');g.addColorStop(.56,'#302567');g.addColorStop(.8,'#10193e');g.addColorStop(1,'#592b87');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+      ctx.globalCompositeOperation='screen'; for(let i=0;i<90;i++){let a=i*2.399+c.x*.01,rad=(i/90)*Math.min(w,h)*.22;let x=c.x+Math.cos(a+time*.14)*rad*1.45,y=c.y+Math.sin(a+time*.14)*rad*.55;ctx.fillStyle=`rgba(255,${180+i%70},255,${.2+(i%5)*.09})`;ctx.beginPath();ctx.arc(x,y,(i%4)+.7,0,7);ctx.fill();}
+      ctx.globalCompositeOperation='source-over'; let shine=ctx.createLinearGradient(c.x-110,c.y-100,c.x+90,c.y+100);shine.addColorStop(0,'rgba(255,255,255,.45)');shine.addColorStop(.28,'rgba(255,255,255,0)');ctx.fillStyle=shine;ctx.fillRect(0,0,w,h);ctx.restore();
+      ctx.save();path();ctx.lineWidth=3;ctx.strokeStyle='rgba(255,236,255,.55)';ctx.stroke();ctx.restore();
+      const stretch=Math.min(5,Math.round(Math.max(...pts.map(p=>Math.hypot(p.x-p.bx,p.y-p.by)))/26));dots.forEach((d,i)=>d.classList.toggle('on',i<stretch));
+      requestAnimationFrame(draw);
+    } resize();addEventListener('resize',resize);draw();
+  })();
+  </script>
+</body>
+</html>

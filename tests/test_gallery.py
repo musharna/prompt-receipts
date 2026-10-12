@@ -15,6 +15,9 @@ import zlib
 HERE = os.path.dirname(os.path.abspath(__file__))
 GALLERY = os.path.join(HERE, "..", "tools", "gallery.py")
 INDEX = os.path.join(HERE, "..", "index.html")
+PAGES = os.path.join(HERE, "..", "play", "runs.json")
+NAMES = ("Claude Opus 5.5", "Claude Sonnet 5.5", "Claude Haiku 5.5", "GPT-5.6-Sol", "GPT-5.6-Terra", "GPT-5.6-Luna",
+         "GPT-6-Astra")
 SITE = "https://musharna.github.io/prompt-receipts/"
 spec = importlib.util.spec_from_file_location("gallery", GALLERY)
 gallery = importlib.util.module_from_spec(spec)
@@ -103,9 +106,11 @@ class Gallery(unittest.TestCase):
         self.assertEqual({e["thumb"]["kind"] for e in entries}, {"image", "none", "audio", "video"})
         # a card's "Play the X version" button: the page that run made, on its own run
         played = {(e["card"], e["name"]): e["play"] for e in entries if "play" in e}
-        self.assertEqual(len(played), 5)
+        self.assertEqual(len(played), 34)  # every run that made something a browser opens
         self.assertEqual(played[("p16", "GPT-6-Astra")], "play/b8088611-a3d/index.html")  # the ASCII fog
-        self.assertEqual({name for _, name in played}, {"Claude Opus 5.5", "GPT-6-Astra"})
+        self.assertEqual(played[("p16", "Claude Sonnet 5.5")], "play/b8088611-a3d/sonnet/fog.html")
+        self.assertEqual({name for card, name in played if card == "p16"}, set(NAMES))  # all 7 fogs
+        self.assertNotIn(("p1", "Claude Opus 5.5"), played)  # a comic page: nothing to play
         for path in played.values():
             self.assertTrue(os.path.exists(os.path.join(HERE, "..", path)), path)
         self.assertTrue(all(e["title"] and e["name"] and e["made"] and e["time"] for e in entries))
@@ -123,14 +128,37 @@ class Gallery(unittest.TestCase):
     def test_a_play_button_must_name_one_run_on_its_card(self):
         with open(INDEX, encoding="utf-8") as fh:
             page = fh.read()
+        out = os.path.join(self.dir, "g.json")
         for who in ("GPT-9", "5.5", "Astra"):  # no run, every Claude run, and part of a name
             bad = os.path.join(self.dir, "index.html")
             with open(bad, "w", encoding="utf-8") as fh:
                 fh.write(page.replace("Play the GPT-6-Astra version", f"Play the {who} version"))
             with self.assertRaises(SystemExit) as no:
-                gallery.seed(bad, os.path.join(self.dir, "g.json"))
+                gallery.seed(bad, out, PAGES)
             self.assertIn(f"p16's Play button names {who!r}", str(no.exception))
-        self.assertEqual(len(gallery.seed(INDEX, os.path.join(self.dir, "g.json"))), 112)
+        self.assertEqual(len(gallery.seed(INDEX, out)), 112)
+
+    def test_each_page_in_play_runs_json_is_its_runs_own(self):
+        with open(PAGES, encoding="utf-8") as fh:
+            rows = json.load(fh)
+        fog = next(i for i, r in enumerate(rows) if (r["card"], r["name"]) == ("p16", "GPT-6-Astra"))
+        out = os.path.join(self.dir, "g.json")
+        for change, why in (
+            (dict(no="0000-0000"), "p16 GPT-6-Astra's receipt is no. 91c0-49a7, not 0000-0000"),  # another run's page
+            (dict(name="GPT-9"), "play/runs.json names p16 GPT-9, which is 0 runs"),
+            (dict(page="play/b8088611-a3d/sonnet/fog.html"), "p16's Play button opens play/b8088611-a3d/index.html"),
+            (None, "p16's Play button opens play/b8088611-a3d/index.html"),  # a button with no row
+        ):
+            bad = [dict(r, **change) if i == fog and change else r for i, r in enumerate(rows) if change or i != fog]
+            pages = os.path.join(self.dir, "runs.json")
+            with open(pages, "w", encoding="utf-8") as fh:
+                json.dump(bad, fh)
+            with self.assertRaises(SystemExit) as no:
+                gallery.seed(INDEX, out, pages)
+            self.assertIn(why, str(no.exception))
+        self.assertEqual(sum("play" in e for e in gallery.seed(INDEX, out, PAGES)), 34)
+        for r in rows:
+            self.assertTrue(os.path.isfile(os.path.join(HERE, "..", r["page"])), r)
 
     def test_what_a_receipt_shows(self):
         e = gallery.entry(pack(RECEIPT))

@@ -321,7 +321,7 @@ Tried one? Use the "Tell us how it went" button on its card. Runs that didn't wo
 
 ## The gallery
 
-[The gallery](https://musharna.github.io/prompt-receipts/g/) shows every run on the site and ones people send in: what each made, whether it worked, what it cost and how long it took, grouped by prompt, with a summary for each model.
+[The gallery](https://musharna.github.io/prompt-receipts/g/) shows every run on the site and ones people send in: what each made, whether it worked, what it cost and how long it took, grouped by prompt, with a summary for each model. **Play it** opens what a run made when it's something a browser opens (34 of the 112): a page, a toy or a 3D scene, as the run left it, from `play/` (`play/runs.json` gives each page's run by its receipt number).
 
 To add yours, run receipt.py with `--share`, paste your `--link` into the gallery's **Add yours** box, or open the link and press **Add to the gallery**. Each opens a GitHub issue with the link filled in, where you can say whether it worked and what it made. A bot replies with the receipt as the gallery will show it, or says why it can't go in, and it goes in when the site's owner adds the `gallery` label. Everything in it is public, so leave out anything private first (`--redact`, `--hide prompt`).
 

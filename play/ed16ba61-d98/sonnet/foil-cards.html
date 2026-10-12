@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foil Cards: Night Moth, Comet Fox, Ember Beetle</title>
+<style>
+  :root { --card-w: 63mm; --card-h: 88mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: #0b0a14; color: #eee;
+    font-family: Georgia, "Times New Roman", serif;
+    display: flex; flex-wrap: wrap; gap: 28px; align-items: center; justify-content: center; padding: 32px;
+  }
+  .card {
+    --mx: 50%; --my: 50%; --rx: 0deg; --ry: 0deg;
+    width: var(--card-w); height: var(--card-h); min-width: 252px; min-height: 352px;
+    border-radius: 4mm; position: relative; overflow: hidden; isolation: isolate;
+    background: var(--bg); border: 1.6mm solid var(--rim);
+    box-shadow: 0 10px 30px #000a, inset 0 0 0 .4mm #fff6;
+    transform: perspective(700px) rotateX(var(--rx)) rotateY(var(--ry));
+    transition: transform .15s ease-out;
+  }
+  .card.moth   { --bg: radial-gradient(circle at 50% 38%, #3b2a7a, #14102f 70%); --rim: #8f7be0; --accent: #d9cfff; }
+  .card.fox    { --bg: radial-gradient(circle at 50% 38%, #0f4f63, #08202c 70%); --rim: #4fd3e6; --accent: #c8f6ff; }
+  .card.beetle { --bg: radial-gradient(circle at 50% 38%, #6b2410, #240a06 70%); --rim: #ff9a3c; --accent: #ffe0b8; }
+
+  .stars { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+  .star {
+    position: absolute; background: #fff; width: var(--s); height: var(--s);
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+    animation: twinkle var(--d) ease-in-out var(--delay) infinite;
+    filter: drop-shadow(0 0 3px #fff);
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: .15; transform: scale(.5) rotate(0deg); }
+    50%      { opacity: 1;   transform: scale(1.15) rotate(45deg); }
+  }
+
+  .art { position: absolute; left: 6%; right: 6%; top: 9%; height: 58%; z-index: 2; }
+  .art svg { width: 100%; height: 100%; overflow: visible; }
+
+  .label {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 29%; z-index: 2;
+    padding: 3.5mm 4mm; text-align: center;
+    background: linear-gradient(#0000, #000b 30%);
+  }
+  .label h2 { margin: 0; font-size: 5.2mm; letter-spacing: .6mm; text-transform: uppercase; color: var(--accent); }
+  .label p  { margin: 1.2mm 0 0; font-size: 2.9mm; font-style: italic; opacity: .85; line-height: 1.3; }
+  .num { position: absolute; top: 2.4mm; left: 3.4mm; z-index: 3; font-size: 2.8mm; letter-spacing: .4mm; color: var(--accent); opacity: .8; }
+
+  /* Foil: rainbow sheen that follows the pointer and also drifts on its own */
+  .foil {
+    position: absolute; inset: 0; z-index: 4; pointer-events: none; mix-blend-mode: color-dodge; opacity: .55;
+    background:
+      repeating-linear-gradient(115deg, #ff3cac 0%, #ffd93c 12%, #3cffb0 24%, #3cb4ff 36%, #b03cff 48%, #ff3cac 60%) ;
+    background-size: 300% 300%;
+    background-position: var(--mx) var(--my);
+    animation: drift 8s ease-in-out infinite alternate;
+  }
+  .foil::after {
+    content: ""; position: absolute; inset: 0; mix-blend-mode: overlay;
+    background: radial-gradient(circle at var(--mx) var(--my), #fffd, #fff0 45%);
+  }
+  @keyframes drift { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(60deg); } }
+
+  .glow { animation: ember 2.4s ease-in-out infinite alternate; }
+  @keyframes ember { from { opacity: .55; } to { opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .star, .foil, .glow { animation: none; }
+    .star { opacity: .8; }
+    .card { transition: none; }
+  }
+
+  /* Print: three poker-size cards, no motion, flat foil sheen kept for colour printers */
+  @page { size: A4; margin: 10mm; }
+  @media print {
+    body { background: #fff; padding: 0; gap: 6mm; justify-content: flex-start; min-height: 0; }
+    .card { transform: none !important; min-width: 0; min-height: 0; box-shadow: none; break-inside: avoid;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .star, .foil, .glow { animation: none !important; }
+    .star { opacity: .9; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 1. NIGHT MOTH -->
+<article class="card moth">
+  <div class="num">No. 1 / 3</div>
+  <div class="stars"></div>
+  <div class="art">
+    <svg viewBox="0 0 200 200" aria-label="A night moth with moon-eye wing markings">
+      <circle cx="100" cy="95" r="70" fill="#d9cfff" opacity=".12"/>
+      <g stroke="#e9e2ff" stroke-width="1.5" stroke-linejoin="round">
+        <path d="M100 90 C70 20 15 25 8 70 C5 105 55 120 100 100Z" fill="#6c55c9"/>
+        <path d="M100 90 C130 20 185 25 192 70 C195 105 145 120 100 100Z" fill="#6c55c9"/>
+        <path d="M100 100 C65 110 30 140 45 178 C75 185 100 140 100 100Z" fill="#4a3a9c"/>
+        <path d="M100 100 C135 110 170 140 155 178 C125 185 100 140 100 100Z" fill="#4a3a9c"/>
+      </g>
+      <g fill="#fff6c8" stroke="#2a1f66" stroke-width="2">
+        <circle cx="52" cy="62" r="13"/><circle cx="148" cy="62" r="13"/>
+      </g>
+      <g fill="#2a1f66"><circle cx="52" cy="62" r="6"/><circle cx="148" cy="62" r="6"/></g>
+      <ellipse cx="100" cy="105" rx="9" ry="34" fill="#cfc4ff" stroke="#fff" stroke-width="1.5"/>
+      <circle cx="100" cy="66" r="9" fill="#e9e2ff"/>
+      <path d="M96 60 C85 40 75 38 68 30 M104 60 C115 40 125 38 132 30" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="label"><h2>Night Moth</h2><p>Steers by the moon, and is forever fooled by porch lights.</p></div>
+  <div class="foil"></div>
+</article>
+
+<!-- 2. COMET FOX -->
+<article class="card fox">
+  <div class="num">No. 2 / 3</div>
+  <div class="stars"></div>
+  <div class="art">
+    <svg viewBox="0 0 200 200" aria-label="A fox whose tail is a blazing comet">
+      <defs>
+        <linearGradient id="tail" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stop-color="#4fd3e6" stop-opacity="0"/>
+          <stop offset="1" stop-color="#e8fdff"/>
+        </linearGradient>
+      </defs>
+      <path d="M5 195 C50 150 90 120 150 105 C130 130 90 165 5 195Z" fill="url(#tail)"/>
+      <path d="M20 170 C70 140 100 125 150 112" stroke="#fff" stroke-width="1.5" fill="none" opacity=".6"/>
+      <circle cx="150" cy="108" r="14" fill="#fff"/>
+      <circle cx="150" cy="108" r="22" fill="#9cf0ff" opacity=".35"/>
+      <path d="M92 190 L96 130 C96 100 118 85 128 70 L135 40 L152 62 L172 62 L190 40 L196 70 C196 100 170 120 160 150 L160 190Z"
+            fill="#ff8a3d" stroke="#fff3e0" stroke-width="1.5" stroke-linejoin="round" transform="translate(-48 -8) scale(.95)"/>
+      <path d="M118 66 L124 44 L136 58Z M158 58 L172 44 L176 66Z" fill="#2a1408" transform="translate(-48 -8) scale(.95)"/>
+      <path d="M100 118 C108 140 136 140 144 118 C134 112 110 112 100 118Z" fill="#fff6e8" transform="translate(-6 -6)"/>
+      <circle cx="100" cy="92" r="3.2" fill="#10222c"/><circle cx="126" cy="92" r="3.2" fill="#10222c"/>
+      <path d="M109 108 L117 108 L113 114Z" fill="#10222c"/>
+    </svg>
+  </div>
+  <div class="label"><h2>Comet Fox</h2><p>Leaves a trail of cold light across the hedgerows at midnight.</p></div>
+  <div class="foil"></div>
+</article>
+
+<!-- 3. EMBER BEETLE -->
+<article class="card beetle">
+  <div class="num">No. 3 / 3</div>
+  <div class="stars"></div>
+  <div class="art">
+    <svg viewBox="0 0 200 200" aria-label="A beetle with a shell of glowing embers">
+      <circle class="glow" cx="100" cy="110" r="78" fill="#ff7a1a" opacity=".25"/>
+      <g stroke="#ffd2a0" stroke-width="4" stroke-linecap="round" fill="none">
+        <path d="M60 85 L25 65 M58 112 L18 112 M62 140 L28 165"/>
+        <path d="M140 85 L175 65 M142 112 L182 112 M138 140 L172 165"/>
+      </g>
+      <path d="M100 30 C62 30 52 70 52 118 C52 160 74 185 100 185 C126 185 148 160 148 118 C148 70 138 30 100 30Z"
+            fill="#7a1f0a" stroke="#ffb870" stroke-width="2.5"/>
+      <path d="M100 42 L100 183" stroke="#ffb870" stroke-width="2"/>
+      <g class="glow" fill="#ffc04a">
+        <circle cx="80" cy="80" r="6"/><circle cx="120" cy="80" r="6"/>
+        <circle cx="72" cy="115" r="8"/><circle cx="128" cy="115" r="8"/>
+        <circle cx="82" cy="150" r="5"/><circle cx="118" cy="150" r="5"/>
+      </g>
+      <g fill="#fff0b0"><circle cx="80" cy="80" r="2.5"/><circle cx="120" cy="80" r="2.5"/><circle cx="72" cy="115" r="3"/><circle cx="128" cy="115" r="3"/></g>
+      <path d="M78 40 C78 14 122 14 122 40Z" fill="#2a0c05" stroke="#ffb870" stroke-width="2"/>
+      <path d="M88 20 C84 8 78 6 74 2 M112 20 C116 8 122 6 126 2" stroke="#ffd2a0" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="label"><h2>Ember Beetle</h2><p>Carries a spark in its shell and never once sets the garden alight.</p></div>
+  <div class="foil"></div>
+</article>
+
+<script>
+  // Twinkling stars: random position, size, speed and delay per card
+  document.querySelectorAll('.stars').forEach(layer => {
+    for (let i = 0; i < 22; i++) {
+      const s = document.createElement('span');
+      s.className = 'star';
+      s.style.cssText =
+        `left:${Math.random()*96}%;top:${Math.random()*96}%;` +
+        `--s:${(1.2 + Math.random()*2.6).toFixed(1)}mm;` +
+        `--d:${(1.6 + Math.random()*2.8).toFixed(1)}s;` +
+        `--delay:${(-Math.random()*4).toFixed(1)}s`;
+      layer.appendChild(s);
+    }
+  });
+
+  // Foil sheen and tilt follow the pointer
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('pointermove', e => {
+      const r = card.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      card.style.setProperty('--mx', (x*100) + '%');
+      card.style.setProperty('--my', (y*100) + '%');
+      card.style.setProperty('--ry', ((x - .5) * 16) + 'deg');
+      card.style.setProperty('--rx', ((.5 - y) * 16) + 'deg');
+    });
+    card.addEventListener('pointerleave', () => {
+      ['--rx','--ry'].forEach(p => card.style.setProperty(p, '0deg'));
+      card.style.setProperty('--mx', '50%'); card.style.setProperty('--my', '50%');
+    });
+  });
+</script>
+</body>
+</html>

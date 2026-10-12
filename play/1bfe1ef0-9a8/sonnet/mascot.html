@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blobby – habit tracker mascot</title>
+<style>
+  :root { --ink: #2b2d42; --body1: #9be8c4; --body2: #5cc99b; --cheek: #ff9bb0; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center; align-content: center; gap: 24px;
+    background: #f6f7fb; font-family: system-ui, sans-serif; color: var(--ink);
+  }
+  .stage { position: relative; width: min(70vw, 320px); aspect-ratio: 1; }
+  svg { width: 100%; height: 100%; overflow: visible; display: block; }
+
+  /* Pose / reaction / breathing are separate layers so their transforms compose. */
+  .pose, .react, .breathe, .shadow, .eye-open, .eye-wrap { transform-box: fill-box; }
+  .pose    { transform-origin: 50% 100%; transition: transform .45s cubic-bezier(.3,1.6,.5,1); }
+  .breathe { transform-origin: 50% 100%; animation: breathe 3.6s ease-in-out infinite; }
+  .shadow  { transform-origin: 50% 50%; animation: shadow 3.6s ease-in-out infinite; }
+  @keyframes breathe { 50% { transform: scale(.975, 1.045); } }
+  @keyframes shadow  { 50% { transform: scale(.94); opacity: .75; } }
+
+  [data-mood="happy"]     .pose { transform: scale(1.03, .98); }
+  [data-mood="sleepy"]    .pose { transform: scale(1.06, .9); }
+  [data-mood="surprised"] .pose { transform: scale(.94, 1.1); }
+  [data-mood="happy"]     .breathe { animation-duration: 2.2s; }
+  [data-mood="sleepy"]    .breathe { animation-duration: 6s; }
+  [data-mood="surprised"] .breathe { animation-duration: .9s; }
+
+  /* Face parts: everything hidden, then each mood reveals its own. */
+  .eye-open, .eye-happy, .mouth, .extra { display: none; }
+  .eye-wrap { transform-origin: 50% 50%; }
+
+  [data-mood="idle"] .eye-open, [data-mood="sleepy"] .eye-open, [data-mood="surprised"] .eye-open,
+  [data-mood="happy"] .eye-happy { display: inline; }
+  [data-mood="idle"] .m-idle, [data-mood="happy"] .m-happy,
+  [data-mood="sleepy"] .m-sleepy, [data-mood="surprised"] .m-surprised { display: inline; }
+  [data-mood="happy"] .x-happy, [data-mood="sleepy"] .x-sleepy, [data-mood="surprised"] .x-surprised { display: inline; }
+
+  .eye-open { transform-origin: 50% 50%; transition: transform .12s; }
+  [data-mood="sleepy"]    .eye-open { transform: scaleY(.45); }
+  [data-mood="surprised"] .eye-open { transform: scale(1.3); }
+  .blink .eye-open { transform: scaleY(.08) !important; }
+  [data-mood="sleepy"] .eye-wrap { animation: nod 6s ease-in-out infinite; }
+  @keyframes nod { 0%,100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+
+  .cheek { fill: var(--cheek); opacity: .0; transition: opacity .3s; }
+  [data-mood="happy"] .cheek { opacity: .85; }
+  [data-mood="idle"] .cheek, [data-mood="surprised"] .cheek { opacity: .4; }
+  [data-mood="sleepy"] .cheek { opacity: .3; }
+
+  .x-happy { animation: twinkle 1.2s ease-in-out infinite; }
+  .x-sleepy text { animation: zzz 3s ease-in-out infinite; opacity: 0; font-weight: 700; fill: #5a6a9a; }
+  .x-sleepy text:nth-child(2) { animation-delay: 1s; }
+  .x-sleepy text:nth-child(3) { animation-delay: 2s; }
+  @keyframes twinkle { 50% { opacity: .3; } }
+  @keyframes zzz { 0% { opacity: 0; transform: translate(0,10px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(14px,-22px); } }
+
+  /* Poke: squish, wobble, laugh. */
+  .giggling .react { animation: giggle .9s ease-in-out; transform-origin: 50% 100%; }
+  @keyframes giggle {
+    0%   { transform: scale(1.12, .8); }
+    15%  { transform: scale(.92, 1.1) rotate(-4deg); }
+    30%  { transform: scale(1.04, .97) rotate(4deg); }
+    45%  { transform: scale(.98, 1.03) rotate(-3deg); }
+    60%  { transform: scale(1.02, .99) rotate(3deg); }
+    80%  { transform: rotate(-1deg); }
+    100% { transform: none; }
+  }
+  .giggling .mouth, .giggling .eye-open { display: none !important; }
+  .giggling .eye-happy, .giggling .m-giggle { display: inline !important; }
+  .giggling .m-giggle { animation: chuckle .18s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 0; }
+  @keyframes chuckle { to { transform: scaleY(.7); } }
+  .giggling .cheek { opacity: .95; }
+
+  .hehe {
+    position: absolute; left: 62%; top: 8%; font-weight: 800; font-size: 1.3rem; color: #f28ab0;
+    pointer-events: none; opacity: 0; white-space: nowrap;
+  }
+  .hehe.go { animation: pop 1s ease-out forwards; }
+  @keyframes pop { 0% { opacity: 0; transform: translateY(10px) scale(.6); } 20% { opacity: 1; transform: scale(1.1); }
+                   100% { opacity: 0; transform: translate(14px,-36px) rotate(8deg); } }
+
+  .moods { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .moods button {
+    font: inherit; padding: 8px 16px; border-radius: 999px; border: 2px solid var(--ink);
+    background: #fff; color: var(--ink); cursor: pointer;
+  }
+  .moods button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .blob-btn { all: unset; cursor: pointer; display: block; width: 100%; height: 100%; border-radius: 50%; }
+  .blob-btn:focus-visible { outline: 3px solid #6c63ff; outline-offset: 6px; }
+  .hint { font-size: .85rem; opacity: .6; margin: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .breathe, .shadow, .x-happy, .x-sleepy text, [data-mood="sleepy"] .eye-wrap { animation: none; }
+    .x-sleepy text { opacity: 1; }
+    .giggling .react { animation-duration: .01s; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage" id="mascot" data-mood="idle">
+  <button class="blob-btn" aria-label="Blobby the mascot. Poke to make it giggle.">
+  <svg viewBox="0 0 200 200" role="img" aria-hidden="true">
+    <defs>
+      <radialGradient id="body" cx="40%" cy="30%" r="75%">
+        <stop offset="0" stop-color="var(--body1)"/><stop offset="1" stop-color="var(--body2)"/>
+      </radialGradient>
+    </defs>
+
+    <ellipse class="shadow" cx="100" cy="184" rx="58" ry="8" fill="#2b2d42" opacity=".15"/>
+
+    <g class="pose"><g class="react"><g class="breathe">
+      <path d="M100 28 C142 28 170 62 171 108 C172 150 152 182 100 182
+               C48 182 28 150 29 108 C30 62 58 28 100 28Z" fill="url(#body)"/>
+      <path d="M62 52 C74 40 90 36 104 36" stroke="#fff" stroke-opacity=".55" stroke-width="7"
+            stroke-linecap="round" fill="none"/>
+
+      <!-- eyes -->
+      <g transform="translate(72 98)"><g class="eye-wrap">
+        <g class="eye-open"><ellipse rx="11" ry="13" fill="#2b2d42"/><circle cx="-3.5" cy="-5" r="4" fill="#fff"/></g>
+        <path class="eye-happy" d="M-12 5 Q0 -13 12 5" stroke="#2b2d42" stroke-width="5" stroke-linecap="round" fill="none"/>
+      </g></g>
+      <g transform="translate(128 98)"><g class="eye-wrap">
+        <g class="eye-open"><ellipse rx="11" ry="13" fill="#2b2d42"/><circle cx="-3.5" cy="-5" r="4" fill="#fff"/></g>
+        <path class="eye-happy" d="M-12 5 Q0 -13 12 5" stroke="#2b2d42" stroke-width="5" stroke-linecap="round" fill="none"/>
+      </g></g>
+
+      <ellipse class="cheek" cx="52" cy="122" rx="12" ry="7"/>
+      <ellipse class="cheek" cx="148" cy="122" rx="12" ry="7"/>
+
+      <!-- mouths -->
+      <path class="mouth m-idle" d="M88 126 Q100 135 112 126" stroke="#2b2d42" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+      <path class="mouth m-happy" d="M82 120 Q100 150 118 120 Q100 126 82 120Z" fill="#2b2d42" stroke="#2b2d42" stroke-width="4" stroke-linejoin="round"/>
+      <path class="mouth m-sleepy" d="M92 130 Q100 134 108 130" stroke="#2b2d42" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <ellipse class="mouth m-surprised" cx="100" cy="132" rx="8" ry="11" fill="#2b2d42"/>
+      <g class="mouth m-giggle"><path d="M80 118 Q100 156 120 118Z" fill="#2b2d42" stroke="#2b2d42" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M91 138 Q100 130 109 138 Q100 146 91 138Z" fill="#ff7a93"/></g>
+    </g></g></g>
+
+    <!-- mood extras (outside the body so they don't squish) -->
+    <g class="extra x-happy" fill="#ffd35c">
+      <path d="M32 40 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3z"/>
+      <path d="M168 56 l2 6 6 2 -6 2 -2 6 -2 -6 -6 -2 6 -2z"/>
+    </g>
+    <g class="extra x-sleepy" font-size="22"><text x="146" y="44">z</text><text x="146" y="44">Z</text><text x="146" y="44">z</text></g>
+    <g class="extra x-surprised"><text x="150" y="36" font-size="34" font-weight="800" fill="#ff6b6b">!</text></g>
+  </svg>
+  </button>
+  <div class="hehe" aria-hidden="true">hehe!</div>
+</div>
+
+<div class="moods" role="group" aria-label="Mood">
+  <button data-set="idle">Idle</button>
+  <button data-set="happy">Happy</button>
+  <button data-set="sleepy">Sleepy</button>
+  <button data-set="surprised">Surprised</button>
+</div>
+<p class="hint">Poke the blob.</p>
+
+<script>
+(() => {
+  const root = document.getElementById('mascot');
+  const bubble = root.querySelector('.hehe');
+  const buttons = document.querySelectorAll('[data-set]');
+  const MOODS = ['idle', 'happy', 'sleepy', 'surprised'];
+  const HEHE = ['hehe!', 'tee-hee!', 'hihi!', 'ha ha!'];
+
+  function setMood(mood) {
+    if (!MOODS.includes(mood)) return;
+    root.dataset.mood = mood;
+    buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.set === mood)));
+    root.dispatchEvent(new CustomEvent('moodchange', { detail: mood }));
+  }
+
+  // Blinking: random gaps, occasional double-blink; slower and rarer when sleepy.
+  function blink(done) {
+    root.classList.add('blink');
+    setTimeout(() => { root.classList.remove('blink'); done && done(); },
+               root.dataset.mood === 'sleepy' ? 320 : 130);
+  }
+  (function loop() {
+    const sleepy = root.dataset.mood === 'sleepy';
+    const wait = (sleepy ? 1800 : 2200) + Math.random() * 3000;
+    setTimeout(() => {
+      if (root.classList.contains('giggling') || root.dataset.mood === 'surprised') return loop();
+      blink(() => Math.random() < .2 ? setTimeout(() => blink(), 120) : 0);
+      loop();
+    }, wait);
+  })();
+
+  // Poke: giggle, then settle back to whatever mood it was in.
+  let giggleTimer;
+  function poke() {
+    root.classList.remove('giggling'); bubble.classList.remove('go');
+    void root.offsetWidth; // restart the animations on rapid pokes
+    root.classList.add('giggling');
+    bubble.textContent = HEHE[Math.floor(Math.random() * HEHE.length)];
+    bubble.classList.add('go');
+    clearTimeout(giggleTimer);
+    giggleTimer = setTimeout(() => root.classList.remove('giggling'), 900);
+  }
+
+  root.querySelector('.blob-btn').addEventListener('click', poke);
+  buttons.forEach(b => b.addEventListener('click', () => setMood(b.dataset.set)));
+  setMood('idle');
+
+  window.mascot = { setMood, poke, get mood() { return root.dataset.mood; } };
+})();
+</script>
+</body>
+</html>

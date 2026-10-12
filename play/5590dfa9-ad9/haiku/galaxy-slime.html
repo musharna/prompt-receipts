@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Galaxy Slime</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #03010a; overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #f1e6ff; }
+  canvas#c { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: grab; }
+  canvas#c.dragging { cursor: grabbing; }
+  #hint { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    background: rgba(25, 12, 45, 0.7); padding: 10px 18px; border-radius: 999px;
+    font-size: 16px; text-align: center; pointer-events: none; transition: opacity 1.2s;
+    white-space: nowrap; }
+  #reset { position: fixed; right: 16px; top: 16px; background: #2a1656; color: #f4eaff;
+    border: 1px solid #8a5cff; border-radius: 10px; padding: 9px 16px; font-size: 16px; cursor: pointer; }
+  #reset:hover { background: #3c2178; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">Drag to stretch and pull pieces off · Press and hold to squish · Squish pieces together to join them</div>
+<button id="reset">Reset slime</button>
+<script>
+const cvs = document.getElementById('c');
+const ctx = cvs.getContext('2d');
+const hint = document.getElementById('hint');
+
+const SC = 0.3;
+const L0 = 14;
+const BREAK = 2.6 * L0;
+const MERGE = 1.05 * L0;
+const MINSEP = 0.8 * L0;
+const MAXB = 6;
+const RI = 26;
+const K_BOND = 420, K_CONTACT = 500, DAMP = 3;
+const GRAB_R = 70, GRAB_K = 260;
+const PRESS_R = 90, PRESS_K = 90;
+const SUB = 6;
+const THR = 128, THR_GLOW = 40, EDGE = 6;
+const WALL = 20;
+
+let W, H, DPR, GS;
+let fw, fh;
+let P = [], bgStars = [], grabList = [];
+const ptr = { mode: 'idle', x: 0, y: 0, sx: 0, sy: 0, t0: 0, intensity: 0 };
+
+const fieldCv = document.createElement('canvas');
+const fieldCtx = fieldCv.getContext('2d', { willReadFrequently: true });
+const glowCv = document.createElement('canvas');
+const glowCtx = glowCv.getContext('2d');
+const bodyCv = document.createElement('canvas');
+const bodyCtx = bodyCv.getContext('2d');
+const galaxyCv = document.createElement('canvas');
+
+const sprite = document.createElement('canvas');
+sprite.width = sprite.height = 64;
+{
+  const sg = sprite.getContext('2d');
+  const grd = sg.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0, 'rgba(255,255,255,1)');
+  grd.addColorStop(0.25, 'rgba(255,255,255,0.88)');
+  grd.addColorStop(0.5, 'rgba(255,255,255,0.56)');
+  grd.addColorStop(0.75, 'rgba(255,255,255,0.19)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
+  sg.fillStyle = grd;
+  sg.fillRect(0, 0, 64, 64);
+}
+
+function makeGalaxy() {
+  GS = Math.ceil(Math.hypot(W, H));
+  galaxyCv.width = galaxyCv.height = GS;
+  const g = galaxyCv.getContext('2d');
+  const c = GS / 2;
+  g.fillStyle = '#1a0a3a';
+  g.fillRect(0, 0, GS, GS);
+  const neb = ['170,90,255', '255,95,175', '70,170,255', '255,205,130'];
+  for (let i = 0; i < 18; i++) {
+    const x = c + (Math.random() - 0.5) * GS * 0.6;
+    const y = c + (Math.random() - 0.5) * GS * 0.6;
+    const r = GS * (0.12 + Math.random() * 0.2);
+    const col = neb[i % neb.length];
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, `rgba(${col},0.5)`);
+    grd.addColorStop(1, `rgba(${col},0)`);
+    g.fillStyle = grd;
+    g.fillRect(x - r, y - r, 2 * r, 2 * r);
+  }
+  const starCol = ['#ffffff', '#ffd6ff', '#a8e6ff', '#ffe9a8', '#ff9ee6'];
+  const count = Math.min(4000, Math.round((GS * GS) / 700));
+  for (let i = 0; i < count; i++) {
+    const r = Math.sqrt(Math.random()) * GS * 0.5;
+    const a = (i % 3) * (2 * Math.PI / 3) + (r / (GS * 0.5)) * 4 + (Math.random() - 0.5) * 0.9;
+    g.globalAlpha = 0.5 + Math.random() * 0.5;
+    g.fillStyle = starCol[i % starCol.length];
+    g.beginPath();
+    g.arc(c + Math.cos(a) * r, c + Math.sin(a) * r, 0.4 + Math.random() * 1.4, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.globalAlpha = 1;
+  const core = g.createRadialGradient(c, c, 0, c, c, GS * 0.1);
+  core.addColorStop(0, 'rgba(255,240,255,0.9)');
+  core.addColorStop(1, 'rgba(255,240,255,0)');
+  g.fillStyle = core;
+  g.fillRect(0, 0, GS, GS);
+}
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  cvs.width = W * DPR;
+  cvs.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  fw = Math.ceil(W * SC);
+  fh = Math.ceil(H * SC);
+  fieldCv.width = glowCv.width = fw;
+  fieldCv.height = glowCv.height = fh;
+  bodyCv.width = W * DPR;
+  bodyCv.height = H * DPR;
+  bgStars = Array.from({ length: 170 }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    r: 0.5 + Math.random() * 1.4, sp: 0.5 + Math.random() * 2, ph: Math.random() * 6.28
+  }));
+  makeGalaxy();
+  for (const p of P) {
+    p.x = Math.min(Math.max(p.x, WALL), W - WALL);
+    p.y = Math.min(Math.max(p.y, WALL), H - WALL);
+  }
+}
+
+function build() {
+  P = [];
+  grabList = [];
+  ptr.mode = 'idle';
+  const cx = W / 2, cy = H / 2, R = 110, rowH = L0 * Math.sqrt(3) / 2;
+  let row = 0;
+  for (let y = -R; y <= R; y += rowH, row++) {
+    const off = (row % 2) * L0 / 2;
+    for (let x = -R; x <= R; x += L0) {
+      const px = x + off;
+      if (px * px + y * y <= R * R) P.push({ x: cx + px, y: cy + y, vx: 0, vy: 0, nb: new Set() });
+    }
+  }
+  for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) {
+    const a = P[i], b = P[j];
+    if (Math.hypot(a.x - b.x, a.y - b.y) < L0 * 1.15 && a.nb.size < MAXB && b.nb.size < MAXB) {
+      a.nb.add(j);
+      b.nb.add(i);
+    }
+  }
+}
+
+function nearestDist(x, y) {
+  let best = Infinity;
+  for (const p of P) {
+    const d = Math.hypot(p.x - x, p.y - y);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+function startPull() {
+  ptr.mode = 'pull';
+  grabList = [];
+  P.forEach((p, i) => {
+    const d = Math.hypot(p.x - ptr.sx, p.y - ptr.sy);
+    if (d < GRAB_R) grabList.push({ i, w: (1 - d / GRAB_R) ** 2, bx: p.x, by: p.y });
+  });
+}
+
+function release() {
+  ptr.mode = 'idle';
+  ptr.intensity = 0;
+  grabList = [];
+  cvs.classList.remove('dragging');
+}
+
+cvs.addEventListener('pointerdown', e => {
+  if (nearestDist(e.clientX, e.clientY) > 24) return;
+  cvs.setPointerCapture(e.pointerId);
+  Object.assign(ptr, {
+    mode: 'pending', x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY,
+    t0: performance.now(), intensity: 0
+  });
+  cvs.classList.add('dragging');
+  hint.style.opacity = '0';
+});
+
+cvs.addEventListener('pointermove', e => {
+  if (ptr.mode === 'idle') return;
+  ptr.x = e.clientX;
+  ptr.y = e.clientY;
+  if ((ptr.mode === 'pending' || ptr.mode === 'press') && Math.hypot(ptr.x - ptr.sx, ptr.y - ptr.sy) > 8) startPull();
+});
+
+cvs.addEventListener('pointerup', release);
+cvs.addEventListener('pointercancel', release);
+document.getElementById('reset').addEventListener('click', build);
+
+function physics(h) {
+  const n = P.length;
+
+  const dead = [];
+  for (let i = 0; i < n; i++) {
+    const a = P[i];
+    for (const j of a.nb) {
+      if (j < i) continue;
+      const b = P[j];
+      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1e-6;
+      if (d > BREAK) { dead.push([i, j]); continue; }
+      const f = (d - L0) / d * K_BOND * h;
+      a.vx += dx * f; a.vy += dy * f;
+      b.vx -= dx * f; b.vy -= dy * f;
+    }
+  }
+  for (const [i, j] of dead) { P[i].nb.delete(j); P[j].nb.delete(i); }
+
+  const grid = new Map();
+  for (let i = 0; i < n; i++) {
+    const p = P[i];
+    const key = Math.floor(p.x / MERGE) * 4096 + Math.floor(p.y / MERGE);
+    const list = grid.get(key);
+    if (list) list.push(i); else grid.set(key, [i]);
+  }
+  for (let i = 0; i < n; i++) {
+    const a = P[i];
+    const cx = Math.floor(a.x / MERGE), cy = Math.floor(a.y / MERGE);
+    for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+      const list = grid.get((cx + ox) * 4096 + cy + oy);
+      if (!list) continue;
+      for (const j of list) {
+        if (j <= i) continue;
+        const b = P[j];
+        const dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy;
+        if (d2 >= MERGE * MERGE) continue;
+        const d = Math.sqrt(d2);
+        if (d < MINSEP && d > 0.01) {
+          const f = (MINSEP - d) / d * K_CONTACT * h;
+          a.vx -= dx * f; a.vy -= dy * f;
+          b.vx += dx * f; b.vy += dy * f;
+        }
+        if (!a.nb.has(j) && a.nb.size < MAXB && b.nb.size < MAXB) {
+          a.nb.add(j);
+          b.nb.add(i);
+        }
+      }
+    }
+  }
+
+  if (ptr.mode === 'pull') {
+    const dx = ptr.x - ptr.sx, dy = ptr.y - ptr.sy;
+    for (const g of grabList) {
+      const p = P[g.i];
+      const k = GRAB_K * g.w * h;
+      p.vx += (g.bx + dx * g.w - p.x) * k;
+      p.vy += (g.by + dy * g.w - p.y) * k;
+    }
+  } else if (ptr.mode === 'press') {
+    for (const p of P) {
+      const dx = ptr.sx - p.x, dy = ptr.sy - p.y, d = Math.hypot(dx, dy);
+      if (d < PRESS_R) {
+        const f = (1 - d / PRESS_R) ** 2 * PRESS_K * ptr.intensity * h;
+        p.vx += dx * f;
+        p.vy += dy * f;
+      }
+    }
+  }
+
+  const dm = Math.exp(-DAMP * h);
+  for (const p of P) {
+    p.vx *= dm; p.vy *= dm;
+    p.x += p.vx * h; p.y += p.vy * h;
+    if (p.x < WALL) { p.x = WALL; p.vx = Math.abs(p.vx) * 0.3; }
+    else if (p.x > W - WALL) { p.x = W - WALL; p.vx = -Math.abs(p.vx) * 0.3; }
+    if (p.y < WALL) { p.y = WALL; p.vy = Math.abs(p.vy) * 0.3; }
+    else if (p.y > H - WALL) { p.y = H - WALL; p.vy = -Math.abs(p.vy) * 0.3; }
+  }
+}
+
+function render(t) {
+  const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.7);
+  bg.addColorStop(0, '#1b0b36');
+  bg.addColorStop(1, '#03010a');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fff';
+  for (const s of bgStars) {
+    ctx.globalAlpha = 0.3 + 0.35 * Math.sin(t * s.sp + s.ph);
+    ctx.fillRect(s.x, s.y, s.r, s.r);
+  }
+  ctx.globalAlpha = 1;
+
+  fieldCtx.clearRect(0, 0, fw, fh);
+  const r = RI * SC;
+  for (const p of P) fieldCtx.drawImage(sprite, p.x * SC - r, p.y * SC - r, 2 * r, 2 * r);
+  const img = fieldCtx.getImageData(0, 0, fw, fh), d = img.data;
+  const gImg = glowCtx.createImageData(fw, fh), g = gImg.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const a = d[i + 3];
+    const v = (a - THR) * EDGE;
+    d[i] = d[i + 1] = d[i + 2] = 255;
+    d[i + 3] = v <= 0 ? 0 : v >= 255 ? 255 : v;
+    const w = (a - THR_GLOW) * EDGE;
+    g[i] = 205; g[i + 1] = 140; g[i + 2] = 255;
+    g[i + 3] = w <= 0 ? 0 : w >= 255 ? 255 : w;
+  }
+  fieldCtx.putImageData(img, 0, 0);
+  glowCtx.putImageData(gImg, 0, 0);
+
+  ctx.globalAlpha = 0.6;
+  ctx.drawImage(glowCv, 0, 0, W, H);
+  ctx.globalAlpha = 1;
+
+  bodyCtx.setTransform(1, 0, 0, 1, 0, 0);
+  bodyCtx.globalCompositeOperation = 'source-over';
+  bodyCtx.clearRect(0, 0, bodyCv.width, bodyCv.height);
+  bodyCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  bodyCtx.save();
+  bodyCtx.translate(W / 2, H / 2);
+  bodyCtx.rotate(t * 0.05);
+  bodyCtx.drawImage(galaxyCv, -GS / 2, -GS / 2);
+  bodyCtx.restore();
+  bodyCtx.globalCompositeOperation = 'destination-in';
+  bodyCtx.drawImage(fieldCv, 0, 0, W, H);
+  bodyCtx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(bodyCv, 0, 0, W, H);
+}
+
+let last = performance.now();
+const startTime = last;
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 1 / 30);
+  last = now;
+  if (ptr.mode === 'pending' && now - ptr.t0 > 150) ptr.mode = 'press';
+  if (ptr.mode === 'press') ptr.intensity = Math.min(1, (now - ptr.t0) / 500);
+  const h = dt / SUB;
+  for (let s = 0; s < SUB; s++) physics(h);
+  render((now - startTime) / 1000);
+  requestAnimationFrame(frame);
+}
+
+window.addEventListener('resize', resize);
+resize();
+build();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

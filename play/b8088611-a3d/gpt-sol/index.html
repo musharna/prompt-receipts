@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#08080b" />
+    <meta
+      name="description"
+      content="Independent designer and creative developer — a portfolio in motion."
+    />
+    <title>Mira Vale — Creative Developer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <canvas id="fog" aria-hidden="true"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="wordmark" href="#top" aria-label="Mira Vale, home">
+          <span class="wordmark-mark" aria-hidden="true">✦</span>
+          <span>Mira Vale</span>
+        </a>
+
+        <nav class="site-nav" aria-label="Main navigation">
+          <a href="#work">Work</a>
+          <a href="#about">About</a>
+          <a class="contact-link" href="mailto:hello@miravale.design">
+            Let's talk <span aria-hidden="true">↗</span>
+          </a>
+        </nav>
+      </header>
+
+      <main id="top">
+        <section class="hero" aria-labelledby="hero-title">
+          <p class="eyebrow"><span></span> Independent designer &amp; developer</p>
+
+          <h1 id="hero-title">
+            Digital experiences<br />
+            <span>with atmosphere.</span>
+          </h1>
+
+          <div class="hero-footer">
+            <p class="intro">
+              I shape thoughtful identities and expressive interfaces for people
+              building a more interesting internet.
+            </p>
+
+            <a class="work-cta" href="#work">
+              <span>Explore selected work</span>
+              <span class="cta-arrow" aria-hidden="true">↓</span>
+            </a>
+          </div>
+        </section>
+
+        <section class="work-section" id="work" aria-labelledby="work-heading">
+          <div class="section-heading">
+            <p class="eyebrow"><span></span> Selected work</p>
+            <h2 id="work-heading">A few recent things.</h2>
+          </div>
+
+          <div class="project-list">
+            <a class="project" href="#" aria-label="View Amass project">
+              <span class="project-number">01</span>
+              <span class="project-name">Amass</span>
+              <span class="project-type">Art direction · Digital</span>
+              <span class="project-arrow" aria-hidden="true">↗</span>
+            </a>
+            <a class="project" href="#" aria-label="View Half Light project">
+              <span class="project-number">02</span>
+              <span class="project-name">Half Light</span>
+              <span class="project-type">Identity · Experience</span>
+              <span class="project-arrow" aria-hidden="true">↗</span>
+            </a>
+            <a class="project" href="#" aria-label="View Noma Archive project">
+              <span class="project-number">03</span>
+              <span class="project-name">Noma Archive</span>
+              <span class="project-type">Development · Editorial</span>
+              <span class="project-arrow" aria-hidden="true">↗</span>
+            </a>
+          </div>
+        </section>
+
+        <section class="about-section" id="about" aria-label="About">
+          <p>Based between New York and the internet.</p>
+          <p>Available for select collaborations in 2026.</p>
+        </section>
+      </main>
+
+      <div class="fog-controls" aria-label="Background controls">
+        <button id="motion-toggle" type="button" aria-pressed="false">
+          <span class="control-icon" aria-hidden="true">Ⅱ</span>
+          <span class="control-label">Pause atmosphere</span>
+        </button>
+        <span class="coordinates" aria-hidden="true">40.7128° N — 74.0060° W</span>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

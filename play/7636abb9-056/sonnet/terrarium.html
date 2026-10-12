@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terrarium planner</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #2a2622; font-family: system-ui, sans-serif; }
+  canvas { display: block; }
+  #title { position: fixed; top: 14px; left: 18px; color: #f1e8d8; text-shadow: 0 1px 4px #0008; pointer-events: none; }
+  #title h1 { font-size: 18px; margin: 0 0 2px; font-weight: 600; }
+  #title p { font-size: 12px; margin: 0; opacity: .75; }
+  #bar { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  button { font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 999px; border: 1px solid #fff3; background: #2b2a28cc; color: #f1e8d8; cursor: pointer; backdrop-filter: blur(6px); }
+  button:hover { background: #46433f; }
+  button.on { background: #6f8f4e; border-color: #a9c58a; }
+  .label { position: fixed; left: 0; top: 0; font-size: 12px; color: #fff; background: #1d1c1acc; padding: 3px 8px; border-radius: 6px; border-left: 3px solid #9fc47a; white-space: nowrap; pointer-events: none; display: none; will-change: transform; }
+</style>
+</head>
+<body>
+<div id="title"><h1>Nan's terrarium</h1><p>Drag to look around · scroll to zoom · right-drag to pan</p></div>
+<div id="bar">
+  <button id="bLid">Cork lid</button>
+  <button id="bLabels" class="on">Labels</button>
+  <button id="bGlass">Hide glass</button>
+  <button id="bSpin">Auto-spin</button>
+  <button id="bReset">Reset view</button>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ---------- setup ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2a2622);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.55;
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100);
+const HOME = { pos: new THREE.Vector3(3.5, 3.4, 6.6), target: new THREE.Vector3(0, 1.4, 0) };
+camera.position.copy(HOME.pos);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(HOME.target);
+controls.enableDamping = true;
+controls.minDistance = 2.5;
+controls.maxDistance = 14;
+controls.maxPolarAngle = Math.PI * 0.52;
+controls.autoRotateSpeed = 1.2;
+
+scene.add(new THREE.HemisphereLight(0xdfeeff, 0x4a3a2a, 0.7));
+const sun = new THREE.DirectionalLight(0xfff0d8, 2.4);
+sun.position.set(4, 8, 5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 1, far: 20 });
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+// table
+const table = new THREE.Mesh(new THREE.CircleGeometry(9, 64),
+  new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.75 }));
+table.rotation.x = -Math.PI / 2;
+table.receiveShadow = true;
+scene.add(table);
+
+// seeded random so the layout is stable between reloads
+let seed = 7;
+const rand = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const rr = (a, b) => a + (b - a) * rand();
+
+const terrarium = new THREE.Group();
+scene.add(terrarium);
+
+// ---------- jar ----------
+const profile = new THREE.SplineCurve([
+  [1.2, 0], [1.42, 0.06], [1.5, 0.25], [1.5, 2.1], [1.45, 2.5], [1.3, 2.75], [1.15, 2.9], [1.12, 3.1], [1.17, 3.18]
+].map(([r, y]) => new THREE.Vector2(r, y))).getPoints(90);
+profile.unshift(new THREE.Vector2(0, 0));
+const jarGeo = new THREE.LatheGeometry(profile, 72);
+const glassMat = new THREE.MeshPhysicalMaterial({
+  color: 0xffffff, transparent: true, opacity: 0.16, roughness: 0.03, metalness: 0,
+  clearcoat: 1, clearcoatRoughness: 0.02, depthWrite: false, envMapIntensity: 1.6
+});
+const jarOuter = new THREE.Mesh(jarGeo, glassMat);
+const jarInner = new THREE.Mesh(jarGeo, glassMat.clone());
+jarInner.material.side = THREE.BackSide;
+jarInner.scale.setScalar(0.965);
+jarInner.position.y = 0.03;
+jarOuter.renderOrder = jarInner.renderOrder = 10;
+terrarium.add(jarOuter, jarInner);
+
+// cork lid
+const lid = new THREE.Group();
+const corkMat = new THREE.MeshStandardMaterial({ color: 0xc19a6b, roughness: 0.95 });
+const corkTop = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.3, 48), corkMat);
+corkTop.position.y = 3.4;
+const corkPlug = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 0.98, 0.3, 48), corkMat);
+corkPlug.position.y = 3.1;
+lid.add(corkTop, corkPlug);
+lid.traverse(o => { o.castShadow = true; });
+lid.visible = false;
+terrarium.add(lid);
+
+// ---------- layers ----------
+const R = 1.42;
+const layerMesh = (y0, y1, color, rough = 1) => {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(R, R, y1 - y0, 64),
+    new THREE.MeshStandardMaterial({ color, roughness: rough }));
+  m.position.y = (y0 + y1) / 2;
+  m.receiveShadow = true;
+  terrarium.add(m);
+};
+layerMesh(0.04, 0.42, 0x3b3835);   // drainage filler (gaps between stones)
+layerMesh(0.42, 0.52, 0x111111);   // charcoal
+layerMesh(0.52, 0.9, 0x4a3223);    // potting soil
+
+// drainage pebbles
+{
+  const geo = new THREE.IcosahedronGeometry(1, 1);
+  const n = 260, mesh = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.6 }), n);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color();
+  for (let i = 0; i < n; i++) {
+    const a = rand() * Math.PI * 2, r = Math.sqrt(rand()) * (R - 0.08), s = rr(0.07, 0.13);
+    e.set(rand() * 3, rand() * 3, rand() * 3); q.setFromEuler(e);
+    m.compose(new THREE.Vector3(Math.cos(a) * r * 1.0, rr(0.1, 0.38), Math.sin(a) * r), q, new THREE.Vector3(s, s * rr(0.7, 1), s * rr(0.8, 1.1)));
+    mesh.setMatrixAt(i, m);
+    mesh.setColorAt(i, c.setHSL(rr(0.05, 0.1), rr(0.05, 0.25), rr(0.35, 0.65)));
+  }
+  terrarium.add(mesh);
+}
+
+// ---------- terrain ----------
+const h = (x, z) => {
+  const r = Math.hypot(x, z), edge = 1 - Math.pow(Math.min(r / R, 1), 3);
+  const b = 0.06 + 0.04 * Math.sin(x * 2.3 + 0.5) * Math.cos(z * 2.0)
+    + 0.22 * Math.exp(-((x + 0.55) ** 2 + (z + 0.35) ** 2) / 0.35)
+    + 0.12 * Math.exp(-((x - 0.7) ** 2 + (z + 0.6) ** 2) / 0.2);
+  return 0.9 + b * edge;
+};
+{
+  const g = new THREE.PlaneGeometry(2.84, 2.84, 70, 70).rotateX(-Math.PI / 2);
+  const p = g.attributes.position, col = new Float32Array(p.count * 3), c = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    let x = p.getX(i), z = p.getZ(i); const r = Math.hypot(x, z);
+    if (r > R) { x *= R / r; z *= R / r; }
+    p.setXYZ(i, x, h(x, z), z);
+    c.setHSL(0.27 + 0.03 * Math.sin(x * 7) * Math.cos(z * 6), 0.5, 0.2 + 0.05 * Math.sin(x * 11 + z * 5));
+    col.set([c.r, c.g, c.b], i * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  const t = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }));
+  t.receiveShadow = true;
+  terrarium.add(t);
+}
+
+// ---------- moss ----------
+{
+  const small = 2200, big = 45, n = small + big;
+  const mesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1),
+    new THREE.MeshStandardMaterial({ roughness: 1 }), n);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
+  for (let i = 0; i < n; i++) {
+    const isBig = i >= small;
+    const a = rand() * Math.PI * 2, r = Math.sqrt(rand()) * (R - (isBig ? 0.25 : 0.04));
+    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    const s = isBig ? rr(0.12, 0.2) : rr(0.05, 0.12);
+    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6.28);
+    m.compose(new THREE.Vector3(x, h(x, z) + s * 0.1, z), q, new THREE.Vector3(s, s * 0.55, s));
+    mesh.setMatrixAt(i, m);
+    mesh.setColorAt(i, c.setHSL(rr(0.22, 0.34), rr(0.45, 0.65), rr(0.2, 0.38)));
+  }
+  mesh.receiveShadow = true;
+  terrarium.add(mesh);
+}
+
+// a few stones
+{
+  const mat = new THREE.MeshStandardMaterial({ color: 0x8d8a85, roughness: 0.85, flatShading: true });
+  [[-0.35, -0.1, 0.17], [-0.05, 0.75, 0.1], [0.95, 0.45, 0.12], [-0.9, -0.6, 0.09], [0.55, -0.15, 0.07]].forEach(([x, z, s]) => {
+    const st = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), mat);
+    st.scale.set(1, rr(0.55, 0.75), rr(0.8, 1));
+    st.position.set(x, h(x, z) + s * 0.25, z);
+    st.rotation.y = rand() * 6;
+    st.castShadow = st.receiveShadow = true;
+    terrarium.add(st);
+  });
+}
+
+// ---------- ferns ----------
+const leafMats = [];
+{
+  const P0 = new THREE.Vector3(), P1 = new THREE.Vector3(), P2 = new THREE.Vector3();
+  const mats = [], cols = [];
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0x2f5a25, roughness: 0.8 });
+  const up = new THREE.Vector3(0, 1, 0);
+  const bez = (s, out) => out.set(0, 0, 0).addScaledVector(P0, (1 - s) ** 2).addScaledVector(P1, 2 * (1 - s) * s).addScaledVector(P2, s * s);
+
+  const addFern = (cx, cz, count, size) => {
+    for (let i = 0; i < count; i++) {
+      const az = (i / count) * Math.PI * 2 + rr(-0.25, 0.25);
+      const dH = new THREE.Vector3(Math.cos(az), 0, Math.sin(az));
+      const S = new THREE.Vector3(-dH.z, 0, dH.x);
+      let L = size * rr(0.75, 1.2), reach = L * rr(0.45, 0.85);
+      P0.set(cx + dH.x * 0.03, h(cx, cz) - 0.02, cz + dH.z * 0.03);
+      for (let k = 0; k < 14; k++) {
+        P1.copy(P0).addScaledVector(dH, reach * 0.35).addScaledVector(up, L * 0.65);
+        P2.copy(P0).addScaledVector(dH, reach).addScaledVector(up, L * 0.75);
+        if (Math.hypot(P2.x, P2.z) < 1.0 && P2.y < 2.35) break;
+        reach *= 0.88; L *= 0.96;
+      }
+      const stem = new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(P0.clone(), P1.clone(), P2.clone()), 20, 0.008, 5), stemMat);
+      stem.castShadow = true;
+      terrarium.add(stem);
+
+      const base = new THREE.Color().setHSL(rr(0.27, 0.33), rr(0.5, 0.65), rr(0.2, 0.32));
+      const N = 17, maxLen = 0.23 * size, p = new THREE.Vector3();
+      for (let k = 1; k <= N; k++) {
+        const s = 0.1 + 0.9 * k / N;
+        bez(s, p);
+        const T = new THREE.Vector3().addScaledVector(P1.clone().sub(P0), 2 * (1 - s)).addScaledVector(P2.clone().sub(P1), 2 * s).normalize();
+        const Nn = new THREE.Vector3().crossVectors(S, T).normalize();
+        const hl = 0.5 * maxLen * Math.sin(Math.PI * (0.15 + 0.85 * s) * 0.95);
+        for (const side of [-1, 1]) {
+          const dir = S.clone().multiplyScalar(side).addScaledVector(T, 0.5).addScaledVector(Nn, -0.2);
+          dir.y -= 0.12; dir.normalize();
+          const bz = T.clone().addScaledVector(dir, -T.dot(dir)).normalize();
+          const by = new THREE.Vector3().crossVectors(bz, dir);
+          const m = new THREE.Matrix4().makeBasis(dir.clone().multiplyScalar(hl), by.multiplyScalar(0.012), bz.multiplyScalar(0.034 * size));
+          m.setPosition(p.clone().addScaledVector(dir, hl));
+          mats.push(m);
+          cols.push(base.clone().offsetHSL(0, 0, rr(-0.02, 0.04) + s * 0.03));
+        }
+      }
+    }
+  };
+  addFern(-0.75, -0.35, 9, 1.1);
+  addFern(-0.2, -0.85, 8, 0.95);
+  addFern(0.7, -0.7, 8, 1.05);
+  addFern(-0.95, 0.4, 7, 0.8);
+  addFern(0.95, 0.0, 6, 0.7);
+  addFern(-0.15, -0.35, 5, 0.6);
+
+  const mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 5),
+    new THREE.MeshStandardMaterial({ roughness: 0.65, side: THREE.DoubleSide }), mats.length);
+  mats.forEach((m, i) => { mesh.setMatrixAt(i, m); mesh.setColorAt(i, cols[i]); });
+  mesh.castShadow = true;
+  terrarium.add(mesh);
+}
+
+// ---------- ceramic deer ----------
+const deer = new THREE.Group();
+{
+  const glaze = new THREE.MeshPhysicalMaterial({ color: 0xf5eddf, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.08 });
+  const spotMat = new THREE.MeshPhysicalMaterial({ color: 0xb98458, roughness: 0.3, clearcoat: 1 });
+  const dark = new THREE.MeshPhysicalMaterial({ color: 0x4a3023, roughness: 0.3, clearcoat: 1 });
+  const add = (geo, mat, x, y, z, rot = [0, 0, 0], sc = [1, 1, 1]) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z); m.rotation.set(...rot); m.scale.set(...sc);
+    m.castShadow = true; deer.add(m); return m;
+  };
+  // body, neck, head
+  add(new THREE.CapsuleGeometry(0.13, 0.22, 8, 16).rotateZ(Math.PI / 2), glaze, 0, 0.4, 0);
+  add(new THREE.CylinderGeometry(0.05, 0.08, 0.3, 16), glaze, 0.2, 0.57, 0, [0, 0, -0.45]);
+  add(new THREE.SphereGeometry(1, 20, 14), glaze, 0.31, 0.73, 0, [0, 0, -0.2], [0.09, 0.07, 0.065]);
+  add(new THREE.SphereGeometry(0.04, 14, 10), glaze, 0.39, 0.7, 0, [0, 0, 0], [1.2, 0.9, 0.9]);
+  add(new THREE.SphereGeometry(0.017, 10, 8), dark, 0.435, 0.7, 0);
+  // eyes and ears
+  for (const z of [-1, 1]) {
+    add(new THREE.SphereGeometry(0.012, 8, 6), dark, 0.355, 0.75, z * 0.048);
+    add(new THREE.ConeGeometry(0.03, 0.09, 12), glaze, 0.28, 0.8, z * 0.06, [z * 0.7, 0, -0.1]);
+  }
+  // legs and hooves
+  for (const [x, z] of [[0.14, 0.07], [0.14, -0.07], [-0.14, 0.07], [-0.14, -0.07]]) {
+    add(new THREE.CylinderGeometry(0.03, 0.02, 0.28, 12), glaze, x, 0.17, z);
+    add(new THREE.CylinderGeometry(0.022, 0.024, 0.03, 12), dark, x, 0.015, z);
+  }
+  // tail
+  add(new THREE.SphereGeometry(0.035, 10, 8), glaze, -0.27, 0.46, 0);
+  // painted spots
+  for (let i = 0; i < 16; i++) {
+    const th = rr(-1.1, 1.1), x = rr(-0.1, 0.1);
+    add(new THREE.SphereGeometry(rr(0.012, 0.018), 8, 6), spotMat, x, 0.4 + 0.128 * Math.cos(th), 0.128 * Math.sin(th));
+  }
+  deer.scale.setScalar(0.85);
+  deer.position.set(0.3, h(0.3, 0.5) + 0.01, 0.5);
+  deer.rotation.y = -0.7;
+  terrarium.add(deer);
+}
+
+// ---------- labels ----------
+const labelDefs = [
+  ['Glass jar', 1.5, 1.6, 0], ['Cork lid (optional)', 1.0, 3.2, 0.3],
+  ['Ceramic deer', 0.3, 1.4, 0.5], ['Ferns', -0.75, 1.9, -0.35], ['Moss', -0.85, 1.0, 0.85],
+  ['Potting soil', 1.45, 0.72, 0.1], ['Activated charcoal', 1.45, 0.47, 0.1], ['Drainage pebbles', 1.45, 0.22, 0.1]
+].map(([text, x, y, z]) => {
+  const el = document.createElement('div');
+  el.className = 'label'; el.textContent = text;
+  document.body.appendChild(el);
+  return { el, pos: new THREE.Vector3(x, y, z), text };
+});
+let labelsOn = true;
+const v = new THREE.Vector3();
+function updateLabels() {
+  for (const l of labelDefs) {
+    const hidden = !labelsOn || (l.text.startsWith('Cork') && !lid.visible);
+    if (hidden) { l.el.style.display = 'none'; continue; }
+    v.copy(l.pos).project(camera);
+    if (v.z > 1) { l.el.style.display = 'none'; continue; }
+    l.el.style.display = 'block';
+    l.el.style.transform = `translate(${(v.x * 0.5 + 0.5) * innerWidth + 8}px, ${(-v.y * 0.5 + 0.5) * innerHeight - 10}px)`;
+  }
+}
+
+// ---------- UI ----------
+const toggle = (id, fn) => {
+  const b = document.getElementById(id);
+  b.onclick = () => { fn(b); };
+};
+toggle('bLid', b => { lid.visible = !lid.visible; b.classList.toggle('on', lid.visible); });
+toggle('bLabels', b => { labelsOn = !labelsOn; b.classList.toggle('on', labelsOn); });
+toggle('bGlass', b => {
+  const hide = jarOuter.visible; jarOuter.visible = jarInner.visible = !hide;
+  b.classList.toggle('on', hide); b.textContent = hide ? 'Show glass' : 'Hide glass';
+});
+toggle('bSpin', b => { controls.autoRotate = !controls.autoRotate; b.classList.toggle('on', controls.autoRotate); });
+toggle('bReset', () => { camera.position.copy(HOME.pos); controls.target.copy(HOME.target); });
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+renderer.setAnimationLoop(() => {
+  controls.update();
+  renderer.render(scene, camera);
+  updateLabels();
+});
+</script>
+</body>
+</html>

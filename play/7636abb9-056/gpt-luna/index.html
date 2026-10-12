@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nan's Woodland Jar</title>
+  <style>
+    :root { --ink:#25352f; --muted:#6d7b72; --paper:#f4f0e7; --card:#fffdf8; --sage:#8eaa8f; --moss:#52785b; --gold:#c49a52; }
+    * { box-sizing:border-box; }
+    body { margin:0; overflow:hidden; background:var(--paper); color:var(--ink); font:14px/1.4 Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    #app { height:100vh; display:grid; grid-template-columns: 310px 1fr; }
+    aside { z-index:4; background:rgba(255,253,248,.95); border-right:1px solid #ddd9cf; padding:30px 25px; display:flex; flex-direction:column; }
+    .eyebrow { font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:#a2814e; font-weight:700; }
+    h1 { margin:9px 0 6px; font:500 31px/1.05 Georgia, serif; letter-spacing:-.03em; }
+    .intro { color:var(--muted); margin:0 0 24px; font-size:13px; max-width:235px; }
+    .rule { height:1px; background:#e6e0d5; margin:0 0 22px; }
+    .section-title { font-size:10px; color:#9a9d91; letter-spacing:.13em; text-transform:uppercase; font-weight:800; margin-bottom:13px; }
+    .legend { display:grid; gap:12px; margin-bottom:25px; }
+    .legend-row { display:flex; align-items:center; gap:10px; font-size:12px; }
+    .dot { width:11px;height:11px;border-radius:50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+    .dot.soil { background:#6d4930; } .dot.moss { background:#628664; } .dot.fern { background:#a5bb78; } .dot.deer { background:#d8c8a7; }
+    .note { border-left:2px solid #c8ad76; padding:3px 0 3px 14px; color:#697169; font-size:12px; margin-bottom:23px; }
+    .controls { margin-top:auto; color:#7b827b; font-size:11px; display:grid; gap:8px; }
+    .key { display:inline-flex; align-items:center; justify-content:center; width:20px; height:19px; border:1px solid #d7d3c9; border-radius:4px; background:#faf8f1; margin-right:5px; color:#697169; font-size:11px; }
+    #stage { position:relative; min-width:0; background:radial-gradient(circle at 50% 42%, #fbfaf4 0%, #f1ede4 63%, #e8e3d8 100%); }
+    canvas { display:block; width:100%; height:100%; cursor:grab; }
+    canvas:active { cursor:grabbing; }
+    .badge { position:absolute; left:30px; top:27px; color:#8b9387; font-size:11px; letter-spacing:.1em; text-transform:uppercase; pointer-events:none; }
+    .hint { position:absolute; right:27px; bottom:25px; background:rgba(255,253,248,.82); border:1px solid #e2ddd2; border-radius:20px; padding:9px 14px; color:#7a8178; font-size:11px; pointer-events:none; }
+    .measure { position:absolute; right:29px; top:28px; color:#a18a61; font:italic 13px Georgia,serif; pointer-events:none; }
+    button { border:1px solid #d8d3c7; background:#fbfaf5; color:#53635a; padding:9px 12px; border-radius:5px; font:inherit; cursor:pointer; margin-top:9px; }
+    button:hover { background:#f0ede4; }
+  </style>
+</head>
+<body>
+<main id="app">
+  <aside>
+    <div class="eyebrow">A little living world</div>
+    <h1>Nan's<br>Woodland Jar</h1>
+    <p class="intro">A quiet glass garden in miniature, planned with love for her birthday.</p>
+    <div class="rule"></div>
+    <div class="section-title">What lives inside</div>
+    <div class="legend">
+      <div class="legend-row"><i class="dot soil"></i><span>Forest floor &amp; drainage</span></div>
+      <div class="legend-row"><i class="dot moss"></i><span>Soft sheet moss</span></div>
+      <div class="legend-row"><i class="dot fern"></i><span>Miniature ferns</span></div>
+      <div class="legend-row"><i class="dot deer"></i><span>Ceramic deer</span></div>
+    </div>
+    <div class="note">Turn the jar a little each week so every side gets its moment in the light.</div>
+    <div class="section-title">Plan notes</div>
+    <p style="font-size:12px;color:#697169;margin:0;line-height:1.65">Keep the lid loosely placed.<br>Bright, indirect light.<br>A few drops of water to start.</p>
+    <div class="controls">
+      <div><span class="key">↔</span>drag to look around</div>
+      <div><span class="key">＋</span><span class="key">−</span>scroll to zoom</div>
+      <button id="reset">Return to front view</button>
+    </div>
+  </aside>
+  <section id="stage">
+    <div class="badge">interactive study · 01</div>
+    <div class="measure">approx. 18 cm tall</div>
+    <div class="hint">drag the jar to explore</div>
+  </section>
+</main>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const stage = document.querySelector('#stage');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf3efe6);
+scene.fog = new THREE.Fog(0xf3efe6, 7, 14);
+const camera = new THREE.PerspectiveCamera(32, 1, .1, 100); camera.position.set(4.9, 3.3, 6.4);
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15; stage.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement); controls.target.set(0,1.55,0); controls.enableDamping=true; controls.dampingFactor=.07; controls.minDistance=4; controls.maxDistance=8; controls.minPolarAngle=.55; controls.maxPolarAngle=1.65; controls.autoRotate=true; controls.autoRotateSpeed=.35;
+const hemi = new THREE.HemisphereLight(0xfaf9ed, 0x718170, 2.2); scene.add(hemi);
+const key = new THREE.DirectionalLight(0xfff4dc, 4); key.position.set(-4,7,5); key.castShadow=true; key.shadow.mapSize.set(2048,2048); scene.add(key);
+const fill = new THREE.PointLight(0xcfe2c3, 2, 10); fill.position.set(4,2,2); scene.add(fill);
+const jar = new THREE.Group(); scene.add(jar);
+const mat = (color, rough=.6, transparent=false, opacity=1) => new THREE.MeshStandardMaterial({color, roughness:rough, metalness:0, transparent, opacity, side:THREE.DoubleSide, depthWrite:!transparent});
+const glass = new THREE.MeshPhysicalMaterial({color:0xb8d9c5, roughness:.05, transmission:.72, thickness:.08, transparent:true, opacity:.33, side:THREE.DoubleSide});
+const brown=mat(0x684932), darkSoil=mat(0x4a3225), green=mat(0x587d5c), lightGreen=mat(0x8eaa70), fernMat=mat(0x73965e), ceramic=mat(0xe7d8b9,.3), gold=mat(0xb79256,.35);
+function cyl(r1,r2,h,material,y=0,rad=32){ const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,rad),material); m.position.y=y; m.castShadow=true;m.receiveShadow=true; jar.add(m); return m; }
+// table and soft shadow
+const table=new THREE.Mesh(new THREE.CylinderGeometry(4.5,4.5,.16,64),mat(0xe4dfd4)); table.position.set(0,-.55,0); table.receiveShadow=true; scene.add(table);
+const shadow=new THREE.Mesh(new THREE.CircleGeometry(2.2,64),new THREE.MeshBasicMaterial({color:0x8a8375,transparent:true,opacity:.13,depthWrite:false})); shadow.rotation.x=-Math.PI/2; shadow.position.y=-.46; scene.add(shadow);
+// jar body: glass shell, bottom, neck, and lid
+const body=new THREE.Mesh(new THREE.CylinderGeometry(1.72,1.5,3.65,64,1,true),glass); body.position.y=1.45; body.castShadow=true; jar.add(body);
+cyl(1.51,1.51,.16,glass,-.38,64); cyl(1.22,1.18,.22,darkSoil,-.25,48); cyl(1.34,1.27,.48,brown,.06,48);
+const rim=new THREE.Mesh(new THREE.TorusGeometry(1.45,.13,16,64),glass); rim.position.y=3.34; jar.add(rim);
+const lid=new THREE.Mesh(new THREE.CylinderGeometry(1.47,1.42,.16,64),mat(0xb5a78d,.8,.15,.72)); lid.position.y=3.43; jar.add(lid);
+// moss cushions
+function blob(x,z,s=1){ const g=new THREE.Group(); g.position.set(x,.46,z); jar.add(g); for(let i=0;i<7;i++){ const a=i*Math.PI*2/7, r=.15+Math.random()*.17; const b=new THREE.Mesh(new THREE.SphereGeometry(.21*s*(.7+Math.random()*.35),10,7),green); b.position.set(Math.cos(a)*r*s,(Math.random()-.25)*.08,Math.sin(a)*r*s); b.scale.y=.55;b.castShadow=true;g.add(b); } }
+blob(-.88,.36,1.2); blob(.72,-.2,1.05); blob(-.35,-.75,.85); blob(.85,.7,.75);
+// fern stems and leaflets
+function fern(x,z,scale=1,lean=0){ const g=new THREE.Group();g.position.set(x,.57,z);g.rotation.z=lean;jar.add(g); const stem=new THREE.Mesh(new THREE.CylinderGeometry(.018,.027,.95*scale,7),fernMat); stem.position.y=.47*scale; stem.rotation.z=.08; g.add(stem); for(let i=0;i<7;i++){ let y=.12+i*.12*scale; for(const side of [-1,1]){ const leaf=new THREE.Mesh(new THREE.SphereGeometry(.11*scale,8,5),lightGreen); leaf.scale.set(1.7,.45,.35); leaf.position.set(side*(.12+i*.018)*scale,y,0); leaf.rotation.z=side*(.35+i*.07); g.add(leaf); } } }
+fern(-.97,-.26,1.15,-.28); fern(.2,-.7,.82,.12); fern(.96,.4,.9,.42); fern(-.28,.82,.72,-.18);
+// pebbles
+for(let i=0;i<13;i++){ const a=Math.random()*6.28,r=.8+Math.random()*.48; const p=new THREE.Mesh(new THREE.SphereGeometry(.08+Math.random()*.06,8,6),mat(0x9c8e73));p.scale.y=.55;p.position.set(Math.cos(a)*r,.34,Math.sin(a)*r);p.castShadow=true;jar.add(p); }
+// tiny ceramic deer, facing left
+const deer=new THREE.Group(); deer.position.set(.15,.56,.18); deer.scale.setScalar(.62); jar.add(deer);
+function dmesh(geo, pos, rot=[0,0,0]){const m=new THREE.Mesh(geo,ceramic);m.position.set(...pos);m.rotation.set(...rot);m.castShadow=true;deer.add(m);return m;}
+dmesh(new THREE.SphereGeometry(.32,20,14),[0,.42,0]); const neck=dmesh(new THREE.CylinderGeometry(.16,.2,.55,16),[-.2,.75,0],[0,0,-.24]);
+dmesh(new THREE.SphereGeometry(.22,18,12),[-.42,1.02,0]); dmesh(new THREE.ConeGeometry(.045,.18,8),[-.49,1.25,.08],[0,.2,-.35]); dmesh(new THREE.ConeGeometry(.045,.18,8),[-.34,1.25,.08],[0,-.2,-.35]);
+for(const x of [-.16,.14]) dmesh(new THREE.CylinderGeometry(.045,.055,.48,8),[x,.14,.08],[0,0,(x<0?-.08:.08)]);
+dmesh(new THREE.SphereGeometry(.035,8,8),[-.59,1.04,.19]);
+// antlers
+for(const side of [-1,1]){ const ant=dmesh(new THREE.CylinderGeometry(.018,.024,.22,7),[-.38+side*.08,1.23,side*.07],[side*.5,0,side*.35]); dmesh(new THREE.CylinderGeometry(.014,.018,.13,7),[-.43+side*.12,1.34,side*.07],[side*.7,0,side*.25]); }
+// base rings for diagram-like silhouette
+const ringmat=mat(0xb3cbbb,.25,.3,.55); for(const y of [-.42,3.28]){const r=new THREE.Mesh(new THREE.TorusGeometry(y<0?1.51:1.45,.025,8,64),ringmat);r.position.y=y;jar.add(r);}
+
+function resize(){ const w=stage.clientWidth,h=stage.clientHeight; camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h); } window.addEventListener('resize',resize); resize();
+document.querySelector('#reset').onclick=()=>{ camera.position.set(4.9,3.3,6.4); controls.target.set(0,1.55,0); controls.update(); };
+function animate(){ requestAnimationFrame(animate); controls.update(); renderer.render(scene,camera); } animate();
+</script>
+</body>
+</html>

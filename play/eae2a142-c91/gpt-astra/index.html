@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#fbf9f5"><title>Miso — a little desktop company</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <svg class="svg-defs" xmlns="http://www.w3.org/2000/svg"><defs>
+    <symbol id="axolotl" viewBox="0 0 200 150">
+      <ellipse cx="101" cy="133" rx="62" ry="7" fill="#775849" opacity=".10"/>
+      <g class="tail"><path d="M128 102 C162 77 187 103 178 65 C201 95 188 132 142 125Z" fill="var(--pet-dark,#ec9989)"/><path d="M143 111 Q177 112 178 88" fill="none" stroke="var(--pet-light,#f9c5ae)" stroke-width="4" stroke-linecap="round"/></g>
+      <path d="M67 96 C65 77 128 75 142 100 Q155 130 119 133 L79 131 Q57 124 67 96" fill="var(--pet-body,#f3b39c)"/>
+      <ellipse cx="102" cy="117" rx="29" ry="14" fill="var(--pet-light,#f9cbb2)"/>
+      <g class="feet" fill="var(--pet-body,#f3b39c)" stroke="var(--pet-dark,#ec9989)" stroke-width="2"><path d="M69 112 Q51 128 60 134 Q68 138 78 126"/><path d="M124 117 Q127 137 138 133 Q144 129 138 120"/></g>
+      <g class="gills" fill="var(--pet-gill,#df897d)" stroke="var(--pet-gill,#df897d)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M55 67 Q36 45 30 40 L35 59 L22 52 L39 70 L22 71 L47 82Z"/><path d="M134 65 Q151 45 159 42 L151 62 L167 54 L153 73 L170 73 L143 85Z"/>
+      </g>
+      <g class="head"><path d="M48 73 C49 42 133 34 146 70 Q160 112 102 116 Q43 117 48 73" fill="var(--pet-body,#f3b39c)"/><path d="M56 66 Q65 47 94 48" fill="none" stroke="var(--pet-light,#f9cbb2)" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+        <g class="awake-eyes" fill="#443e3c"><ellipse cx="73" cy="81" rx="4.3" ry="5"/><ellipse cx="119" cy="81" rx="4.3" ry="5"/><circle cx="74.4" cy="79.3" r="1.2" fill="white"/><circle cx="120.4" cy="79.3" r="1.2" fill="white"/></g>
+        <g class="sleep-eyes" fill="none" stroke="#65504a" stroke-width="3" stroke-linecap="round"><path d="M67 83 Q73 88 79 82"/><path d="M113 82 Q119 88 125 82"/></g>
+        <ellipse cx="64" cy="94" rx="9" ry="5" fill="#e88c83" opacity=".55"/><ellipse cx="129" cy="94" rx="9" ry="5" fill="#e88c83" opacity=".55"/>
+        <path d="M89 93 Q96 100 104 92" fill="none" stroke="#86554d" stroke-width="2.5" stroke-linecap="round"/>
+      </g>
+    </symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.5 5.5c-2-2-5-1.5-8.5 2-3.5-3.5-6.5-4-8.5-2s-2 5 0 7L12 21l8.5-8.5c2-2 2-5 0-7Z"/></symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 3C7 2 2 8 6 15s15 3 14-12ZM5 21 16 8"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+  </defs></svg>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Miso home"><span class="brand-mark"><svg><use href="#axolotl"/></svg></span>miso<span class="brand-dot">.</span></a>
+      <span class="nav-note">A LITTLE DESKTOP COMPANY</span>
+      <button class="text-button" id="about-button">Meet Miso <span>↗</span></button>
+    </header>
+
+    <main>
+      <section class="intro">
+        <div class="eyebrow"><span></span> SMALL FRIEND. BIG FEELINGS.</div>
+        <h1>Your day, a little <em>softer.</em></h1>
+        <p>A tiny axolotl for your desktop. A little wandering, a little napping,<br class="desktop-break"> and a quiet reminder that you don’t have to do it all alone.</p>
+      </section>
+
+      <div class="workspace">
+        <section class="habitat-card" aria-label="Miso live preview">
+          <div class="habitat-heading"><div><span class="tiny-dot"></span> MISO’S LITTLE WORLD</div><span class="live-label">LIVE PREVIEW</span></div>
+          <div class="scene" id="scene">
+            <div class="scene-grain"></div>
+            <div class="scene-top"><span><span class="window-dot"></span><span class="window-dot"></span><span class="window-dot"></span></span><span>make yourself at home.</span><svg class="icon"><use href="#i-sun"/></svg></div>
+            <div class="sun"></div>
+            <svg class="landscape" viewBox="0 0 800 360" preserveAspectRatio="none" aria-hidden="true"><path d="M0 171Q104 156 216 236T453 203T800 158V360H0Z" fill="#d3cbd7"/><path d="M0 250Q98 215 225 267T483 246T800 262V360H0Z" fill="#b9b7c9"/><path d="M0 301Q141 279 296 305T596 295T800 311V360H0Z" fill="#969bb3"/></svg>
+            <div class="scene-copy">a slower kind of screen time.<span>just you, your work, and a tiny friend.</span></div>
+            <div class="pet-stage" id="pet-stage"><div class="pet-bubble" id="pet-bubble">oh, hi there.</div><button class="pet" id="pet" aria-label="Pet Miso"><span class="sleep-letters">z <b>z</b> <i>z</i></span><svg viewBox="0 0 200 150"><use href="#axolotl"/></svg></button><span class="heart-particle">♡</span></div>
+            <div class="desktop-taskbar"><span class="taskbar-logo">✳</span><span class="taskbar-search"><svg width="12" height="12" viewBox="0 0 20 20"><circle cx="8" cy="8" r="5"/><path d="m12 12 5 5"/></svg> A little space to focus</span><div class="taskbar-apps"><span class="folder-app"></span><span class="browser-app"></span><span class="note-app"></span><span class="miso-app"><svg><use href="#axolotl"/></svg></span></div><span class="taskbar-time" id="taskbar-time">10:24<span>a good day to go slow</span></span></div>
+          </div>
+          <div class="habitat-footer"><span class="status"><span class="status-dot"></span><strong id="status-text" role="status">Happily wandering</strong></span><span id="interaction-hint">Give Miso a little click. <span class="small-heart">♡</span></span></div>
+        </section>
+
+        <aside class="settings-card">
+          <div class="settings-title"><h2>Make yourself at home</h2><span>✳</span></div>
+          <p>A few little things, just how you like them.</p>
+          <div class="setting-block color-block"><div class="label-row"><label>Miso’s color</label><span id="color-name">Peach</span></div><div class="color-options" role="group" aria-label="Miso’s color"><button class="swatch peach selected" data-color="peach" aria-label="Peach" aria-pressed="true"><span>✓</span></button><button class="swatch rose" data-color="rose" aria-label="Rose" aria-pressed="false"><span>✓</span></button><button class="swatch sage" data-color="sage" aria-label="Sage" aria-pressed="false"><span>✓</span></button><button class="swatch lavender" data-color="lavender" aria-label="Lavender" aria-pressed="false"><span>✓</span></button><button class="swatch cloud" data-color="cloud" aria-label="Cloud" aria-pressed="false"><span>✓</span></button></div></div>
+          <div class="setting-block"><div class="label-row"><label for="pace">Wandering pace</label><span id="pace-label">Easy does it</span></div><input id="pace" type="range" min="1" max="5" value="2"><div class="range-labels"><span>Unhurried</span><span>A little adventure</span></div></div>
+          <div class="setting-block nap-setting"><div><label for="nap-toggle">Nap when I’m away</label><p>Still mouse. Sleepy Miso.</p></div><button class="toggle on" id="nap-toggle" role="switch" aria-checked="true" aria-label="Nap when I’m away"><span></span></button></div>
+          <div class="nap-delay"><span>Drift off after</span><select id="nap-delay" aria-label="Time before napping"><option value="15">15 seconds</option><option value="30" selected>30 seconds</option><option value="60">1 minute</option><option value="300">5 minutes</option></select></div>
+          <div class="setting-block taskbar-setting"><svg class="icon"><use href="#i-heart"/></svg><p>Right by your side.<br><span>Miso stays above your taskbar.</span></p></div>
+        </aside>
+      </div>
+
+      <section class="below-preview">
+        <div class="little-actions"><span>A MOMENT WITH MISO</span><div class="action-buttons"><button id="treat-button"><svg class="icon"><use href="#i-leaf"/></svg>Give a snack</button><button id="sleep-button"><svg class="icon"><use href="#i-moon"/></svg>Time for a nap</button><button id="pause-button"><span class="pause-icon">Ⅱ</span>Stay a while</button></div></div>
+        <div class="adopt-area"><button class="primary-button" id="adopt-button">Bring Miso to my desktop <svg class="icon"><use href="#i-arrow"/></svg></button><span>No to-dos. No streaks. Just company.</span></div>
+      </section>
+      <section class="feature-strip"><div><span class="feature-icon">⌁</span><p>A tiny bit of life<span>Wanders wherever the day takes you.</span></p></div><div><svg class="icon"><use href="#i-moon"/></svg><p>Rest is part of the routine<span>When you take a break, Miso does too.</span></p></div><div><svg class="icon"><use href="#i-heart"/></svg><p>Quietly, happily here<span>No noise. No demands. Your little companion.</span></p></div></section>
+    </main>
+    <footer class="page-footer"><span>Made for softer days.</span><span>Take a breath. Unclench your jaw. <svg class="icon"><use href="#i-leaf"/></svg></span><span>MISO <span class="footer-dot">✳</span> YOUR DESKTOP FRIEND</span></footer>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <dialog id="info-dialog"><button class="dialog-close" aria-label="Close dialog">×</button><div class="dialog-pet"><svg viewBox="0 0 200 150"><use href="#axolotl"/></svg></div><div id="dialog-content"></div></dialog>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A colourful ASCII fog portfolio background." />
+    <title>Drifting Fog — Portfolio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <canvas id="fog" aria-hidden="true"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="mark" href="#top" aria-label="Avery Chen, home">AC<span>®</span></a>
+      <nav aria-label="Primary navigation">
+        <a href="#work">Work</a>
+        <a href="#about">About</a>
+        <a href="mailto:hello@example.com">Contact</a>
+      </nav>
+      <button class="sound" type="button" aria-pressed="false"><i></i> Atmosphere: off</button>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow">Independent designer &amp; creative developer</p>
+        <h1 id="hero-title">Ideas that<br />leave a <em>trace.</em></h1>
+        <div class="hero-footer">
+          <p>Shaping identities, digital spaces<br />and tiny moments of wonder.</p>
+          <a class="scroll" href="#work">Scroll to explore <span>↓</span></a>
+        </div>
+      </section>
+
+      <section class="work" id="work" aria-labelledby="work-title">
+        <div class="section-top">
+          <p class="eyebrow">Selected work / 2022—24</p>
+          <h2 id="work-title">A little closer</h2>
+        </div>
+        <div class="project-list">
+          <a class="project" href="#archive"><span>01</span><strong>Common Ground</strong><em>Brand world &amp; web</em><b>↗</b></a>
+          <a class="project" href="#archive"><span>02</span><strong>After Hours</strong><em>Art direction</em><b>↗</b></a>
+          <a class="project" href="#archive"><span>03</span><strong>Kindred Objects</strong><em>Digital experience</em><b>↗</b></a>
+        </div>
+      </section>
+    </main>
+
+    <footer id="about"><span>© 2024 Avery Chen</span><span>New York / Everywhere</span><a href="mailto:hello@example.com">Let’s make something ↗</a></footer>
+    <script src="script.js"></script>
+  </body>
+</html>

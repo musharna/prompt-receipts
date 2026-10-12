@@ -1,0 +1,38 @@
+<!doctype html>
+<meta charset="utf-8"><title>Mushroom Ranger preview</title>
+<style>
+ body{background:#2b2d33;color:#ddd;font:14px sans-serif;margin:20px}
+ .grid{display:grid;grid-template-columns:repeat(4,auto);gap:16px;justify-content:start}
+ figure{margin:0;text-align:center} canvas{image-rendering:pixelated;background:#454a52;border-radius:6px}
+ figcaption{margin-top:4px}
+</style>
+<h2>Mushroom-capped forest ranger</h2>
+<div class="grid" id="g"></div>
+<script>
+const META = {"image": "ranger_sheet.png", "frameWidth": 48, "frameHeight": 48, "columns": 6, "rows": 16, "origin": {"x": 24, "y": 40, "note": "feet / ground contact point inside each frame"}, "layout": "one row per animation+direction; frames left to right; unused cells are empty", "animations": {"walk_down": {"row": 0, "frames": 4, "fps": 8, "loop": true}, "walk_left": {"row": 1, "frames": 4, "fps": 8, "loop": true}, "walk_right": {"row": 2, "frames": 4, "fps": 8, "loop": true}, "walk_up": {"row": 3, "frames": 4, "fps": 8, "loop": true}, "attack_down": {"row": 4, "frames": 4, "fps": 12, "loop": false}, "attack_left": {"row": 5, "frames": 4, "fps": 12, "loop": false}, "attack_right": {"row": 6, "frames": 4, "fps": 12, "loop": false}, "attack_up": {"row": 7, "frames": 4, "fps": 12, "loop": false}, "hurt_down": {"row": 8, "frames": 2, "fps": 10, "loop": false}, "hurt_left": {"row": 9, "frames": 2, "fps": 10, "loop": false}, "hurt_right": {"row": 10, "frames": 2, "fps": 10, "loop": false}, "hurt_up": {"row": 11, "frames": 2, "fps": 10, "loop": false}, "death_down": {"row": 12, "frames": 6, "fps": 8, "loop": false}, "death_left": {"row": 13, "frames": 6, "fps": 8, "loop": false}, "death_right": {"row": 14, "frames": 6, "fps": 8, "loop": false}, "death_up": {"row": 15, "frames": 6, "fps": 8, "loop": false}}};
+const img = new Image(); img.src = META.image;
+img.onload = () => {
+  const g = document.getElementById('g'), S = 4, items = [];
+  for (const [name, a] of Object.entries(META.animations)) {
+    const fig = document.createElement('figure'), cv = document.createElement('canvas');
+    cv.width = META.frameWidth * S; cv.height = META.frameHeight * S;
+    const cap = document.createElement('figcaption'); cap.textContent = name;
+    fig.append(cv, cap); g.append(fig);
+    const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+    items.push({a, ctx, t0: performance.now()});
+  }
+  (function tick(now) {
+    for (const it of items) {
+      const {a, ctx} = it;
+      let f = Math.floor((now - it.t0) / 1000 * a.fps);
+      if (a.loop) f %= a.frames;
+      else if (f >= a.frames + a.fps) { it.t0 = now; f = 0; }   // hold last frame ~1s, then replay
+      else f = Math.min(f, a.frames - 1);
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.drawImage(img, f * META.frameWidth, a.row * META.frameHeight, META.frameWidth, META.frameHeight,
+                    0, 0, ctx.canvas.width, ctx.canvas.height);
+    }
+    requestAnimationFrame(tick);
+  })(performance.now());
+};
+</script>

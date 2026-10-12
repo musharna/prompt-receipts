@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Axolotl • Desktop buddy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <nav class="topbar">
+        <a class="brand" href="#"><span class="brand-dot"></span>Axolotl</a>
+        <div class="status"><span class="pulse"></span><span id="status-text">Roaming happily</span></div>
+        <button class="icon-button" id="settings" aria-label="Settings">⚙</button>
+      </nav>
+
+      <section class="hero">
+        <div class="intro">
+          <p class="eyebrow">YOUR LITTLE DESKTOP COMPANION</p>
+          <h1>A tiny wanderer<br>for your <em>taskbar.</em></h1>
+          <p class="subcopy">He’ll stroll around while you work, then curl up for a cozy nap when your mouse takes a break.</p>
+          <div class="actions">
+            <button class="primary" id="adopt">Adopt axolotl <span>→</span></button>
+            <button class="secondary" id="pause"><span class="pause-icon">Ⅱ</span> Pause roaming</button>
+          </div>
+        </div>
+
+        <div class="companion-stage" aria-label="Animated axolotl preview">
+          <div class="sun"></div>
+          <div class="cloud cloud-one"></div><div class="cloud cloud-two"></div>
+          <div class="spark sparkle-one">✦</div><div class="spark sparkle-two">✦</div>
+          <div class="sleep-bubble" id="sleep-bubble"><span>z</span><span>z</span><span>z</span></div>
+          <img class="axolotl" id="axolotl" src="assets/axolotl.png" alt="A cute pink axolotl" />
+          <div class="ground-shadow"></div>
+          <p class="stage-caption" id="stage-caption">out for a little stroll</p>
+        </div>
+      </section>
+
+      <section class="dock-card">
+        <div class="dock-title"><span class="tiny-wave">〰</span> TASKBAR PREVIEW</div>
+        <div class="taskbar">
+          <div class="start">⊞</div><div class="task-icon blue">◉</div><div class="task-icon lilac">⌁</div><div class="task-icon peach">◒</div>
+          <div class="mini-axo" id="mini-axo">●</div>
+          <div class="tray">⌃　◉　▧　<span>2:34 PM</span></div>
+        </div>
+        <div class="legend"><span><i class="dot walk"></i> Roaming</span><span><i class="dot nap"></i> Napping after 45 sec idle</span></div>
+      </section>
+
+      <section class="notes">
+        <div><span class="note-icon">⌁</span><strong>Lives at the edge</strong><p>Always visible, never in your way.</p></div>
+        <div><span class="note-icon">☾</span><strong>Knows when to rest</strong><p>Idle mouse? Nap time.</p></div>
+        <div><span class="note-icon">♡</span><strong>Just a little friend</strong><p>No tasks. No notifications. Just vibes.</p></div>
+      </section>
+    </main>
+    <div class="toast" id="toast">Axolotl is ready to move in ♡</div>
+    <script src="app.js"></script>
+  </body>
+</html>

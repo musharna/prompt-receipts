@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nan's Little World</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing:border-box } body { margin:0; overflow:hidden; background:#192c27; color:#f5f0df; font-family:'DM Mono',monospace; }
+    #scene { width:100vw; height:100vh; display:block; cursor:grab } #scene:active { cursor:grabbing }
+    .top { position:fixed; z-index:2; top:26px; left:32px; right:32px; display:flex; justify-content:space-between; align-items:flex-start; pointer-events:none; }
+    .eyebrow { color:#d7a85a; font-size:10px; letter-spacing:.18em; text-transform:uppercase; margin-bottom:10px }
+    h1 { font:500 clamp(28px,4vw,50px)/.95 'Playfair Display',serif; margin:0; letter-spacing:-.04em } h1 em { color:#d9e5aa; }
+    .note { max-width:235px; padding-top:5px; color:#c9d3b9; font-size:11px; line-height:1.7; text-align:right }
+    .legend { position:fixed; z-index:2; left:32px; bottom:30px; width:255px; padding:17px 18px; background:rgba(23,43,36,.62); backdrop-filter:blur(12px); border:1px solid rgba(220,236,190,.18); border-radius:3px; }
+    .legend h2 { margin:0 0 12px; font-size:10px; font-weight:500; letter-spacing:.16em; color:#d7a85a; text-transform:uppercase }
+    .row { display:flex; justify-content:space-between; font-size:10px; margin-top:7px; color:#d7decd } .row span:last-child { color:#f4f0df }
+    .actions { position:fixed; z-index:3; right:32px; bottom:30px; display:flex; gap:9px; } button { appearance:none; border:1px solid rgba(245,240,223,.35); background:rgba(23,43,36,.62); color:#f5f0df; padding:11px 13px; font:10px 'DM Mono',monospace; letter-spacing:.08em; cursor:pointer; transition:.2s } button:hover { background:#d7a85a; color:#173128; border-color:#d7a85a }
+    .hint { position:fixed; z-index:2; left:50%; transform:translateX(-50%); bottom:36px; font-size:10px; letter-spacing:.08em; color:#b8c7af; opacity:.85; pointer-events:none }
+    @media(max-width:600px){ .top{left:20px;right:20px;top:20px}.note{display:none}.legend{left:20px;bottom:20px;width:210px}.actions{right:20px;bottom:20px}.hint{display:none} }
+  </style>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <header class="top"><div><div class="eyebrow">A living gift study · no. 01</div><h1>Nan's <em>little world</em></h1></div><div class="note">A tiny, quiet woodland for a windowsill. Move around it and make it yours.</div></header>
+  <aside class="legend"><h2>Planting recipe</h2><div class="row"><span>01 · drainage</span><span>river stones</span></div><div class="row"><span>02 · foundation</span><span>dark soil</span></div><div class="row"><span>03 · soft cover</span><span>moss + fern</span></div><div class="row"><span>04 · small surprise</span><span>ceramic deer</span></div></aside>
+  <div class="hint">DRAG TO LOOK AROUND · SCROLL TO ZOOM</div><div class="actions"><button id="reset">RESET VIEW</button><button id="light">EVENING LIGHT</button></div>
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js';
+    const canvas=document.querySelector('#scene'), renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.shadowMap.enabled=true;
+    const scene=new THREE.Scene(); scene.fog=new THREE.FogExp2(0x19332b,.11);
+    const camera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,.1,100); let theta=.55,phi=1.14,dist=7.2; const target=new THREE.Vector3(0,.65,0);
+    function cam(){ const s=Math.sin(phi); camera.position.set(target.x+dist*s*Math.sin(theta),target.y+dist*Math.cos(phi),target.z+dist*s*Math.cos(theta)); camera.lookAt(target) } cam();
+    const hemi=new THREE.HemisphereLight(0xe8f2d3,0x183129,2.1);scene.add(hemi); const sun=new THREE.DirectionalLight(0xffe8b5,3.3);sun.position.set(-4,6,3);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);scene.add(sun);
+    const floor=new THREE.Mesh(new THREE.CircleGeometry(20,64),new THREE.MeshStandardMaterial({color:0x203b31,roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-1.38;scene.add(floor);
+    const grp=new THREE.Group();scene.add(grp);
+    // glass vessel: open cylindrical bell with a gently rounded base
+    const glass=new THREE.Mesh(new THREE.CylinderGeometry(2.12,1.85,4.05,64,1,true),new THREE.MeshPhysicalMaterial({color:0xcdebd5,transparent:true,opacity:.16,roughness:.05,metalness:0,transmission:.12,side:THREE.DoubleSide,depthWrite:false}));glass.position.y=.55;scene.add(glass);
+    const rimMat=new THREE.MeshPhysicalMaterial({color:0xd9f5df,transparent:true,opacity:.38,roughness:.04,side:THREE.DoubleSide}); const rim=new THREE.Mesh(new THREE.TorusGeometry(2.12,.035,10,64),rimMat);rim.position.y=2.575;scene.add(rim);
+    const base=new THREE.Mesh(new THREE.TorusGeometry(1.86,.13,12,64),rimMat);base.position.y=-1.42;scene.add(base);
+    // substrate layers
+    function layer(r,depth,y,color,rough=.9){let m=new THREE.Mesh(new THREE.CylinderGeometry(r,r*.98,depth,64),new THREE.MeshStandardMaterial({color,roughness:rough}));m.position.y=y;grp.add(m)}
+    layer(1.82,.28,-1.18,0x9a8770); layer(1.78,.12,-.98,0x554f3b); layer(1.76,.61,-.62,0x382c1d);
+    const pebbleMat=[0x958c79,0x746f62,0xb3a58e,0x5d6558].map(color=>new THREE.MeshStandardMaterial({color,roughness:1}));
+    for(let i=0;i<92;i++){let a=Math.random()*6.28,r=Math.sqrt(Math.random())*1.7, s=.045+Math.random()*.09;let p=new THREE.Mesh(new THREE.IcosahedronGeometry(s,1),pebbleMat[i%4]);p.scale.set(1.25,.55,.85);p.position.set(Math.cos(a)*r,-.99,Math.sin(a)*r);p.rotation.set(Math.random(),Math.random(),Math.random());grp.add(p)}
+    // moss clusters
+    const mossMat=new THREE.MeshStandardMaterial({color:0x4c783d,roughness:1}); const moss2=new THREE.MeshStandardMaterial({color:0x78934a,roughness:1});
+    function moss(x,z,rad){ for(let i=0;i<32;i++){let a=Math.random()*6.28,r=Math.sqrt(Math.random())*rad;let g=new THREE.SphereGeometry(.07+Math.random()*.12,7,6);let m=new THREE.Mesh(g,Math.random()>.55?mossMat:moss2);m.scale.y=.55+Math.random()*.8;m.position.set(x+Math.cos(a)*r,-.27+Math.random()*.04,z+Math.sin(a)*r);grp.add(m)}} moss(-.64,.45,.73);moss(.8,.25,.67);moss(-.62,-.83,.48);
+    // ferns made from a central stalk and paired flattened leaflets
+    const stemMat=new THREE.MeshStandardMaterial({color:0x315d36,roughness:1}), leafMat=new THREE.MeshStandardMaterial({color:0x537f42,roughness:.8,side:THREE.DoubleSide});
+    function fern(x,z,scale,rot){let f=new THREE.Group();f.position.set(x,-.26,z);f.rotation.y=rot; for(let arm=0;arm<7;arm++){let a=arm/7*Math.PI*2, h=scale*(.7+Math.random()*.3);let stem=new THREE.Mesh(new THREE.CylinderGeometry(.012,.019,h,6),stemMat);stem.position.set(Math.sin(a)*h*.19,h*.48,Math.cos(a)*h*.19);stem.rotation.z=Math.sin(a)*.38;stem.rotation.x=-Math.cos(a)*.38;f.add(stem);for(let j=1;j<7;j++){let t=j/7, leaf=new THREE.Mesh(new THREE.PlaneGeometry(.055+(.13*(1-t)),.19*(1-t*.45)),leafMat);let side=j%2?1:-1;leaf.position.set(Math.sin(a)*h*t*.23 + Math.cos(a)*side*.08,h*t,Math.cos(a)*h*t*.23 - Math.sin(a)*side*.08);leaf.rotation.set(-Math.PI/2+Math.cos(a)*.45, a+side*.8,0);f.add(leaf)}}grp.add(f)} fern(-.96,.2,1.38,.2);fern(.72,-.32,1.08,1.2);fern(.32,.93,.88,2.4);
+    // tiny ceramic deer: body, head, ears, legs and antlers
+    const ceramic=new THREE.MeshStandardMaterial({color:0xf0dfbc,roughness:.35,metalness:0}); const deer=new THREE.Group();deer.position.set(.27,-.14,-.48);deer.rotation.y=-.45;
+    function shape(g,x,y,z,sc=[1,1,1]){let o=new THREE.Mesh(g,ceramic);o.position.set(x,y,z);o.scale.set(...sc);o.castShadow=true;deer.add(o);return o} shape(new THREE.SphereGeometry(.25,18,14),0,.18,0,[1.25,.78,.7]);shape(new THREE.SphereGeometry(.16,16,12),.25,.49,0,[.75,1,.72]); for(let x of [-.13,.13])for(let z of [-.12,.12])shape(new THREE.CylinderGeometry(.026,.035,.25,8),x,.02,z); for(let z of [-.08,.08])shape(new THREE.ConeGeometry(.07,.16,10),.28,.66,z,[1,1,.55]); const antlerMat=new THREE.MeshStandardMaterial({color:0xc8ae80,roughness:.8}); for(let z of [-.08,.08]){let a=new THREE.Mesh(new THREE.CylinderGeometry(.012,.018,.22,6),antlerMat);a.position.set(.28,.78,z);a.rotation.z=-.3;deer.add(a)} grp.add(deer);
+    // stones on top
+    for(let i=0;i<15;i++){let a=Math.random()*6.28,r=.75+Math.random()*.85;let s=.07+Math.random()*.08;let p=new THREE.Mesh(new THREE.DodecahedronGeometry(s,0),pebbleMat[i%4]);p.position.set(Math.cos(a)*r,-.22,Math.sin(a)*r);p.scale.y=.55;grp.add(p)}
+    let drag=false,px=0,py=0; canvas.addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY});addEventListener('pointerup',()=>drag=false);addEventListener('pointermove',e=>{if(!drag)return;theta-=(e.clientX-px)*.008;phi=THREE.MathUtils.clamp(phi+(e.clientY-py)*.008,.52,1.72);px=e.clientX;py=e.clientY;cam()});canvas.addEventListener('wheel',e=>{dist=THREE.MathUtils.clamp(dist+e.deltaY*.004,4.5,10);cam()},{passive:true});
+    document.querySelector('#reset').onclick=()=>{theta=.55;phi=1.14;dist=7.2;cam()};let night=false;document.querySelector('#light').onclick=e=>{night=!night;sun.intensity=night?.8:3.3;hemi.intensity=night?.6:2.1;scene.background=new THREE.Color(night?0x10201e:0x19332b);e.target.textContent=night?'DAYLIGHT':'EVENING LIGHT'};
+    function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()} addEventListener('resize',resize);resize();
+    renderer.setAnimationLoop(()=>{grp.rotation.y+=.0007;renderer.render(scene,camera)});
+  </script>
+</body>
+</html>

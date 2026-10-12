@@ -1,0 +1,111 @@
+{
+  "image": "ranger_sheet.png",
+  "frameWidth": 48,
+  "frameHeight": 48,
+  "columns": 6,
+  "rows": 16,
+  "origin": {
+    "x": 24,
+    "y": 40,
+    "note": "feet / ground contact point inside each frame"
+  },
+  "layout": "one row per animation+direction; frames left to right; unused cells are empty",
+  "animations": {
+    "walk_down": {
+      "row": 0,
+      "frames": 4,
+      "fps": 8,
+      "loop": true
+    },
+    "walk_left": {
+      "row": 1,
+      "frames": 4,
+      "fps": 8,
+      "loop": true
+    },
+    "walk_right": {
+      "row": 2,
+      "frames": 4,
+      "fps": 8,
+      "loop": true
+    },
+    "walk_up": {
+      "row": 3,
+      "frames": 4,
+      "fps": 8,
+      "loop": true
+    },
+    "attack_down": {
+      "row": 4,
+      "frames": 4,
+      "fps": 12,
+      "loop": false
+    },
+    "attack_left": {
+      "row": 5,
+      "frames": 4,
+      "fps": 12,
+      "loop": false
+    },
+    "attack_right": {
+      "row": 6,
+      "frames": 4,
+      "fps": 12,
+      "loop": false
+    },
+    "attack_up": {
+      "row": 7,
+      "frames": 4,
+      "fps": 12,
+      "loop": false
+    },
+    "hurt_down": {
+      "row": 8,
+      "frames": 2,
+      "fps": 10,
+      "loop": false
+    },
+    "hurt_left": {
+      "row": 9,
+      "frames": 2,
+      "fps": 10,
+      "loop": false
+    },
+    "hurt_right": {
+      "row": 10,
+      "frames": 2,
+      "fps": 10,
+      "loop": false
+    },
+    "hurt_up": {
+      "row": 11,
+      "frames": 2,
+      "fps": 10,
+      "loop": false
+    },
+    "death_down": {
+      "row": 12,
+      "frames": 6,
+      "fps": 8,
+      "loop": false
+    },
+    "death_left": {
+      "row": 13,
+      "frames": 6,
+      "fps": 8,
+      "loop": false
+    },
+    "death_right": {
+      "row": 14,
+      "frames": 6,
+      "fps": 8,
+      "loop": false
+    },
+    "death_up": {
+      "row": 15,
+      "frames": 6,
+      "fps": 8,
+      "loop": false
+    }
+  }
+}

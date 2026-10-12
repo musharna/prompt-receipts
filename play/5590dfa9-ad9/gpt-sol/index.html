@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#07051a" />
+    <title>Cosmic Slime Lab</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <canvas id="slime-canvas" aria-label="Interactive galaxy slime"></canvas>
+
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <div>
+            <p>COSMIC SLIME LAB</p>
+            <span>NON-NEWTONIAN SPACE GOO</span>
+          </div>
+        </div>
+        <button id="reset-button" type="button" aria-label="Reset the slime">
+          <span aria-hidden="true">↻</span> Reset blob
+        </button>
+      </header>
+
+      <section class="hero" aria-hidden="true">
+        <p class="eyebrow">INTERACTIVE MATTER • EXPERIMENT 01</p>
+        <h1>Stretch the<br /><em>universe.</em></h1>
+        <p class="lede">Grab the slime. Pull until it splits.<br />Squish the pieces back together.</p>
+      </section>
+
+      <aside class="meter" aria-hidden="true">
+        <div class="meter-copy">
+          <span>VISCOSITY</span>
+          <strong id="viscosity-label">WOBBLY</strong>
+        </div>
+        <div class="meter-track"><div id="meter-fill"></div></div>
+        <div class="meter-scale"><span>GOOEY</span><span>SNAPPY</span></div>
+      </aside>
+
+      <div class="hint" id="hint" aria-hidden="true">
+        <span class="mouse-icon"><i></i></span>
+        <span><strong>CLICK + DRAG</strong> THE SLIME</span>
+      </div>
+
+      <div class="science-note" aria-hidden="true">
+        <span>✦</span>
+        <p><strong>TRY THIS</strong><br />Pull slowly, then quickly.<br />Does it feel different?</p>
+      </div>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>

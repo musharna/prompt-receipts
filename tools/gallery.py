@@ -232,10 +232,14 @@ def site_run(row):
 PLAY = re.compile(r'<a class="btn" href="(play/[^"]+)"[^>]*>Play the (.+?) version</a>')
 
 
-def seed(index_html, path):
-    """the site's own runs: one entry a run, from its receipt and what its card says"""
+def seed(index_html, path, pages=None):
+    """the site's own runs: one entry a run, from its receipt and what its card says, and the page it made from
+    play/runs.json (card, name, receipt no., page) if a browser opens what it made"""
     with open(index_html, encoding="utf-8") as fh:
         page = fh.read()
+    with open(pages or os.path.join(os.path.dirname(os.path.abspath(index_html)), "play", "runs.json"),
+              encoding="utf-8") as fh:
+        played = json.load(fh)  # fmt: skip
     entries = []
     for card in page.split("<article ")[1:]:
         card_id = re.match(r'id="([\w-]+)"', card).group(1)
@@ -257,6 +261,18 @@ def seed(index_html, path):
                 raise SystemExit(f"gallery: {card_id}'s Play button names {who!r}, which is {len(named)} runs")
             named[0]["play"] = html.unescape(page)
         entries += runs
+    buttons = {(e["card"], e["name"]): e.pop("play") for e in entries if "play" in e}
+    for row in played:
+        named = [e for e in entries if (e["card"], e["name"]) == (row["card"], row["name"])]
+        if len(named) != 1:
+            raise SystemExit(f"gallery: play/runs.json names {row['card']} {row['name']}, which is {len(named)} runs")
+        no = re.search(r" · no\. (\S+)", decode(named[0]["link"]).split("\n")[0]).group(1)
+        if no != row["no"]:  # the page is that run's, not another's
+            raise SystemExit(f"gallery: {row['card']} {row['name']}'s receipt is no. {no}, not {row['no']}")
+        named[0]["play"] = row["page"]
+    for (card, name), button in buttons.items():
+        if next(e for e in entries if (e["card"], e["name"]) == (card, name)).get("play") != button:
+            raise SystemExit(f"gallery: {card}'s Play button opens {button}, but play/runs.json doesn't give {name} it")
     save(path, entries)
     return entries
 

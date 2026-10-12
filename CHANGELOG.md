@@ -2,7 +2,7 @@
 
 ## receipt.py 7.9 (2026-10-11)
 
-- [The gallery](https://musharna.github.io/prompt-receipts/g/): the site's 112 runs and ones people send in, each with what it made, whether it worked, what it cost and how long it took, grouped by prompt, with a summary for each model. The five runs whose page is on the site open it with **Play it**. Search it, filter it by tool, model or result, or sort it by cost or time.
+- [The gallery](https://musharna.github.io/prompt-receipts/g/): the site's 112 runs and ones people send in, each with what it made, whether it worked, what it cost and how long it took, grouped by prompt, with a summary for each model. The 34 runs that made something a browser opens (a page, a toy, a 3D scene) open it with **Play it**, as the run left it. Search it, filter it by tool, model or result, or sort it by cost or time.
 - `--share` prints the receipt's link and a link that sends it to the gallery: a GitHub issue with the link filled in. A bot replies with what the gallery will show, and it goes in once the site's owner approves it. A receipt page on the site has an **Add to the gallery** button that does the same, and the gallery has a box to paste a link into. The issue asks whether the run worked and what it made, shown in the gallery as the sender's word.
 
 ## receipt.py 7.8 (2026-10-11)

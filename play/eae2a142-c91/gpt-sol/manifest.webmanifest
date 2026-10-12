@@ -1,0 +1,17 @@
+{
+  "name": "Mochi — Desktop Axolotl",
+  "short_name": "Mochi",
+  "description": "A tiny axolotl companion who wanders, visits, and naps on your desktop.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#dff7f3",
+  "theme_color": "#dff7f3",
+  "icons": [
+    {
+      "src": "mochi-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
