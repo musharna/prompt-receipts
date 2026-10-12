@@ -195,6 +195,10 @@ def seed(index_html, path):
 
 
 def main(argv):
+    # Windows writes pipes in its old code page, which has no "·" for most of it; the receipt is UTF-8
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     if len(argv) < 2 or argv[0] not in ("check", "add", "seed"):
         sys.exit(__doc__)
     try:

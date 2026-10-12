@@ -54,8 +54,11 @@ class Gallery(unittest.TestCase):
         self.tmp.cleanup()
 
     def run_gallery(self, *args):
-        return subprocess.run([sys.executable, "-I", GALLERY, *args], capture_output=True, text=True,
-                              encoding="utf-8")  # fmt: skip
+        # Windows pipes use its old code page, which writes "·" as one byte that isn't UTF-8; act like it
+        # everywhere (no -I, which would ignore PYTHONIOENCODING)
+        env = dict(os.environ, PYTHONIOENCODING="cp1252", PYTHONSAFEPATH="1")
+        return subprocess.run([sys.executable, GALLERY, *args], capture_output=True, text=True, encoding="utf-8",
+                              env=env)  # fmt: skip
 
     def write_event(self, e, name="event.json"):
         p = os.path.join(self.dir, name)
