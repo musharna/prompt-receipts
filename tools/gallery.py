@@ -11,6 +11,7 @@ someone edited it, so the gallery shows each one as sent."""
 import base64
 import binascii
 import datetime
+import html
 import json
 import os
 import re
@@ -117,11 +118,26 @@ def entry(token):
     }
 
 
+VERDICTS = {"Worked": "worked", "Partly": "partly", "Didn't work": "no"}  # the issue form's answers
+
+
+def sections(body):
+    """an issue form's body -> {heading: answer}; the first of a heading counts, so an answer can't fake a later one"""
+    found = {}
+    for part in re.split(r"^### ", body or "", flags=re.M)[1:]:
+        heading, _, answer = part.partition("\n")
+        answer = answer.strip()
+        found.setdefault(heading.strip(), "" if answer == "_No response_" else answer)
+    return found
+
+
 def from_issue(event):
     """an issue event -> (the issue, its entry)"""
     issue = event["issue"]
     e = entry(find_link(issue.get("body")))
-    e.update(issue=issue["number"], by=issue["user"]["login"])
+    said = sections(issue.get("body"))
+    e.update(issue=issue["number"], by=issue["user"]["login"], verdict=VERDICTS.get(said.get("Did it work?")),
+             made=cut(said.get("What it made", "")))  # fmt: skip
     return issue, e
 
 
@@ -139,10 +155,14 @@ def preview(e):
         if e["kind"] == "reported"
         else "a receipt, shown as sent: the gallery can't check it against the log"
     )
+    worked = {"worked": "It worked", "partly": "It partly worked", "no": "It didn't work"}.get(e.get("verdict"))
+    says = " ".join(x for x in (worked and worked + ", the sender says" + (":" if e.get("made") else "."),
+                                e.get("made") and e["made"].rstrip(".") + ".") if x)  # fmt: skip
     return (
         f"Thanks! This can go in [the gallery]({SITE}g/) once the repo's owner adds the `gallery` label. "
         f"It's {kind}. Everything in it will be public, so check there's nothing private in the prompt.\n\n"
-        f"{f}\n{text}\n{f}\n\n[Open it as a link]({SITE}r/#{e['link']})"
+        + (f"{says}\n\n" if says else "")
+        + f"{f}\n{text}\n{f}\n\n[Open it as a link]({SITE}r/#{e['link']})"
     )
 
 
@@ -179,16 +199,53 @@ def add(event, path, today=None):
     return e
 
 
+def text_of(fragment):
+    return html.unescape(re.sub(r"<[^>]+>", "", fragment)).strip()
+
+
+def site_run(row):
+    """one run's row on a site card -> what the card says about it, beside its receipt link"""
+    def find(pattern, what):
+        m = re.search(pattern, row)
+        if not m:
+            raise SystemExit(f"gallery: a run on the site has no {what}: {row[:300]}")
+        return m
+
+    head = row[: row.index("<b>")]
+    if 'class=nothumb' in head:
+        thumb = {"kind": "none", "src": "", "full": ""}
+    elif "<img " in head:
+        m = find(r'<a href="([^"]+)"[^>]*><img [^>]*src="([^"]+)"', "picture")
+        thumb = {"kind": "image", "src": html.unescape(m.group(2)), "full": html.unescape(m.group(1))}
+    else:
+        m = find(r'<(video|audio) [^>]*src="([^"]+)"', "picture, sound or video")
+        src = html.unescape(m.group(2))
+        thumb = {"kind": m.group(1), "src": src, "full": src}
+    name, _, effort = text_of(find(r"<b>(.*?)</b>", "model name").group(1)).partition(" · ")
+    verdict = find(r'<span class="v (\w+)">', "verdict").group(1)
+    made = text_of(find(r'</span><br>(.*?)<br><span class="dim">', "description").group(1))
+    dim = find(r'<span class="dim">([^<]*)<a class="rcpt" href="[^"]*/r/#(r1\.[A-Za-z0-9_-]+)"', "receipt link")
+    time = dim.group(1).split(" · ")[1].strip()
+    return dim.group(2), dict(name=name, effort=effort, verdict=verdict, made=cut(made), thumb=thumb, card_time=time)
+
+
 def seed(index_html, path):
-    """the site's own runs, one entry per receipt link on its cards"""
+    """the site's own runs: one entry a run, from its receipt and what its card says"""
     with open(index_html, encoding="utf-8") as fh:
-        html = fh.read()
+        page = fh.read()
     entries = []
-    for card in html.split("<article ")[1:]:
+    for card in page.split("<article ")[1:]:
         card_id = re.match(r'id="([\w-]+)"', card).group(1)
-        for token in re.findall(r'href="[^"]*/r/#(r1\.[A-Za-z0-9_-]+)"', card):
+        title = re.sub(r"^\d+\.\s*", "", text_of(re.search(r"<h2>(.*?)</h2>", card).group(1)))
+        for row in re.split(r'(?=<div class="row(?: extra)?">)', card)[1:]:
+            token, said = site_run(row)
             e = entry(token)
-            e.update(kind="site", card=card_id, by="Prompt Receipts")
+            card_time = said.pop("card_time")
+            if not e["time"] or e["time"].startswith("not "):  # codex exec --json logs no times; the card's runner did
+                e.update(time=card_time, time_from="card")
+            else:
+                e["time_from"] = "receipt"
+            e.update(said, kind="site", card=card_id, title=title, by="Prompt Receipts")
             entries.append(e)
     save(path, entries)
     return entries

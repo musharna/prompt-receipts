@@ -1,144 +1,280 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Receipt gallery · Prompt Receipts</title>
-<meta name="description" content="Receipts for AI coding runs: what each run cost and how long it took, from this site's runs and ones people sent in.">
-<meta property="og:title" content="Receipt gallery"><meta property="og:description" content="What AI coding runs cost and how long they took, from this site's runs and ones people sent in.">
+<meta name="description" content="What AI coding runs made, what they cost, how long they took and whether they worked: this site's runs and ones people send in.">
+<meta property="og:title" content="Receipt gallery"><meta property="og:description" content="What AI coding runs made, what they cost, how long they took and whether they worked.">
 <meta property="og:image" content="https://musharna.github.io/prompt-receipts/og.png">
 <style>
 body{font:16px/1.5 system-ui,sans-serif;margin:0;background:#f4f2ee;color:#222}
-main{max-width:1100px;margin:auto;padding:16px}
+main{max-width:1180px;margin:auto;padding:16px}
+a{color:#222}
+h2{font-size:1.2em;margin:26px 0 8px}
 .dim{color:#555;font-size:.9em}
-.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
-.bar input,.bar select{font:inherit;font-size:.92em;padding:.3em .5em;border:1px solid #999;border-radius:6px;background:#fff}
-.bar input{flex:1 1 220px}
 .wrap{overflow-x:auto;background:#fffdf8;border:1px solid #ddd;border-radius:4px}
 table{border-collapse:collapse;width:100%;font-size:.92em}
-th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #eee;vertical-align:top}
-th{background:#f7f4ec;font-weight:600;white-space:nowrap}
-td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-td.p{min-width:260px;max-width:460px}
-td a{color:#222}
-td.same a{color:#888;text-decoration:none}
-th.num{text-align:right}
-.kind{display:inline-block;font-size:.78em;padding:0 .5em;border-radius:4px;border:1px solid #888;white-space:nowrap}
+th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #eee;white-space:nowrap}
+th{background:#f7f4ec;font-weight:600}
+.n{text-align:right;font-variant-numeric:tabular-nums}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:18px 0 8px}
+.bar input,.bar select,#paste{font:inherit;font-size:.92em;padding:.3em .5em;border:1px solid #999;border-radius:6px;background:#fff}
+.bar input{flex:1 1 220px}
+.group{margin:22px 0 30px}
+.group h3{margin:0;font-size:1.1em}
+.group .prompt{margin:2px 0 10px;color:#444;font-size:.92em;max-width:900px}
+.runs{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:12px}
+.run{background:#fffdf8;border:1px solid #ddd;border-radius:6px;overflow:hidden;display:flex;flex-direction:column}
+.run.hit{outline:3px solid #e8b400}
+.pic{aspect-ratio:4/3;background:#ece8df;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pic a{display:block;width:100%;height:100%}
+.pic img,.pic video{width:100%;height:100%;object-fit:cover;display:block}
+.pic audio{width:92%}
+.pic.empty{aspect-ratio:auto;height:34px}
+.pic .none{color:#777;font-size:.85em}
+.body{overflow-wrap:anywhere}
+.body{padding:8px 10px 10px;font-size:.88em;display:flex;flex-direction:column;gap:3px;flex:1}
+.who{font-weight:600}
+.eff{color:#555;margin-top:-3px}
+.ttl{font-weight:600;font-size:1.02em}
+.made{color:#333;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.facts{margin-top:auto;padding-top:4px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.cost{font-weight:600;font-variant-numeric:tabular-nums}
+.v{display:inline-block;font-size:.85em;padding:0 .45em;border-radius:4px;vertical-align:1px}
+.v.worked{background:#dcefd9;color:#1d5a17}.v.partly{background:#fbeccb;color:#7a5200}.v.no{background:#f6d5d5;color:#8a1c1c}
+.v.said{border:1px dashed currentColor}
+.kind{display:inline-block;font-size:.78em;padding:0 .45em;border-radius:4px;border:1px solid #7a9a6e;background:#e7f0e3}
 .kind.reported{background:#222;color:#fff;border-color:#222}
-.kind.sent{background:#e7f0e3;border-color:#7a9a6e}
-td.nw{white-space:nowrap}
-tr.hit td{background:#fff3c4}
-@media (max-width:640px){
-  thead{display:none}
-  table,tbody,tr{display:block}
-  tr{padding:9px 12px;border-bottom:1px solid #eee}
-  td{display:inline;border:0;padding:0;font-size:.9em;color:#444}
-  td.p{display:block;min-width:0;margin-bottom:3px;font-size:1em;color:#222}
-  td:nth-child(n+3):nth-child(-n+5)::before{content:" · ";color:#999;font-weight:400}
-  td.missing,td.blank{display:none}
-  td:last-child{display:block;margin-top:3px}
-  td.num{text-align:left;color:#222;font-weight:600}
-}
-.err{background:#f6d5d5;padding:10px 14px;border-radius:6px}
+#add{background:#fffdf8;border:1px solid #ddd;border-radius:6px;padding:4px 16px 14px;margin:30px 0}
+#paste{width:100%;box-sizing:border-box;margin:6px 0}
+.btn{font:inherit;font-size:.92em;padding:.35em .9em;border:1px solid #333;border-radius:6px;background:#fff;color:#222;cursor:pointer;text-decoration:none;display:inline-block}
+[hidden]{display:none!important}
+.err{background:#f6d5d5;padding:8px 12px;border-radius:6px}
+.ok{background:#dcefd9;padding:8px 12px;border-radius:6px}
+.ok,.err{overflow-wrap:anywhere}
 footer{color:#555;font-size:.88em;margin:24px 0}
+#modelsm{display:none;list-style:none;padding:0;margin:0;font-size:.92em}
+#modelsm li{padding:5px 0;border-bottom:1px solid #e4e0d6}
+@media (max-width:640px){.wrap.models{display:none}#modelsm{display:block}}
+@media (max-width:560px){.runs{grid-template-columns:repeat(2,1fr);gap:8px}.body{font-size:.8em;padding:6px 8px 8px}
+}
 </style></head><body>
 <main>
 <h1>Receipt gallery</h1>
-<p>What AI coding runs cost and how long they took, one row per run. Click a prompt for its full receipt.
+<p>What AI coding runs made, what they cost, how long they took and whether they worked: the
+<a href="../">site's 16 prompts</a>, each run on 7 models, and receipts people send in (<a href="#add">add yours</a>).
 Costs are at API list prices, as the receipts give them; on a flat-fee plan a run isn't charged on its own.</p>
-<p class="dim">Unmarked rows are this site's own runs, read from their logs. <span class="kind sent">sent in</span> rows
-were sent by someone and can't be checked against a log. <span class="kind reported">reported</span> rows are what
-someone's post said. A dash means the receipt doesn't say (Codex runs here don't record a time).
-To add yours, run <code>receipt.py --share</code>, or open your receipt's link and press <b>Add to the gallery</b>;
-it goes in once the site's owner approves it.</p>
+
+<h2>By model</h2>
+<div class="wrap models"><table><thead><tr><th>Model</th><th class="n">Runs</th><th class="n">Worked</th><th class="n">Partly</th>
+<th class="n">Didn't</th><th class="n">Median cost</th><th class="n">Median time</th></tr></thead><tbody id="models"></tbody></table></div>
+<ul id="modelsm"></ul>
+<p class="dim" id="modelsnote"></p>
+
 <div class="bar">
-<input id="q" type="search" placeholder="Search prompts, models, tools" aria-label="Search">
+<input id="q" type="search" placeholder="Search prompts, models, what it made" aria-label="Search">
 <select id="tool" aria-label="Tool"><option value="">All tools</option></select>
 <select id="model" aria-label="Model"><option value="">All models</option></select>
+<select id="verdict" aria-label="Result"><option value="">Any result</option><option value="worked">Worked</option>
+<option value="partly">Partly</option><option value="no">Didn't work</option></select>
 <select id="kind" aria-label="Kind"><option value="">All receipts</option><option value="site">This site's runs</option>
 <option value="sent">Sent in</option><option value="reported">Reported</option></select>
-<select id="sort" aria-label="Sort"><option value="new">Newest first</option><option value="cheap">Cheapest first</option>
-<option value="dear">Dearest first</option></select>
+<select id="sort" aria-label="Sort"><option value="prompt">By prompt</option><option value="cheap">Cheapest first</option>
+<option value="dear">Dearest first</option><option value="fast">Quickest first</option></select>
 </div>
 <p id="count" class="dim">Loading…</p>
-<div class="wrap"><table><thead><tr><th>Prompt</th><th>Tool</th><th>Model</th><th class="num">Cost at API prices</th><th class="num">Time</th><th>From</th></tr></thead>
-<tbody id="rows"></tbody></table></div>
+<div id="list"></div>
+
+<section id="add">
+<h2>Add yours</h2>
+<p class="dim">Make a link to your run's receipt with <code>receipt.py --link</code> (or <code>--share</code>, which does
+the rest for you) and paste it here. It opens a GitHub issue with the link filled in, where you can say whether it
+worked and what it made. A bot replies with what the gallery will show, and it goes in once the site's owner approves
+it. Everything in it is public. A receipt can be edited, so sent-in ones are shown as sent.</p>
+<input id="paste" type="url" placeholder="https://musharna.github.io/prompt-receipts/r/#r1.…" aria-label="Receipt link">
+<button class="btn" id="checkit">Check it</button>
+<p id="pasted" hidden></p>
+</section>
 <footer><a href="../">Prompt Receipts</a> · <a href="https://github.com/musharna/prompt-receipts#the-gallery">how the gallery works</a></footer>
 </main>
 <script>
-// everything from gallery.json goes in as text, never HTML: nothing a sender wrote can run on this page
+// everything from gallery.json and pasted links goes in as text, never HTML: nothing a sender wrote can run here
 const $ = id => document.getElementById(id);
-const NEW = 'https://github.com/musharna/prompt-receipts/issues/';
-let all = [];
-function cell(tr, text, cls) {
-  const td = document.createElement('td');
-  if (cls) td.className = cls;
-  if (text instanceof Node) td.append(text); else td.textContent = text;
-  tr.append(td);
-  return td;
+const ISSUES = 'https://github.com/musharna/prompt-receipts/issues/';
+const SITE = 'https://musharna.github.io/prompt-receipts/';
+let all = [], names = {};
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
 }
-function link(href, text) {
-  const a = document.createElement('a');
-  a.href = href; a.textContent = text;
-  return a;
+function link(href, text, cls) { const a = el('a', cls, text); a.href = href; return a; }
+const known = v => typeof v === 'string' && v !== '' && !v.startsWith('not ');
+// "1 h 5 min", "81 s", "24.8 h" -> seconds
+function secs(t) {
+  if (!known(t)) return null;
+  let n = 0, any = false;
+  for (const [, v, u] of t.matchAll(/([\d.]+)\s*(h|min|s)\b/g)) { n += parseFloat(v) * {h: 3600, min: 60, s: 1}[u]; any = true; }
+  return any ? n : null;
 }
-// a part the receipt doesn't have shows as a dash, with what the receipt said about it on hover
-function shown(tr, value, what, cls) {
-  const missing = !value || value.startsWith('not ');
-  const td = cell(tr, missing ? '—' : value, cls);
-  if (missing) { td.title = value ? value : what + ' not on the receipt'; td.classList.add('missing'); }
-  return td;
+// a number and its unit never part at a line end
+function span(s) { return s < 90 ? Math.round(s) + '\u00a0s' : s < 5400 ? Math.round(s / 60) + '\u00a0min' : (s / 3600).toFixed(1) + '\u00a0h'; }
+function median(xs) {
+  xs = xs.filter(x => x !== null && x !== undefined).sort((a, b) => a - b);
+  if (!xs.length) return null;
+  const m = xs.length >> 1;
+  return xs.length % 2 ? xs[m] : (xs[m - 1] + xs[m]) / 2;
 }
-function from(e) {
-  if (e.kind === 'site') return '';
-  const span = document.createElement('span');
-  const k = document.createElement('span');
-  k.className = 'kind ' + e.kind;
-  k.textContent = e.kind === 'reported' ? 'reported' : 'sent in';
-  span.append(k, ' ', link(NEW + e.issue, '@' + e.by));
-  return span;
+const nameOf = e => e.name || names[e.model] || (known(e.model) ? e.model : 'model not stated');
+function picture(e) {
+  const box = el('div', 'pic'), t = e.thumb;
+  if (t && t.kind === 'image') {
+    const a = link('../' + t.full, ''); a.target = '_blank'; a.rel = 'noopener'; a.title = 'Open full size';
+    const img = el('img'); img.loading = 'lazy'; img.src = '../' + t.src; img.alt = nameOf(e) + ': ' + (e.made || 'what it made');
+    a.append(img); box.append(a);
+  } else if (t && (t.kind === 'video' || t.kind === 'audio')) {
+    const m = el(t.kind); m.controls = true; m.preload = t.kind === 'video' ? 'metadata' : 'none'; m.src = '../' + t.src;
+    box.append(m);
+  } else if (e.kind === 'site') { box.classList.add('empty'); box.append(el('span', 'none', 'no picture')); }
+  else return null;  // nothing was sent to show
+  return box;
+}
+function tile(e, flat) {
+  const card = el('div', 'run');
+  if (e.issue) card.id = 'i' + e.issue;
+  const pic = picture(e);
+  if (pic) card.append(pic);
+  const b = el('div', 'body');
+  if (flat) b.append(el('div', 'ttl', e.title || e.prompt || 'prompt not on the receipt'));
+  b.append(el('div', 'who', nameOf(e)));
+  const eff = el('div', 'eff');
+  if (e.verdict) {
+    const v = el('span', 'v ' + e.verdict + (e.kind === 'site' ? '' : ' said'), {worked: 'worked', partly: 'partly', no: "didn't work"}[e.verdict]);
+    if (e.kind !== 'site') v.title = 'the sender’s word';
+    eff.append(v, ' ');
+  }
+  // the site's cards say "Codex's default model, effort not set" for GPT-6-Astra
+  if (e.effort) eff.append(e.effort.startsWith("Codex's default") ? 'default effort' : e.effort);
+  if (eff.childNodes.length) b.append(eff);
+  if (e.made) b.append(el('div', 'made', e.made));
+  if (e.kind !== 'site') {
+    const from = el('div', 'dim');
+    from.append(el('span', 'kind ' + e.kind, e.kind === 'reported' ? 'reported' : 'sent in'), ' by ', link(ISSUES + e.issue, '@' + e.by));
+    b.append(from);
+  }
+  const facts = el('div', 'facts');
+  const left = el('span');
+  left.append(el('span', 'cost', known(e.cost) ? e.cost + (e.kind === 'reported' ? ' (post)' : '') : 'cost not given'));
+  if (known(e.time)) {
+    const t = el('span', 'dim', ' · ' + e.time);
+    if (e.time_from === 'card') t.title = 'from the run’s own timer: codex exec --json logs no times';
+    left.append(t);
+  }
+  facts.append(left, link('../r/#' + e.link, 'receipt', 'dim'));
+  b.append(facts);
+  card.append(b);
+  return card;
+}
+// judged runs only, so the counts add up and the costs are all from receipts: the site's own runs, unless the
+// kind filter asks for the sent-in ones (the sender's word) or the reported ones
+function summary(rows) {
+  const kind = $('kind').value || 'site';
+  rows = rows.filter(e => e.kind === kind);
+  $('modelsnote').textContent = {site: 'Our own runs, judged by us. Changes with the search and filters.',
+    sent: 'Sent-in runs shown below; whether they worked is each sender’s word.',
+    reported: 'Reported runs shown below: what posts said, not read from logs.'}[kind];
+  const by = new Map();
+  for (const e of rows) {
+    const k = nameOf(e);
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push(e);
+  }
+  const body = $('models'), lines = $('modelsm');
+  body.replaceChildren(); lines.replaceChildren();
+  for (const [name, rs] of [...by].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const tr = el('tr');
+    const count = v => rs.filter(e => e.verdict === v).length;
+    const c = median(rs.map(e => e.usd)), t = median(rs.map(e => secs(e.time)));
+    for (const [text, cls] of [[name, ''], [rs.length, 'n'], [count('worked'), 'n'], [count('partly'), 'n'], [count('no'), 'n'],
+      [c === null ? '—' : '$' + c.toFixed(2), 'n'], [t === null ? '—' : span(t), 'n']]) tr.append(el('td', cls, String(text)));
+    body.append(tr);
+    const li = el('li');
+    li.append(el('b', '', name), `: ${count('worked')} of ${rs.length} worked` + (c === null ? '' : ' · median\u00a0$' + c.toFixed(2))
+      + (t === null ? '' : ' · ' + span(t)));
+    lines.append(li);
+  }
 }
 function render() {
-  const q = $('q').value.trim().toLowerCase(), tool = $('tool').value, model = $('model').value, kind = $('kind').value;
-  let rows = all.filter(e => (!tool || e.tool === tool) && (!model || e.model === model) && (!kind || e.kind === kind)
-    && (!q || [e.prompt, e.model, e.tool, e.by].join(' ').toLowerCase().includes(q)));
-  const s = $('sort').value;
-  if (s === 'new') rows = rows.slice().reverse();
-  else rows = rows.filter(e => e.usd !== null).sort((a, b) => s === 'cheap' ? a.usd - b.usd : b.usd - a.usd)
-    .concat(rows.filter(e => e.usd === null));
-  const body = $('rows');
-  body.replaceChildren();
-  let last = null;
-  for (const e of rows) {
-    const tr = document.createElement('tr');
-    if (e.issue) tr.id = 'i' + e.issue;
-    // runs of one prompt sit together on the site's own order: name it once, then say it's the same
-    const same = e.prompt && e.prompt === last;
-    cell(tr, link('../r/#' + e.link, same ? '″ same prompt' : e.prompt || '(the receipt leaves out the prompt)'),
-      same ? 'p same' : 'p');
-    last = e.prompt;
-    cell(tr, e.tool, 'nw');
-    shown(tr, e.model, 'model', 'nw');
-    const cost = shown(tr, e.cost, 'cost', 'num');
-    if (e.kind === 'reported' && e.cost) { cost.textContent += ' (post)'; cost.title = 'the post’s own figure'; }
-    shown(tr, e.time, 'time', 'num');
-    cell(tr, from(e), e.kind === 'site' ? 'blank' : '');
-    body.append(tr);
+  const q = $('q').value.trim().toLowerCase(), f = {tool: $('tool').value, model: $('model').value, verdict: $('verdict').value, kind: $('kind').value};
+  const rows = all.filter(e => Object.entries(f).every(([k, v]) => !v || (k === 'model' ? nameOf(e) : e[k]) === v)
+    && (!q || [e.title, e.prompt, nameOf(e), e.model, e.tool, e.made, e.by].join(' ').toLowerCase().includes(q)));
+  summary(rows);
+  const list = $('list'), s = $('sort').value;
+  list.replaceChildren();
+  if (s === 'prompt') {
+    // the site's cards in the site's order, then the receipts people sent, newest first, under one heading
+    const sent = rows.filter(e => e.kind !== 'site').reverse();
+    const groups = new Map();
+    for (const e of rows.filter(e => e.kind === 'site')) {
+      if (!groups.has(e.card)) groups.set(e.card, []);
+      groups.get(e.card).push(e);
+    }
+    const group = (head, prompt, rs, flat) => {
+      const g = el('section', 'group'), h = el('h3');
+      h.append(head);
+      g.append(h);
+      if (prompt) g.append(el('p', 'prompt', prompt));
+      const runs = el('div', 'runs');
+      for (const r of rs) runs.append(tile(r, flat));
+      g.append(runs);
+      list.append(g);
+    };
+    for (const rs of groups.values()) group(link('../#' + rs[0].card, rs[0].title), rs[0].prompt, rs, false);
+    if (sent.length) group('Sent in', '', sent, true);
+  } else {
+    const key = s === 'fast' ? e => secs(e.time) : e => e.usd;
+    const has = rows.filter(e => key(e) !== null && key(e) !== undefined).sort((a, b) => s === 'dear' ? key(b) - key(a) : key(a) - key(b));
+    const runs = el('div', 'runs');
+    for (const e of has.concat(rows.filter(e => key(e) === null || key(e) === undefined))) runs.append(tile(e, true));
+    list.append(runs);
   }
-  $('count').textContent = rows.length === all.length ? `${all.length} receipts.` : `${rows.length} of ${all.length} receipts.`;
+  $('count').textContent = rows.length === all.length ? `${all.length} runs.` : `${rows.length} of ${all.length} runs.`;
 }
 function options(id, values) {
-  for (const v of [...new Set(values)].filter(v => v && !v.startsWith('not ')).sort()) {
-    const o = document.createElement('option');
-    o.value = v; o.textContent = v;
-    $(id).append(o);
+  for (const v of [...new Set(values)].filter(known).sort()) $(id).append(Object.assign(el('option', '', v), {value: v}));
+}
+// a pasted link: unpack it here, the way the receipt page does, and open the issue with it filled in
+async function check() {
+  const out = $('pasted'), say = (cls, ...parts) => { out.className = cls; out.replaceChildren(...parts); out.hidden = false; };
+  const m = $('paste').value.trim().match(/#?(r1\.[A-Za-z0-9_-]+)/);
+  if (!m) return say('err', 'That has no receipt in it. A receipt link has #r1. in it; make one with receipt.py --link.');
+  try {
+    const b64 = m[1].slice(3).replace(/-/g, '+').replace(/_/g, '/');
+    const bytes = Uint8Array.from(atob(b64 + '='.repeat((4 - b64.length % 4) % 4)), c => c.charCodeAt(0));
+    const text = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    const first = text.split('\n')[0];
+    const head = first.match(/^(Receipt|Reported) v[\d.]+ · (.+)$/);
+    if (!head || head[2].startsWith('Comparison')) return say('err', 'That link holds something other than one run’s receipt.');
+    if (all.some(e => e.link === m[1])) return say('err', 'That receipt is in the gallery already.');
+    const url = SITE + 'r/#' + m[1];
+    const issue = ISSUES + 'new?template=receipt.yml&title=' + encodeURIComponent('Receipt: ' + head[2].split(' · ')[0])
+      + '&link=' + encodeURIComponent(url);
+    const go = link(issue, 'Open the GitHub issue', 'btn'); go.target = '_blank'; go.rel = 'noopener';
+    say('ok', 'It’s a receipt: ' + first + '. ', go, ' ', link(url, 'see it first'));
+  } catch (err) {
+    say('err', 'That link doesn’t unpack; it may have been cut off when it was copied.');
   }
 }
+$('checkit').addEventListener('click', check);
+$('paste').addEventListener('keydown', ev => { if (ev.key === 'Enter') check(); });
 fetch('../gallery.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(g => {
   all = g;
+  for (const e of all) if (e.name && known(e.model)) names[e.model] = e.name;
   options('tool', all.map(e => e.tool));
-  options('model', all.map(e => e.model));
-  for (const id of ['q', 'tool', 'model', 'kind', 'sort']) $(id).addEventListener('input', render);
+  options('model', all.map(nameOf));
+  for (const id of ['q', 'tool', 'model', 'verdict', 'kind', 'sort']) $(id).addEventListener('input', render);
   render();
-  // the reply to a sent-in receipt links to g/#i<issue>; that row is drawn after load, so :target can't see it
-  const hit = location.hash && document.getElementById(location.hash.slice(1));
+  // the bot's reply links to g/#i<issue>; that tile is drawn after load, so :target can't see it
+  const hit = location.hash.startsWith('#i') && document.getElementById(location.hash.slice(1));
   if (hit) { hit.classList.add('hit'); hit.scrollIntoView({block: 'center'}); }
 }).catch(err => {
   $('count').className = 'err';

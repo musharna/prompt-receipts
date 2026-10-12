@@ -14,6 +14,21 @@ body:
       description: The link `receipt.py --link` printed (it starts https://musharna.github.io/prompt-receipts/r/#r1.)
     validations:
       required: true
+  - type: dropdown
+    id: worked
+    attributes:
+      label: Did it work?
+      description: Your word for it; the gallery shows it as yours.
+      options:
+        - Worked
+        - Partly
+        - Didn't work
+        - Not saying
+  - type: input
+    id: made
+    attributes:
+      label: What it made
+      description: A few words, like "a three-panel comic page" or "a browser game that crashes on level 2". Optional.
   - type: textarea
     id: note
     attributes:

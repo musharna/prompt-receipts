@@ -40,9 +40,10 @@ def event(body, number=7, login="someone", action="opened"):
                                         "labels": [{"name": "receipt"}]}}  # fmt: skip
 
 
-def form(link):
-    """an issue body as GitHub's issue form writes it"""
-    return f"### Receipt link\n\n{link}\n\n### Anything to add\n\n_No response_\n\n### Public\n\n- [X] I'm happy"
+def form(link, worked="_No response_", made="_No response_", note="_No response_"):
+    """an issue body as GitHub's issue form writes it (.github/ISSUE_TEMPLATE/receipt.yml)"""
+    return (f"### Receipt link\n\n{link}\n\n### Did it work?\n\n{worked}\n\n### What it made\n\n{made}\n\n"
+            f"### Anything to add\n\n{note}\n\n### Public\n\n- [X] I'm happy")
 
 
 class Gallery(unittest.TestCase):
@@ -69,11 +70,10 @@ class Gallery(unittest.TestCase):
     def test_the_sites_own_receipts_all_go_in(self):
         out = os.path.join(self.dir, "g.json")
         entries = gallery.seed(INDEX, out)
-        self.assertEqual(
-            len(entries), 113
-        )  # 16 cards × 7 models, and the opus run's page-checked link
+        self.assertEqual(len(entries), 112)  # 16 cards × 7 models: one entry a run
         with open(INDEX, encoding="utf-8") as fh:
-            self.assertEqual(len(entries), fh.read().count("/r/#r1."))
+            self.assertEqual(fh.read().count("/r/#r1."), 113)  # the slime's Play button links its run's again
+        self.assertEqual(len({(e["card"], e["model"]) for e in entries}), 112)
         models = {e["model"] for e in entries}
         self.assertEqual(models, {"claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "gpt-5.6-sol",
                                   "gpt-5.6-terra", "gpt-5.6-luna", "gpt-6-astra"})  # fmt: skip
@@ -85,10 +85,30 @@ class Gallery(unittest.TestCase):
         ][0]
         self.assertEqual((p1["cost"], p1["usd"], p1["time"]), ("$0.80", 0.80, "4 min"))
         self.assertTrue(p1["prompt"].startswith("A three-panel comic page"))
+        # what the card says about the run, beside what its receipt says
+        self.assertEqual(
+            {k: p1[k] for k in ("title", "name", "effort", "verdict", "made", "thumb")},
+            {"title": "Pigeon postman comic", "name": "Claude Opus 5.5", "effort": "medium effort",
+             "verdict": "worked", "made": "a full page with captions and speech bubbles",
+             "thumb": {"kind": "image", "src": "m/db8e7d88-142-framed_opus_0.webp",
+                       "full": "m/db8e7d88-142-framed_opus_0_full.webp"}},
+        )  # fmt: skip
+        sol = [e for e in entries if e["card"] == "p1" and e["model"] == "gpt-5.6-sol"][0]
+        self.assertEqual((sol["time"], sol["time_from"], sol["name"]), ("3 min", "card", "GPT-5.6-Sol"))
+        self.assertIn("GPT's built-in image model", sol["made"])  # unescaped
+        astra = [e for e in entries if e["card"] == "p1" and e["model"] == "gpt-6-astra"][0]
+        self.assertEqual(astra["effort"], "Codex's default model, effort not set")
+        self.assertEqual(p1["time_from"], "receipt")  # a Claude run's own log has its time
+        self.assertEqual({e["verdict"] for e in entries}, {"worked", "partly", "no"})
+        self.assertEqual({e["thumb"]["kind"] for e in entries}, {"image", "none", "audio", "video"})
+        self.assertTrue(all(e["title"] and e["name"] and e["made"] and e["time"] for e in entries))
+        for e in entries:
+            if e["thumb"]["kind"] != "none":
+                self.assertTrue(os.path.exists(os.path.join(HERE, "..", e["thumb"]["src"])), e["thumb"])
         with open(out, encoding="utf-8") as fh:
             lines = fh.read().split("\n")
         self.assertEqual(
-            len(lines), 113 + 3
+            len(lines), 112 + 3
         )  # one entry per line, so each addition is a one-line diff
         with open(out, encoding="utf-8") as fh:
             self.assertEqual(json.load(fh), entries)
@@ -164,6 +184,24 @@ class Gallery(unittest.TestCase):
                          "is cut off": "the link is cut off", "cut off": "the link is cut off"}.get(why, why)  # fmt: skip
                 self.assertIn(words, str(cm.exception))
 
+    def test_what_the_sender_says_about_the_run(self):
+        link = pack(RECEIPT)
+        e = gallery.from_issue(event(form(link, worked="Partly", made="  a bouncy\nslime <b>it</b>  ")))[1]
+        self.assertEqual((e["verdict"], e["made"]), ("partly", "a bouncy slime <b>it</b>"))
+        for said, verdict in (("Worked", "worked"), ("Didn't work", "no"), ("Not saying", None),
+                              ("_No response_", None)):  # fmt: skip
+            self.assertEqual(gallery.from_issue(event(form(link, worked=said)))[1]["verdict"], verdict)
+        e = gallery.from_issue(event(form(link)))[1]
+        self.assertEqual((e["verdict"], e["made"]), (None, ""))
+        e = gallery.from_issue(event(link))[1]  # a plain issue, not the form
+        self.assertEqual((e["verdict"], e["made"]), (None, ""))
+        spoof = form(link, worked="Didn't work", note="### Did it work?\n\nWorked")
+        self.assertEqual(gallery.from_issue(event(spoof))[1]["verdict"], "no")  # the form's own answer wins
+        long = gallery.from_issue(event(form(link, made="x" * 500)))[1]
+        self.assertEqual(len(long["made"]), gallery.FIELD)
+        reply = gallery.preview(gallery.from_issue(event(form(link, worked="Worked", made="a page")))[1])
+        self.assertIn("It worked, the sender says: a page.", reply)
+
     def test_check_replies_with_the_receipt_or_why_not(self):
         p = self.run_gallery(
             "check", self.write_event(event(form(SITE + "r/#" + pack(RECEIPT))))
@@ -199,7 +237,7 @@ class Gallery(unittest.TestCase):
         self.assertIn(f"{SITE}g/#i12", p.stdout)
         with open(g, encoding="utf-8") as fh:
             entries = json.load(fh)
-        self.assertEqual(len(entries), 114)
+        self.assertEqual(len(entries), 113)
         new = entries[-1]
         self.assertEqual(
             (new["issue"], new["by"], new["kind"], new["link"]),
@@ -222,11 +260,11 @@ class Gallery(unittest.TestCase):
             p.returncode, 0, p.stdout
         )  # a different receipt from a new issue still goes in
         with open(g, encoding="utf-8") as fh:
-            self.assertEqual(len(json.load(fh)), 115)
+            self.assertEqual(len(json.load(fh)), 114)
         bad = self.run_gallery("add", self.write_event(event("nothing", number=16)), g)
         self.assertEqual(bad.returncode, 1)
         with open(g, encoding="utf-8") as fh:
-            self.assertEqual(len(json.load(fh)), 115)  # a refusal writes nothing
+            self.assertEqual(len(json.load(fh)), 114)  # a refusal writes nothing
 
 
 if __name__ == "__main__":
