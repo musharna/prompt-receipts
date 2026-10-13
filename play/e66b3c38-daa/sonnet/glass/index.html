@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Stained-glass backgrounds</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root{--glass:url(stained-glass-amber.svg)}
+  [data-way=cobalt]{--glass:url(stained-glass-cobalt.svg)}
+  [data-way=emerald]{--glass:url(stained-glass-emerald.svg)}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;font:18px/1.5 Georgia,serif;color:#fff8ea;
+       background:var(--glass) 0 0/640px 640px}
+  .card{background:rgb(0 0 0/.62);backdrop-filter:blur(3px);padding:2.5rem 3rem;border-radius:4px;max-width:30rem;text-align:center}
+  h1{margin:0 0 .5rem;font-weight:400;letter-spacing:.05em}
+  nav button{font:inherit;color:inherit;background:none;border:1px solid currentColor;padding:.3rem 1rem;margin:.2rem;cursor:pointer}
+</style>
+<body data-way="amber"><div class="card"><h1>Glassblowing Studio</h1>
+<p>Hand-blown vessels, made in the heat of the furnace.</p>
+<nav><button onclick="document.body.dataset.way='amber'">Amber</button>
+<button onclick="document.body.dataset.way='cobalt'">Cobalt</button>
+<button onclick="document.body.dataset.way='emerald'">Emerald</button></nav></div></body></html>

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4efe4">
+  <title>Fold Lab — Five Origami Models</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="paper-noise" aria-hidden="true"></div>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Fold Lab home">
+      <svg viewBox="0 0 42 42" aria-hidden="true"><path d="M4 35 20 5l18 30-17-8Z"/><path d="m20 5 1 22L4 35m17-8 17 8"/></svg>
+      <span>FOLD LAB</span>
+    </a>
+    <nav aria-label="Page navigation">
+      <a href="#models">Models</a>
+      <a href="#legend">How to read</a>
+      <button class="print-button" id="printAll" type="button">Print patterns</button>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">AFTER-SCHOOL ORIGAMI CLUB · SET 01</p>
+        <h1>Five models.<br><em>One fold at a time.</em></h1>
+        <p class="intro">Crease maps you can print, folding sequences you can watch, and just enough guidance to let curious hands take over.</p>
+        <a class="start-link" href="#models">Choose a model <span aria-hidden="true">↓</span></a>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="sun"></div>
+        <svg viewBox="0 0 520 420">
+          <path class="flight-path" d="M34 313C126 245 152 323 239 244s151-88 243-173"/>
+          <g class="hero-crane">
+            <path class="paper-fill" d="m190 204 74-87 17 98 98 44-104-8-46 72 10-83Z"/>
+            <path d="m190 204 49 36 25-123 11 134 104 8m-140-19-10 83"/>
+          </g>
+        </svg>
+        <span class="note note-one">START<br>WITH A<br>SQUARE</span>
+        <span class="note note-two">CREASE<br>THEN<br>CREATE</span>
+      </div>
+    </section>
+
+    <section class="legend-section" id="legend">
+      <div>
+        <p class="section-number">00 / READ THE MAP</p>
+        <h2>A crease is a<br>set of directions.</h2>
+      </div>
+      <div class="legend-grid">
+        <div class="legend-item"><span class="line valley"></span><div><b>Valley fold</b><small>Fold toward you</small></div></div>
+        <div class="legend-item"><span class="line mountain"></span><div><b>Mountain fold</b><small>Fold away from you</small></div></div>
+        <div class="legend-item"><span class="line edge"></span><div><b>Paper edge</b><small>Cut or outer edge</small></div></div>
+        <div class="legend-item"><span class="arrow-sample">↷</span><div><b>Fold arrow</b><small>Follow its direction</small></div></div>
+      </div>
+      <p class="teacher-note"><span>TIP</span> Crease patterns are maps of the finished model—not a folding order. Watch the sequence first, then use the map to spot the structure.</p>
+    </section>
+
+    <section class="models-section" id="models">
+      <div class="models-heading">
+        <p class="section-number">01–05 / PICK YOUR CHALLENGE</p>
+        <h2>The model shelf</h2>
+        <p>Press play to watch every fold, or use the arrows to move one crease at a time.</p>
+      </div>
+      <div class="filter-row" role="group" aria-label="Filter by difficulty">
+        <button class="filter active" data-filter="all" type="button">All five</button>
+        <button class="filter" data-filter="easy" type="button">Easy</button>
+        <button class="filter" data-filter="medium" type="button">Medium</button>
+        <button class="filter" data-filter="challenge" type="button">Challenge</button>
+      </div>
+      <div class="model-list" id="modelList"></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-mark">FOLD<br>LAB</div>
+    <p>Made for patient hands,<br>sharp creases & curious minds.</p>
+    <p class="footer-small">Print at 100% scale · Use square paper<br>Frog starts with a half-sheet rectangle</p>
+  </footer>
+
+  <template id="modelTemplate">
+    <article class="model-card">
+      <div class="card-index"></div>
+      <div class="card-info">
+        <div class="title-row"><div><p class="difficulty"></p><h3></h3></div><span class="time"></span></div>
+        <p class="description"></p>
+        <div class="player">
+          <div class="stage" aria-live="polite"></div>
+          <div class="step-copy"><span class="step-count"></span><p class="instruction"></p></div>
+          <div class="controls">
+            <button class="icon-button previous" type="button" aria-label="Previous step">←</button>
+            <button class="play-button" type="button"><span class="play-icon">▶</span><span class="play-label">Watch fold</span></button>
+            <button class="icon-button next" type="button" aria-label="Next step">→</button>
+          </div>
+          <div class="progress" aria-hidden="true"></div>
+        </div>
+      </div>
+      <div class="pattern-panel">
+        <div class="pattern-heading"><span>CREASE PATTERN</span><button class="download-button" type="button" title="Download SVG">↓ SVG</button></div>
+        <div class="pattern"></div>
+        <p class="pattern-caption">Finished-model crease map</p>
+      </div>
+    </article>
+  </template>
+  <script src="script.js"></script>
+</body>
+</html>

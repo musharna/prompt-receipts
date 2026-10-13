@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pottery animations demo</title>
+<link rel="stylesheet" href="animations.css">
+<style>
+  body { font-family: system-ui, sans-serif; background: #f6f1ea; color: #3a312b; display: flex; gap: 2.5rem; flex-wrap: wrap; justify-content: center; padding: 3rem; }
+  section { text-align: center; }
+  .pot { width: 140px; height: 140px; background: #c9a98a; border-radius: 40% 40% 30% 30%; }
+  button.replay { margin-top: .5rem; }
+</style>
+</head>
+<body>
+  <section><h3>Checkout success</h3><div id="ok"></div><button class="replay" data-for="ok" data-kind="success">Replay</button></section>
+  <section><h3>Payment error</h3><div id="bad"></div><button class="replay" data-for="bad" data-kind="error">Replay</button></section>
+  <section><h3>Favourite</h3><button class="heart-btn" aria-label="Favourite this pot"></button></section>
+  <section><h3>New item</h3><div class="sparkle-wrap"><div class="pot"></div></div></section>
+
+<script type="module">
+  import { showIcon, initHearts, initSparkles } from './animations.js';
+  initHearts(); initSparkles();
+  document.querySelectorAll('.replay').forEach(b => {
+    const run = () => showIcon(document.getElementById(b.dataset.for), b.dataset.kind);
+    b.addEventListener('click', run); run();
+  });
+</script>
+</body>
+</html>

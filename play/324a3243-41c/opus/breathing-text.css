@@ -1,0 +1,38 @@
+/*
+ * Breathing text: the word slowly gets bolder, then lighter again, on a loop.
+ *
+ * Needs a variable font (e.g. Inter, Roboto Flex, Nunito) so the weight moves
+ * smoothly. With a static font the browser can only jump between the weights
+ * it has, so the word will step instead of breathe.
+ *
+ * Usage: <span class="breathe">inhale</span>
+ * Tune per screen with the custom properties below.
+ */
+
+.breathe {
+  --breathe-duration: 8s;    /* one full cycle: light -> bold -> light */
+  --breathe-light: 200;
+  --breathe-bold: 700;
+
+  display: inline-block;
+  font-weight: var(--breathe-light);
+  animation: breathe var(--breathe-duration) ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    font-weight: var(--breathe-light);
+  }
+  50% {
+    font-weight: var(--breathe-bold);
+  }
+}
+
+/* Users who ask for less motion get a steady medium weight instead. */
+@media (prefers-reduced-motion: reduce) {
+  .breathe {
+    animation: none;
+    font-weight: 400;
+  }
+}

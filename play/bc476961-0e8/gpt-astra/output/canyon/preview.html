@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Canyon parallax backgrounds</title>
+<style>
+body{margin:24px;background:#141521;color:#eee;font:16px system-ui}main{max-width:1152px;margin:auto}h1{font-size:24px}nav{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:20px 0}select,button{font:inherit;padding:8px;background:#292b40;color:white;border:1px solid #666;border-radius:6px}.scene{position:relative;aspect-ratio:3/2;overflow:hidden;background:#252437}.layer{position:absolute;inset:0;background-repeat:repeat-x;background-size:100% 100%}p{color:#bbb}label{white-space:nowrap}
+</style>
+<main><h1>Canyon — dawn / noon / night</h1><nav><label>Time <select id="time"><option>dawn</option><option>noon</option><option>night</option></select></label><button id="play">Play</button><button id="reset">Reset</button><label><input type="checkbox" data-layer="0" checked>Far</label><label><input type="checkbox" data-layer="1" checked>Middle</label><label><input type="checkbox" data-layer="2" checked>Near</label></nav><div class="scene" role="img" aria-label="Three stacked canyon parallax layers"><div class="layer"></div><div class="layer"></div><div class="layer"></div></div><p>Scroll factors: far 0.15 · middle 0.45 · near 0.85. Use the checkboxes to inspect each layer.</p></main>
+<script>
+const layers=[...document.querySelectorAll('.layer')], names=['far','middle','near'], factors=[.15,.45,.85], time=document.querySelector('#time'), play=document.querySelector('#play');
+let running=false, distance=0, previous=0;
+function theme(){layers.forEach((layer,i)=>layer.style.backgroundImage=`url('${time.value}/${names[i]}.png')`)}
+function position(){layers.forEach((layer,i)=>layer.style.backgroundPositionX=(-distance*factors[i])+'px')}
+time.addEventListener('change',theme);play.onclick=()=>{running=!running;play.textContent=running?'Pause':'Play'};
+document.querySelector('#reset').onclick=()=>{distance=0;position()};
+document.querySelectorAll('[data-layer]').forEach(box=>box.onchange=()=>layers[Number(box.dataset.layer)].style.visibility=box.checked?'visible':'hidden');
+function frame(now){if(previous&&running){distance+=Math.min(now-previous,50)*.08;position()}previous=now;requestAnimationFrame(frame)}
+theme();requestAnimationFrame(frame);
+</script></html>

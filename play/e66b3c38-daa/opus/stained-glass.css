@@ -1,0 +1,20 @@
+/* Stained-glass backgrounds. Tiles are seamless; 600px is their native size. */
+.sg-amber,
+.sg-cobalt,
+.sg-emerald {
+  background-repeat: repeat;
+  background-size: 600px 600px;
+}
+.sg-amber   { background-color: #2a1d12; background-image: url("patterns/stained-glass-amber.svg"); }
+.sg-cobalt  { background-color: #0d1426; background-image: url("patterns/stained-glass-cobalt.svg"); }
+.sg-emerald { background-color: #0e1d14; background-image: url("patterns/stained-glass-emerald.svg"); }
+
+/* Optional: tone the glass down behind text-heavy areas. */
+.sg-soft {
+  background-image:
+    linear-gradient(rgb(0 0 0 / .45), rgb(0 0 0 / .45)),
+    var(--sg-tile);
+}
+.sg-amber.sg-soft   { --sg-tile: url("patterns/stained-glass-amber.svg"); }
+.sg-cobalt.sg-soft  { --sg-tile: url("patterns/stained-glass-cobalt.svg"); }
+.sg-emerald.sg-soft { --sg-tile: url("patterns/stained-glass-emerald.svg"); }

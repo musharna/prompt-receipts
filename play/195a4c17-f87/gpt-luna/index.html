@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clay &amp; Kiln — micro-interactions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="showcase">
+      <header class="intro">
+        <p class="eyebrow">Clay &amp; Kiln · micro-interactions</p>
+        <h1>Small moments,<br /><em>made memorable.</em></h1>
+        <p class="lede">A warm, tactile set of feedback animations for a pottery shop. Tap any tile to replay.</p>
+      </header>
+
+      <section class="animation-grid" aria-label="Animation examples">
+        <article class="demo-card success-card">
+          <div class="card-top"><span class="number">01</span><span class="tag">Checkout</span></div>
+          <div class="stage stage-success" id="successStage">
+            <div class="success-badge" aria-hidden="true">
+              <svg viewBox="0 0 64 64" class="icon icon-check"><circle cx="32" cy="32" r="25" /><path d="m19 32 9 9 18-19" /></svg>
+            </div>
+            <p class="stage-label">Order confirmed</p>
+          </div>
+          <div class="card-copy"><h2>Success</h2><p>A calm little exhale after checkout.</p><button class="replay" data-replay="successStage">Replay <span>↗</span></button></div>
+        </article>
+
+        <article class="demo-card error-card">
+          <div class="card-top"><span class="number">02</span><span class="tag">Validation</span></div>
+          <div class="stage stage-error" id="errorStage">
+            <div class="error-badge" aria-hidden="true">
+              <svg viewBox="0 0 64 64" class="icon icon-cross"><circle cx="32" cy="32" r="25" /><path d="m22 22 20 20M42 22 22 42" /></svg>
+            </div>
+            <p class="stage-label">Something went wrong</p>
+          </div>
+          <div class="card-copy"><h2>Error</h2><p>Drawn in, then a gentle shake to say “try again”.</p><button class="replay" data-replay="errorStage">Replay <span>↗</span></button></div>
+        </article>
+
+        <article class="demo-card heart-card">
+          <div class="card-top"><span class="number">03</span><span class="tag">Favourites</span></div>
+          <div class="stage stage-heart" id="heartStage">
+            <div class="heart-wrap" aria-hidden="true"><span class="heart-burst burst-a">✦</span><span class="heart-burst burst-b">✦</span><svg viewBox="0 0 64 64" class="heart"><path d="M32 51S10 38 10 23c0-7 5-12 12-12 5 0 8 3 10 7 2-4 5-7 10-7 7 0 12 5 12 12 0 15-22 28-22 28Z" /></svg></div>
+            <p class="stage-label">Saved to favourites</p>
+          </div>
+          <div class="card-copy"><h2>Favourite</h2><p>A soft, joyful pop for a pot worth keeping.</p><button class="replay" data-replay="heartStage">Replay <span>↗</span></button></div>
+        </article>
+
+        <article class="demo-card sparkle-card">
+          <div class="card-top"><span class="number">04</span><span class="tag">New arrival</span></div>
+          <div class="stage stage-sparkles" id="sparkleStage">
+            <div class="pot-wrap" aria-hidden="true"><span class="sparkle s1">✦</span><span class="sparkle s2">✦</span><span class="sparkle s3">✦</span><span class="sparkle s4">✧</span><svg class="pot" viewBox="0 0 100 100"><path d="M19 25h62l-6 57H25Z" /><path d="M15 25h70v10H15z" /><path d="M31 46h38M29 58h42M28 70h44" /></svg></div>
+            <p class="stage-label">Just in the kiln</p>
+          </div>
+          <div class="card-copy"><h2>New in</h2><p>Tiny glints that make a fresh batch feel special.</p><button class="replay" data-replay="sparkleStage">Replay <span>↗</span></button></div>
+        </article>
+      </section>
+      <footer><span class="footer-mark">✦</span> Crafted for considered commerce <span class="footer-line"></span> prefers-reduced-motion ready</footer>
+    </main>
+    <script src="script.js"></script>
+  </body>
+</html>

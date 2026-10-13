@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stained-glass backgrounds</title>
+<link rel="stylesheet" href="stained-glass.css">
+<style>
+  body { margin: 0; font-family: Georgia, serif; }
+  section { min-height: 60vh; display: grid; place-items: center; padding: 3rem 1rem; }
+  .card {
+    max-width: 32rem; padding: 2rem 2.5rem; border-radius: 6px;
+    background: rgb(255 252 245 / .92); color: #222;
+    box-shadow: 0 10px 40px rgb(0 0 0 / .4);
+  }
+  h1 { margin-top: 0; font-weight: normal; }
+</style>
+</head>
+<body>
+  <section class="sg-amber"><div class="card"><h1>Amber</h1><p>Hand-blown glass, made in the studio.</p></div></section>
+  <section class="sg-cobalt"><div class="card"><h1>Cobalt blue</h1><p>Hand-blown glass, made in the studio.</p></div></section>
+  <section class="sg-emerald"><div class="card"><h1>Emerald</h1><p>Hand-blown glass, made in the studio.</p></div></section>
+  <section class="sg-cobalt sg-soft"><div class="card"><h1>Cobalt, softened</h1><p>Add <code>sg-soft</code> to calm the pattern behind long text.</p></div></section>
+</body>
+</html>

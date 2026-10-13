@@ -1,0 +1,93 @@
+{
+  "tool": "built-in image_gen",
+  "dawn": [
+    "Use case: stylized-concept. Asset type: production 2D side-scroller canyon parallax background, one single wide 1536x1024 PNG layer. Polished hand-painted game art, simplified angular sandstone forms, clean silhouettes, subtle strata texture, panoramic straight-on side view, no perspective road, no characters, buildings, text, borders or watermark. Dawn lighting: pale peach horizon, lavender shadows, warm rose sandstone. Horizontally repeating composition with matching left/right edge heights, colors and contours; no distinctive object cut by edges. Layer 1 of 3, FAR: opaque sky gradient covering entire canvas, sparse wispy clouds and very distant low hazy mesas restricted to bottom 40 percent. Broad flat-topped mesa at x=25%, twin narrow buttes at x=62%, low plateau at right. Airy atmospheric depth, understated contrast. No middle-distance or foreground rocks.",
+    "Use case: stylized-concept. Asset type: production 2D side-scroller canyon parallax background, one single wide 1536x1024 PNG layer. Polished hand-painted game art, simplified angular sandstone forms, clean silhouettes, subtle strata texture, panoramic straight-on side view, no perspective road, no characters, buildings, text, borders or watermark. Dawn lighting: pale peach horizon, lavender shadows, warm rose sandstone. Horizontally repeating composition with matching left/right edge heights, colors and contours; no distinctive object cut by edges. Layer 2 of 3, MIDDLE: genuinely transparent background, empty upper 40 percent is transparent. A continuous band of canyon sandstone walls rising from bottom, varying between 35 and 60 percent canvas height. Broad terraced mesa on left, lower saddle in center, split-topped butte to right. Bottom fully filled with rock. Warm rose cliff faces, lavender recesses, restrained details. Only middle-distance rocks; no sky, far mountains, foreground objects, checkerboard or ground shadow outside silhouette.",
+    "Use case: stylized-concept. Asset type: production 2D side-scroller canyon parallax background, one single wide 1536x1024 PNG layer. Polished hand-painted game art, simplified angular sandstone forms, clean silhouettes, subtle strata texture, panoramic straight-on side view, no perspective road, no characters, buildings, text, borders or watermark. Dawn lighting: pale peach horizon, lavender shadows, warm rose sandstone. Horizontally repeating composition with matching left/right edge heights, colors and contours; no distinctive object cut by edges. Layer 3 of 3, NEAR: genuinely transparent background with upper 72 percent empty and transparent; a low continuous rocky rim filling bottom 18-28 percent. Angular ledges, a few larger rugged boulders and sparse desert scrub, dark plum shadows with thin warm dawn highlights, richest detail. Side view, not a road or corridor. Only foreground rim; no sky, canyon walls, distant mountains, checkerboard or shadow outside silhouette."
+  ],
+  "variants": [
+    {
+      "time": "noon",
+      "i": 0,
+      "prompt": "Use case: lighting-weather. Input image is edit target: far sky and distant mesas from a three-layer canyon parallax game background. Create the NOON version of this exact layer. Change ONLY lighting and color; preserve exact canvas 1536x1024, framing, all terrain silhouettes, rock positions, strata, vegetation, and cloud positions. Bright overhead noon sunlight, sandstone orange and ochre, short cooler rock shadows, clear blue sky if present, white clouds if present.  Keep same painted game-art style. No new terrain, objects, text, borders or watermarks.",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-9e01a42c-c064-450b-b01d-a46c41019617.png"
+    },
+    {
+      "time": "noon",
+      "i": 1,
+      "prompt": "Use case: lighting-weather. Input image is edit target: middle canyon walls with transparency from a three-layer canyon parallax game background. Create the NOON version of this exact layer. Change ONLY lighting and color; preserve exact canvas 1536x1024, framing, all terrain silhouettes, rock positions, strata, vegetation, and alpha transparency and silhouette edges. Bright overhead noon sunlight, sandstone orange and ochre, short cooler rock shadows, clear blue sky if present, white clouds if present. Maintain genuine transparent background outside the rock and shrub silhouettes, no opaque black or sky background. Keep same painted game-art style. No new terrain, objects, text, borders or watermarks.",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-9e7307d4-8bb9-4623-8a66-f76e6d46ee50.png"
+    },
+    {
+      "time": "noon",
+      "i": 2,
+      "prompt": "Use case: lighting-weather. Input image is edit target: near rocky rim with transparency from a three-layer canyon parallax game background. Create the NOON version of this exact layer. Change ONLY lighting and color; preserve exact canvas 1536x1024, framing, all terrain silhouettes, rock positions, strata, vegetation, and alpha transparency and silhouette edges. Bright overhead noon sunlight, sandstone orange and ochre, short cooler rock shadows, clear blue sky if present, white clouds if present. Maintain genuine transparent background outside the rock and shrub silhouettes, no opaque black or sky background. Keep same painted game-art style. No new terrain, objects, text, borders or watermarks.",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-1fd2ce2d-6f88-46a4-afe9-c919a4cda0cc.png"
+    },
+    {
+      "time": "night",
+      "i": 0,
+      "prompt": "Use case: lighting-weather. Input image is edit target: far sky and distant mesas from a three-layer canyon parallax game background. Create the NIGHT version of this exact layer. Change ONLY lighting and color; preserve exact canvas 1536x1024, framing, all terrain silhouettes, rock positions, strata, vegetation, and cloud positions. Deep blue moonlit night, indigo and muted violet rock faces, subtle cool silver highlights, readable dark shadows; if sky is present turn it dark navy with sparse fine stars and dim clouds. No moon disc.  Keep same painted game-art style. No new terrain, objects, text, borders or watermarks.",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-9e01a42c-c064-450b-b01d-a46c41019617.png"
+    },
+    {
+      "time": "night",
+      "i": 1,
+      "prompt": "Use case: lighting-weather. Input image is edit target: middle canyon walls with transparency from a three-layer canyon parallax game background. Create the NIGHT version of this exact layer. Change ONLY lighting and color; preserve exact canvas 1536x1024, framing, all terrain silhouettes, rock positions, strata, vegetation, and alpha transparency and silhouette edges. Deep blue moonlit night, indigo and muted violet rock faces, subtle cool silver highlights, readable dark shadows; if sky is present turn it dark navy with sparse fine stars and dim clouds. No moon disc. Maintain genuine transparent background outside the rock and shrub silhouettes, no opaque black or sky background. Keep same painted game-art style. No new terrain, objects, text, borders or watermarks.",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-9e7307d4-8bb9-4623-8a66-f76e6d46ee50.png"
+    },
+    {
+      "time": "night",
+      "i": 2,
+      "prompt": "Use case: lighting-weather. Input image is edit target: near rocky rim with transparency from a three-layer canyon parallax game background. Create the NIGHT version of this exact layer. Change ONLY lighting and color; preserve exact canvas 1536x1024, framing, all terrain silhouettes, rock positions, strata, vegetation, and alpha transparency and silhouette edges. Deep blue moonlit night, indigo and muted violet rock faces, subtle cool silver highlights, readable dark shadows; if sky is present turn it dark navy with sparse fine stars and dim clouds. No moon disc. Maintain genuine transparent background outside the rock and shrub silhouettes, no opaque black or sky background. Keep same painted game-art style. No new terrain, objects, text, borders or watermarks.",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-1fd2ce2d-6f88-46a4-afe9-c919a4cda0cc.png"
+    }
+  ],
+  "files": [
+    {
+      "time": "dawn",
+      "layer": "far",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-9e01a42c-c064-450b-b01d-a46c41019617.png"
+    },
+    {
+      "time": "dawn",
+      "layer": "middle",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-9e7307d4-8bb9-4623-8a66-f76e6d46ee50.png"
+    },
+    {
+      "time": "dawn",
+      "layer": "near",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-1fd2ce2d-6f88-46a4-afe9-c919a4cda0cc.png"
+    },
+    {
+      "time": "noon",
+      "layer": "far",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-01a5bab6-9f98-4367-9274-e4ef6ad68ab8.png"
+    },
+    {
+      "time": "noon",
+      "layer": "middle",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-8c769847-dd17-4dce-9afb-054bc8759ede.png"
+    },
+    {
+      "time": "noon",
+      "layer": "near",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-cb0050f0-aa9a-4895-bbcc-a300f8d4d098.png"
+    },
+    {
+      "time": "night",
+      "layer": "far",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-5bf86840-c3d5-4c1a-bc3e-35a0441f6435.png"
+    },
+    {
+      "time": "night",
+      "layer": "middle",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-59508a51-78fa-44ff-ae5f-ab77d3387085.png"
+    },
+    {
+      "time": "night",
+      "layer": "near",
+      "src": "/home/mjarnold/.codex/generated_images/01a131b1-7a88-7d71-b08c-3fec24728c46/exec-d5032005-656d-4b43-bee6-3c455295f5af.png"
+    }
+  ]
+}

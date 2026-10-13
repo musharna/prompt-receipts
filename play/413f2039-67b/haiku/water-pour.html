@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Water pouring into a glass bowl</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #2b2a28; display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; max-width: 100vw; max-height: 100vh; width: min(100vw, 133vh); height: auto; }
+</style>
+</head>
+<body>
+<canvas id="c" width="800" height="600"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 800, H = 600;
+
+// Bowl: lower half-ellipse centred on the rim line
+const CX = 400, RIM = 380, RX = 210, RY = 160, RIM_RY = 26, BOTTOM = 540;
+const CYCLE = 10;                       // seconds per pour-and-reset loop
+const PIVOT = { x: 330, y: 170 };       // pitcher spout
+
+let fill = 0, t = 0, last = performance.now();
+const ripples = [], drops = [];
+let nextRipple = 0, nextDrop = 0;
+
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const smooth = v => v * v * (3 - 2 * v);
+const halfWidth = y => { const k = (y - RIM) / RY; return RX * Math.sqrt(Math.max(0, 1 - k * k)); };
+
+function bowlPath() {
+  ctx.beginPath();
+  ctx.ellipse(CX, RIM, RX, RY, 0, 0, Math.PI);
+  ctx.closePath();
+}
+
+function drawBackground() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#fbf7f0');
+  g.addColorStop(1, '#ece2d3');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(70, 50, 30, 0.14)';
+  ctx.beginPath();
+  ctx.ellipse(CX + 8, 546, 235, 18, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawPitcher(tilt) {
+  ctx.save();
+  ctx.translate(PIVOT.x, PIVOT.y);
+  ctx.rotate(tilt);
+  ctx.strokeStyle = '#7d95a8';
+  ctx.fillStyle = '#e8f1f7';
+  ctx.lineWidth = 9;
+  ctx.strokeStyle = '#9fb4c4';
+  ctx.beginPath();
+  ctx.arc(-112, 60, 26, Math.PI / 2, Math.PI * 1.5);   // handle
+  ctx.stroke();
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = '#7d95a8';
+  ctx.beginPath();
+  ctx.ellipse(-62, 60, 58, 64, 0, 0, Math.PI * 2);     // body
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-34, 2); ctx.lineTo(-2, -4); ctx.lineTo(4, 4); ctx.lineTo(-22, 14);  // spout lip
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Parabolic stream: vertical where it meets the water, wobbling slightly
+function streamPoint(u, dx, dy) {
+  return {
+    x: CX - dx * (1 - u) * (1 - u) + 1.2 * u * Math.sin(u * 28 - t * 14),
+    y: PIVOT.y + dy * u
+  };
+}
+
+function drawStream(ys, strength) {
+  const dx = CX - PIVOT.x, dy = ys - PIVOT.y;
+  const n = 48;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const p0 = streamPoint(i / n, dx, dy);
+    const p1 = streamPoint((i + 1) / n, dx, dy);
+    const w = (7 - 2.5 * ((i + 1) / n)) * strength;
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.strokeStyle = 'rgba(105, 175, 235, 0.8)';
+    ctx.lineWidth = w;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.lineWidth = w * 0.3;
+    ctx.stroke();
+  }
+}
+
+function drawWater(ys) {
+  ctx.save();
+  bowlPath();
+  ctx.clip();
+
+  const g = ctx.createLinearGradient(0, ys, 0, BOTTOM);
+  g.addColorStop(0, 'rgba(120, 190, 245, 0.6)');
+  g.addColorStop(1, 'rgba(35, 105, 195, 0.75)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, ys, W, H);
+
+  // Wavy surface
+  const w = halfWidth(ys);
+  ctx.beginPath();
+  for (let i = 0; i <= 72; i++) {
+    const a = i / 72 * Math.PI * 2;
+    const x = CX + w * Math.cos(a);
+    const y = ys + 9 * Math.sin(a) + 2 * Math.sin(a * 6 - t * 4);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(190, 230, 255, 0.9)';
+  ctx.fill();
+
+  // Impact ripples
+  for (const r of ripples) {
+    ctx.beginPath();
+    ctx.ellipse(CX, ys, r.age * 150, r.age * 24, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - r.age / 2.2) * 0.6})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function updateParticles(dt, ys, flowing) {
+  if (flowing && t > nextRipple) {
+    ripples.push({ age: 0 });
+    nextRipple = t + 0.35;
+  }
+  if (flowing && t > nextDrop) {
+    for (let i = 0; i < 2; i++) {
+      drops.push({
+        x: CX + (Math.random() - 0.5) * 10,
+        y: ys,
+        vx: (Math.random() - 0.5) * 120,
+        vy: -(120 + Math.random() * 140)
+      });
+    }
+    nextDrop = t + 0.07;
+  }
+  for (const r of ripples) r.age += dt;
+  for (let i = ripples.length - 1; i >= 0; i--) if (ripples[i].age > 2.2) ripples.splice(i, 1);
+
+  for (const d of drops) {
+    d.vy += 900 * dt;
+    d.x += d.vx * dt;
+    d.y += d.vy * dt;
+  }
+  for (let i = drops.length - 1; i >= 0; i--) {
+    if (drops[i].vy > 0 && drops[i].y > ys) drops.splice(i, 1);
+  }
+}
+
+function drawDrops() {
+  ctx.fillStyle = 'rgba(120, 185, 240, 0.95)';
+  for (const d of drops) {
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  t += dt;
+
+  // Pitcher tilts in, pours, tilts back out; the bowl then drains for the next loop
+  const ph = t % CYCLE;
+  const tilt = 0.85 * smooth(clamp((ph - 0.3) / 0.9)) * (1 - smooth(clamp((ph - 6.0) / 0.9)));
+  const flow = clamp(tilt / 0.55) * (fill < 0.985 ? 1 : 0);
+  if (ph > 7.5) fill = Math.max(0, fill - dt * 1.0);
+  else fill = Math.min(1, fill + flow * dt * 0.22);
+
+  const ys = BOTTOM - 2 - fill * (RY - 2);
+  updateParticles(dt, ys, flow > 0.01);
+
+  ctx.clearRect(0, 0, W, H);
+  drawBackground();
+
+  // Back half of the rim, behind the water
+  ctx.beginPath();
+  ctx.ellipse(CX, RIM, RX, RIM_RY, 0, Math.PI, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(90, 120, 150, 0.5)';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Glass body
+  bowlPath();
+  ctx.fillStyle = 'rgba(205, 230, 250, 0.22)';
+  ctx.fill();
+
+  if (fill > 0.01) drawWater(ys);
+
+  drawPitcher(tilt);
+  if (flow > 0.01) drawStream(ys, flow);
+  drawDrops();
+
+  // Front of the glass
+  ctx.beginPath();
+  ctx.ellipse(CX, RIM, RX, RIM_RY, 0, 0, Math.PI);
+  ctx.strokeStyle = 'rgba(80, 110, 140, 0.6)';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.ellipse(CX, RIM, RX, RY, 0, 0, Math.PI);
+  ctx.strokeStyle = 'rgba(80, 110, 140, 0.6)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Glint on the left wall
+  ctx.beginPath();
+  ctx.ellipse(CX, RIM, RX - 18, RY - 18, 0, Math.PI * 0.6, Math.PI * 0.8);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  requestAnimationFrame(frame);
+}
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

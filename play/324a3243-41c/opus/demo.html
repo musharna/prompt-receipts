@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Breathing text demo</title>
+  <!-- Inter as a variable font (weights 100–900) so the weight changes smoothly -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap">
+  <link rel="stylesheet" href="breathing-text.css">
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      gap: 2rem;
+      background: #0f1a24;
+      color: #e8eef3;
+      font-family: "Inter", system-ui, sans-serif;
+    }
+    .word {
+      font-size: 3rem;
+      letter-spacing: 0.04em;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="word"><span class="breathe">inhale</span></div>
+  <div class="word"><span class="breathe">hold</span></div>
+  <div class="word"><span class="breathe">exhale</span></div>
+</body>
+</html>

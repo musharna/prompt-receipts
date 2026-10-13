@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Voxel weapon pickups</title>
+<style>
+  body { margin: 0; background: #14121c; color: #ddd; font: 14px/1.4 monospace; text-align: center; }
+  h1 { font-size: 16px; margin: 16px 0 4px; font-weight: normal; letter-spacing: 2px; }
+  #row { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; padding: 12px; }
+  .card { background: #1d1a2a; border: 1px solid #332e4a; border-radius: 6px; padding: 6px; }
+  .card div { margin-top: 2px; color: #b9b2d8; }
+  button { margin: 8px; padding: 6px 12px; background: #2a2540; color: #ddd; border: 1px solid #4a4370; cursor: pointer; font: inherit; }
+</style>
+</head>
+<body>
+<h1>WEAPON PICKUPS</h1>
+<div id="row"></div>
+<button id="dl">Download weapons.json</button>
+<script>
+// ---------- palette (alpha < 1 = translucent) ----------
+const PALETTE = {
+  coral:  { c: '#ff7a68' }, coralL: { c: '#ffb09f' }, coralD: { c: '#d9503f' }, coralP: { c: '#ff9ec2' },
+  bone:   { c: '#ebe4cc' }, boneL:  { c: '#fffaea' }, boneD:  { c: '#b8ae8e' },
+  glass:  { c: '#9fe8ff', a: 0.55 }, glassL: { c: '#dcf8ff', a: 0.7 }, glassW: { c: '#ffffff' },
+  wind:   { c: '#7fe0d0', a: 0.75 }, windL:  { c: '#d6fff8', a: 0.85 }, windW: { c: '#ffffff' },
+  wood:   { c: '#7a5232' }, woodD:  { c: '#52341f' },
+  leather:{ c: '#5b3a2a' }, leatherL:{ c: '#7b5240' },
+  gold:   { c: '#e8c24a' },
+  iron:   { c: '#4a4d57' }, ironD:  { c: '#24262c' }, ironL: { c: '#7d8190' },
+};
+
+// ---------- modelling helpers: 16^3 grid, weapon points up (+y), pivot at (8,8,8) ----------
+function build(fn) {
+  const v = new Map();
+  const set = (x, y, z, c) => v.set(x + ',' + y + ',' + z, { x, y, z, c });
+  const box = (x0, y0, z0, x1, y1, z1, c) => {
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) set(x, y, z, c);
+  };
+  fn(set, box);
+  return v;
+}
+
+const MODELS = {
+  'Coral Dagger': build((set, box) => {
+    box(7, 1, 7, 8, 1, 8, 'gold');                 // pommel
+    box(7, 2, 7, 8, 4, 8, 'leather');              // grip
+    box(7, 3, 7, 8, 3, 8, 'leatherL');             // wrap stripe
+    box(5, 5, 7, 10, 5, 8, 'coralD');              // guard
+    box(6, 6, 7, 9, 8, 8, 'coral');                // blade base
+    box(7, 9, 7, 8, 12, 8, 'coral');               // blade
+    box(7, 6, 7, 7, 12, 8, 'coralL');              // lit edge
+    box(7, 13, 7, 8, 13, 8, 'coralL');
+    set(7, 14, 7, 'coralL'); set(7, 14, 8, 'coralL');
+    // coral branches and polyps
+    set(5, 8, 7, 'coralP'); set(5, 9, 7, 'coralP'); set(4, 10, 7, 'coralP');
+    set(10, 9, 8, 'coralP'); set(10, 10, 8, 'coralP'); set(11, 11, 8, 'coralP');
+    set(9, 12, 7, 'coralP'); set(6, 11, 8, 'coralP');
+  }),
+
+  'Bone Axe': build((set, box) => {
+    box(6, 0, 7, 9, 1, 8, 'bone');                 // knuckle end
+    box(7, 2, 7, 8, 14, 8, 'boneD');               // shaft
+    box(7, 4, 7, 8, 6, 8, 'leather');              // grip wrap
+    box(7, 5, 7, 8, 5, 8, 'leatherL');
+    box(6, 9, 6, 9, 13, 9, 'boneD');               // socket
+    const rows = { 15: [9, 10], 14: [9, 12], 13: [9, 13], 12: [9, 13], 11: [9, 13], 10: [9, 12], 9: [9, 10] };
+    for (const [y, [a, b]] of Object.entries(rows)) {
+      for (let x = a; x <= b; x++) box(x, +y, 7, x, +y, 8, x === b ? 'boneL' : 'bone');
+    }
+    box(5, 11, 7, 6, 11, 8, 'bone'); set(4, 11, 7, 'boneL'); set(4, 11, 8, 'boneL'); // back spike
+    set(7, 13, 6, 'leatherL'); set(8, 10, 9, 'leatherL');                           // lashing
+  }),
+
+  'Glass Sword': build((set, box) => {
+    box(7, 0, 7, 8, 0, 8, 'gold');                 // pommel
+    box(7, 1, 7, 8, 3, 8, 'leather');              // grip
+    box(4, 4, 7, 11, 4, 8, 'gold');                // guard
+    set(4, 5, 7, 'gold'); set(11, 5, 8, 'gold');
+    box(6, 5, 7, 9, 7, 8, 'glass');                // blade shoulders
+    box(7, 8, 7, 8, 14, 8, 'glass');               // blade
+    box(7, 5, 7, 7, 14, 7, 'glassL');              // lit edge
+    box(7, 15, 7, 8, 15, 8, 'glassL');             // tip
+    set(8, 9, 7, 'glassW'); set(7, 12, 8, 'glassW'); set(7, 6, 8, 'glassW');
+  }),
+
+  'Wind Staff': build((set, box) => {
+    box(7, 0, 7, 8, 12, 8, 'wood');                // pole
+    box(7, 3, 7, 8, 3, 8, 'woodD'); box(7, 8, 7, 8, 8, 8, 'woodD');
+    box(6, 11, 6, 9, 11, 9, 'woodD');              // head collar
+    box(7, 12, 7, 8, 14, 8, 'windL');              // core
+    box(7, 13, 7, 8, 13, 8, 'windW');
+    for (let i = 0; i < 18; i++) {                 // spiral gust
+      const a = i * 0.75, r = 3.4;
+      set(Math.round(7.5 + r * Math.cos(a)), 10 + Math.floor(i / 3.4), Math.round(7.5 + r * Math.sin(a)), i % 2 ? 'wind' : 'windL');
+    }
+  }),
+
+  'Cast-Iron Frying Pan': build((set, box) => {
+    box(7, 0, 7, 8, 6, 8, 'iron');                 // handle
+    box(7, 0, 7, 8, 1, 8, 'ironD');
+    set(7, 0, 7, 'ironL'); // hang-hole glint
+    for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
+      const d = Math.hypot(x - 7.5, y - 10.5);
+      if (d > 5.6) continue;
+      if (d > 4.3) box(x, y, 7, x, y, 8, ((x + y) % 5 === 0) ? 'ironL' : 'iron'); // raised rim
+      else set(x, y, 7, 'ironD');                                                 // seasoned surface
+    }
+    set(5, 12, 7, 'iron'); set(6, 13, 7, 'iron'); set(6, 12, 7, 'iron');          // sheen
+  }),
+};
+
+// ---------- renderer: yaw-rotating voxels, fixed pitch, painter's algorithm ----------
+const PITCH = 0.5, SCALE = 9, W = 220, H = 270;
+const FACES = [
+  { n: [1, 0, 0],  q: [[1,0,0],[1,1,0],[1,1,1],[1,0,1]] },
+  { n: [-1, 0, 0], q: [[0,0,0],[0,0,1],[0,1,1],[0,1,0]] },
+  { n: [0, 1, 0],  q: [[0,1,0],[0,1,1],[1,1,1],[1,1,0]] },
+  { n: [0, -1, 0], q: [[0,0,0],[1,0,0],[1,0,1],[0,0,1]] },
+  { n: [0, 0, 1],  q: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]] },
+  { n: [0, 0, -1], q: [[0,0,0],[0,1,0],[1,1,0],[1,0,0]] },
+];
+const LIGHT = (() => { const l = [-0.5, 0.8, 0.6], m = Math.hypot(...l); return l.map(v => v / m); })();
+
+function shade(hex, k) {
+  const n = parseInt(hex.slice(1), 16);
+  const f = v => Math.max(0, Math.min(255, Math.round(v * k)));
+  return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
+}
+
+function drawModel(ctx, model, yaw, ox, oy) {
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+  const view = (x, y, z) => {
+    const x1 = x * cy + z * sy, z1 = -x * sy + z * cy;
+    return [x1, y * cp - z1 * sp, y * sp + z1 * cp]; // screen x, screen up, depth (toward camera)
+  };
+  const list = [...model.values()].map(vx => ({ vx, d: view(vx.x + 0.5 - 8, vx.y + 0.5 - 8, vx.z + 0.5 - 8)[2] }));
+  list.sort((a, b) => a.d - b.d);
+  ctx.lineWidth = 0.7; ctx.lineJoin = 'round';
+  for (const { vx } of list) {
+    const mat = PALETTE[vx.c], alpha = mat.a ?? 1;
+    for (const f of FACES) {
+      const nb = model.get((vx.x + f.n[0]) + ',' + (vx.y + f.n[1]) + ',' + (vx.z + f.n[2]));
+      if (nb && (PALETTE[nb.c].a ?? 1) >= 1 || (nb && nb.c === vx.c)) continue; // hidden face
+      const nv = view(...f.n);
+      if (nv[2] <= 0) continue;                                                 // back-facing
+      const k = 0.45 + 0.55 * Math.max(0, nv[0] * LIGHT[0] + nv[1] * LIGHT[1] + nv[2] * LIGHT[2]);
+      ctx.beginPath();
+      f.q.forEach((c, i) => {
+        const p = view(vx.x + c[0] - 8, vx.y + c[1] - 8, vx.z + c[2] - 8);
+        const sx = ox + p[0] * SCALE, sy2 = oy - p[1] * SCALE;
+        i ? ctx.lineTo(sx, sy2) : ctx.moveTo(sx, sy2);
+      });
+      ctx.closePath();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = ctx.strokeStyle = shade(mat.c, k);
+      ctx.fill(); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- pickup presentation: bob, spin, glow, ground shadow ----------
+const row = document.getElementById('row');
+const cards = Object.entries(MODELS).map(([name, model], i) => {
+  const card = document.createElement('div'); card.className = 'card';
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const label = document.createElement('div'); label.textContent = name;
+  card.append(cv, label); row.append(card);
+  return { ctx: cv.getContext('2d'), model, phase: i * 0.9 };
+});
+
+function frame(ms) {
+  const t = ms / 1000;
+  for (const c of cards) {
+    const { ctx } = c, bob = Math.sin(t * 2.2 + c.phase);
+    ctx.clearRect(0, 0, W, H);
+    const gx = W / 2, gy = H - 38;
+    const g = ctx.createRadialGradient(gx, gy, 2, gx, gy, 70);
+    g.addColorStop(0, 'rgba(255,230,150,0.35)'); g.addColorStop(1, 'rgba(255,230,150,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, gy - 70, W, 140);
+    ctx.fillStyle = 'rgba(0,0,0,' + (0.35 - bob * 0.08) + ')';
+    ctx.beginPath(); ctx.ellipse(gx, gy, 30 - bob * 4, 8 - bob * 1.2, 0, 0, 7); ctx.fill();
+    drawModel(ctx, c.model, t * 1.0 + c.phase, W / 2, H / 2 - 8 - bob * 6);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---------- export for the game ----------
+document.getElementById('dl').onclick = () => {
+  const palette = Object.fromEntries(Object.entries(PALETTE).map(([k, m]) => [k, { color: m.c, alpha: m.a ?? 1 }]));
+  const models = Object.fromEntries(Object.entries(MODELS).map(([n, m]) => [n, [...m.values()].map(v => [v.x, v.y, v.z, v.c])]));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ grid: 16, palette, models })], { type: 'application/json' }));
+  a.download = 'weapons.json'; a.click();
+};
+</script>
+</body>
+</html>

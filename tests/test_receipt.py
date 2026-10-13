@@ -2416,7 +2416,7 @@ class StreamJson(Base):
 
     COST = 8 * 4e-6 + 2200 * 0.2e-6 + 200 * 8e-6 + 4006 * 20e-6  # input, cache read, 1-hour cache write, output
 
-    def save(self, sub=True, synthetic=False):
+    def save(self, sub=True, synthetic=False, ui=False):
         def msg(i, at, content, u, parent=None):
             usage = {"input_tokens": u[0], "cache_read_input_tokens": u[1], "cache_creation_input_tokens": u[2],
                      "cache_creation": {"ephemeral_1h_input_tokens": u[2], "ephemeral_5m_input_tokens": 0},
@@ -2447,6 +2447,9 @@ class StreamJson(Base):
             es.insert(3, {"type": "user", "timestamp": ts(2), "session_id": "s1", "parent_tool_use_id": None,
                           "isSynthetic": True, "message": {"role": "user", "content": [
                               {"type": "text", "text": "[Image: original 1600x2300, displayed at 1391x2000.]"}]}})
+        if ui:  # a first launch (an empty home) writes a UI event before the init line
+            es.insert(0, {"type": "system", "subtype": "ui_invalidate", "event": "ui.render", "uuid": "u0",
+                          "session_id": "s1"})
         if sub:  # a subagent's message comes inline, marked with the tool call that started it
             es.insert(3, msg("m-sub", ts(3), [{"type": "tool_use", "id": "s", "name": "Write", "input": {
                 "file_path": os.path.join(self.proj, "sub.css"), "content": "b{}"}}], (0, 0, 0, 1), parent="t1"))
@@ -2477,6 +2480,17 @@ class StreamJson(Base):
         with open(asked, "w", encoding="utf-8") as fh:
             fh.write("Make a page")
         self.assertIn("prompt   Make a page", self.ok(path, "--asked", asked).stdout)  # not refused as a log with its own
+
+    def test_a_ui_event_before_the_init_line_changes_nothing(self):
+        path = self.save(synthetic=True, ui=True)
+        out = self.ok(path).stdout
+        self.assertIn(" · Claude Code 2.1.300 · ", out)
+        self.assertIn("cost     $0.08 (Claude Code's own total at API prices; the lines below add up to it)", out)
+        asked = os.path.join(self.home, "asked.txt")
+        with open(asked, "w", encoding="utf-8") as fh:
+            fh.write("Make a page")
+        self.assertIn("prompt   Make a page", self.ok(path, "--asked", asked).stdout)
+        self.assertEqual(out, self.ok(self.save(synthetic=True)).stdout)  # the same receipt as without it
 
     def test_the_prompt_isnt_in_it(self):
         path = self.save()

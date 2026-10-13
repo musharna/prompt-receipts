@@ -1,0 +1,53 @@
+:root {
+  color: #e8eef3;
+  background: #0f1a24;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+}
+
+.breathing-exercise {
+  display: grid;
+  gap: 1.5rem;
+  text-align: center;
+}
+
+.breathing-word {
+  margin: 0;
+  font-size: clamp(2.25rem, 8vw, 4rem);
+  letter-spacing: 0.04em;
+}
+
+/* One shared cycle keeps every instruction breathing together. */
+.breathe {
+  --breathe-duration: 8s;
+  --breathe-light: 200;
+  --breathe-bold: 700;
+
+  display: inline-block;
+  font-weight: var(--breathe-light);
+  animation: breathe var(--breathe-duration) ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    font-weight: var(--breathe-light);
+  }
+
+  50% {
+    font-weight: var(--breathe-bold);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breathe {
+    animation: none;
+    font-weight: 400;
+  }
+}
