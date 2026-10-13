@@ -198,7 +198,7 @@ Found a post that shares a prompt, what it cost and what it made? `--reported FI
 
 ```
 $ receipt --reported post.txt
-Reported v7.9 · Claude Code · 7 Oct 2026
+Reported v7.10 · Claude Code · 7 Oct 2026
 REPORTED from a post, not read from a log: what it says, unchecked; no receipt number or
          record
 post     https://musharna.github.io/prompt-receipts/#p1 · by Prompt Receipts

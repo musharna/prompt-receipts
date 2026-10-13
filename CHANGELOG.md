@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## receipt.py 7.10 (2026-10-13)
+
+The first release on PyPI since 7.8, so 7.9's `--share` and the gallery reach `pip`, `pipx` and `uvx` with it.
 
 - The gallery has 28 more prompts, each run on the same 7 models (196 runs): audio, fonts, game art, carts, Godot shaders and toys, craft charts, video and more. Every run has its receipt, a preview, whether it worked and what it made, and 32 open with **Play it**. Runs that didn't work are in too.
 - **What it makes**: filter the gallery by kind (Audio, Image, Video, 3D, Interactive, Game art, Print and craft, Type and text, Web effects, Motion, Generative), from a menu, the chips or a `?what=` link. The main page links to each.
