@@ -3,7 +3,8 @@
 usage: python3 tools/update_prices.py            download the newest copy and note its commit and date
        python3 tools/update_prices.py FILE LABEL  use a file you already have, labelled LABEL
 
-Only Anthropic, OpenAI, Gemini and Qwen (Alibaba Cloud) models are kept, and only the prices receipt.py uses."""
+Only Anthropic, OpenAI, Gemini and Qwen (Alibaba Cloud) models, and open models at OpenRouter's price, are kept, and only
+the prices receipt.py uses."""
 
 import datetime
 import importlib.util

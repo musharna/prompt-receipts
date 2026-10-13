@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Open models are priced at OpenRouter's list price: MiMo, Nemotron, DeepSeek, GLM, Kimi, MiniMax, Mistral, Llama and gpt-oss, which many providers sell, so no one price is the maker's. OpenCode's free models (`…-free`) record $0; their receipt now gives the cost at that price, says whose price it is, and the billing line says OpenCode recorded $0 for a free model. Before, the receipt said $0.00 and listed no prices.
+
 ## receipt.py 7.10 (2026-10-13)
 
 The first release on PyPI since 7.8, so 7.9's `--share` and the gallery reach `pip`, `pipx` and `uvx` with it.
