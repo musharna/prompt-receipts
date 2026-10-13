@@ -152,8 +152,10 @@ PARTS = [
 # API list prices in dollars per million tokens: input, cache read, cache write (5 min), cache write (1 h), output.
 # An optional last item holds multipliers ("fast": fast mode, "us": US-only processing) and "above": [tokens,
 # the five prices] for a call whose prompt is bigger than that, or "tiers": a list of those, for prices set by prompt
-# size (Alibaba Cloud's). Made from LiteLLM's model_prices_and_context_window.json
-# (MIT; the source ccusage, tokscale and codeburn use) by tools/update_prices.py: don't edit by hand.
+# size (Alibaba Cloud's), and "via": "OpenRouter" for a model sold by many providers (open models: MiMo, Nemotron,
+# DeepSeek, GLM, Kimi, MiniMax, Mistral, Llama, gpt-oss), priced at OpenRouter's list price. Made from LiteLLM's
+# model_prices_and_context_window.json (MIT; the source ccusage, tokscale and codeburn use) by tools/update_prices.py:
+# don't edit by hand.
 # --- prices start ---
 PRICES_FROM = 'LiteLLM 05166e2, 9 Oct 2026'
 PRICES = {'claude-fable-5': [10, 1, 12.5, 20, 50, {'us': 1.1}],
@@ -178,6 +180,23 @@ PRICES = {'claude-fable-5': [10, 1, 12.5, 20, 50, {'us': 1.1}],
  'claude-sonnet-4-6': [3, 0.3, 3.75, 6, 15, {'us': 1.1}],
  'claude-sonnet-5': [2, 0.2, 2.5, 4, 10, {'us': 1.1}],
  'claude-sonnet-5-5': [2, 0.1, 2.5, 4, 10, {'us': 1.1}],
+ 'codestral-2508': [0.3, 0.03, 0.3, 0.3, 0.9, {'via': 'OpenRouter'}],
+ 'deepseek-chat': [0.2574, 0.2574, 0.2574, 0.2574, 1.0287, {'via': 'OpenRouter'}],
+ 'deepseek-chat-v3-0324': [0.29, 0.11, 0.29, 0.29, 1.14, {'via': 'OpenRouter'}],
+ 'deepseek-chat-v3.1': [0.25, 0.13, 0.25, 0.25, 0.95, {'via': 'OpenRouter'}],
+ 'deepseek-r1': [0.7, 0.14, 0.7, 0.7, 2.5, {'via': 'OpenRouter'}],
+ 'deepseek-r1-0528': [0.5, 0.35, 0.5, 0.5, 2.15, {'via': 'OpenRouter'}],
+ 'deepseek-r1-distill-llama-70b': [0.8, 0.8, 0.8, 0.8, 0.8, {'via': 'OpenRouter'}],
+ 'deepseek-v3.1-terminus': [0.27, 0.135, 0.27, 0.27, 1, {'via': 'OpenRouter'}],
+ 'deepseek-v3.2': [0.259, 0.135, 0.259, 0.259, 0.42, {'via': 'OpenRouter'}],
+ 'deepseek-v3.2-exp': [0.27, 0.02, 0.27, 0.27, 0.41, {'via': 'OpenRouter'}],
+ 'deepseek-v4-flash': [0.0075, 0.0075, 0.0075, 0.0075, 1.28, {'via': 'OpenRouter'}],
+ 'deepseek-v4-flash-0731': [0.006, 0.006, 0.006, 0.006, 1.28, {'via': 'OpenRouter'}],
+ 'deepseek-v4-flash-vision-exp': [0.2156, 0.00686, 0.2156, 0.2156, 0.6468, {'via': 'OpenRouter'}],
+ 'deepseek-v4-pro': [0.287274, 0.02394, 0.287274, 0.287274, 0.574548, {'via': 'OpenRouter'}],
+ 'deepseek-v4-pro-0813': [1.32, 0.044, 1.32, 1.32, 3.96, {'via': 'OpenRouter'}],
+ 'deepseek-v4.1-flash': [0.3, 0.006, 0.3, 0.3, 1.2, {'via': 'OpenRouter'}],
+ 'devstral-2512': [0.4, 0.04, 0.4, 0.4, 2, {'via': 'OpenRouter'}],
  'gemini-2.0-flash-exp-image-generation': [0, 0, 0, 0, 0],
  'gemini-2.5-computer-use-preview-10-2025': [1.25,
                                              1.25,
@@ -234,6 +253,22 @@ PRICES = {'claude-fable-5': [10, 1, 12.5, 20, 50, {'us': 1.1}],
  'gemini-pro-latest': [2, 0.2, 2, 2, 12, {'above': [200000, 4, 0.4, 4, 4, 18]}],
  'gemini-robotics-er-2-preview': [1, 0.1, 1, 1, 5],
  'gemini-robotics-er-2-streaming-preview': [1, 1, 1, 1, 5],
+ 'glm-4.5': [0.6, 0.11, 0.6, 0.6, 2.2, {'via': 'OpenRouter'}],
+ 'glm-4.5-air': [0.13, 0.025, 0.13, 0.13, 0.85, {'via': 'OpenRouter'}],
+ 'glm-4.5v': [0.6, 0.11, 0.6, 0.6, 1.8, {'via': 'OpenRouter'}],
+ 'glm-4.6': [0.43, 0.08, 0.43, 0.43, 1.75, {'via': 'OpenRouter'}],
+ 'glm-4.6v': [0.3, 0.055, 0.3, 0.3, 0.9, {'via': 'OpenRouter'}],
+ 'glm-4.7': [0.6, 0.11, 0, 0, 2.2, {'via': 'OpenRouter'}],
+ 'glm-4.7-flash': [0.0605, 0.01, 0, 0, 0.4, {'via': 'OpenRouter'}],
+ 'glm-5': [0.6, 0.12, 0.6, 0.6, 1.92, {'via': 'OpenRouter'}],
+ 'glm-5-turbo': [1.2, 0.24, 1.2, 1.2, 4, {'via': 'OpenRouter'}],
+ 'glm-5.1': [0.966, 0.1794, 0, 0, 3.036, {'via': 'OpenRouter'}],
+ 'glm-5.2': [0.069, 0.068, 0.069, 0.069, 4.3, {'via': 'OpenRouter'}],
+ 'glm-5.3': [0.039, 0.038, 0.039, 0.039, 3.39, {'via': 'OpenRouter'}],
+ 'glm-5.3-flash': [0.15, 0.03, 0.15, 0.15, 0.5, {'via': 'OpenRouter'}],
+ 'glm-5.3-flashx': [0.37, 0.09, 0.37, 0.37, 1.25, {'via': 'OpenRouter'}],
+ 'glm-5.3-prime': [2.8, 0.56, 2.8, 2.8, 8.8, {'via': 'OpenRouter'}],
+ 'glm-5v-turbo': [1.2, 0.24, 1.2, 1.2, 4, {'via': 'OpenRouter'}],
  'gpt-5': [1.25, 0.125, 1.25, 1.25, 10],
  'gpt-5-2025-08-07': [1.25, 0.125, 1.25, 1.25, 10],
  'gpt-5-chat': [1.25, 0.125, 1.25, 1.25, 10],
@@ -283,6 +318,62 @@ PRICES = {'claude-fable-5': [10, 1, 12.5, 20, 50, {'us': 1.1}],
  'gpt-6-luna': [0.1, 0.01, 0.125, 0.125, 0.5, {'above': [272000, 0.2, 0.02, 0.25, 0.25, 0.75]}],
  'gpt-6-sol': [2, 0.2, 2.5, 2.5, 10, {'above': [272000, 4, 0.4, 5, 5, 15]}],
  'gpt-6.1-sol': [2, 0.1, 2.5, 2.5, 10, {'above': [272000, 4, 0.2, 5, 5, 15]}],
+ 'gpt-oss-120b': [0.037, 0.037, 0.037, 0.037, 0.17, {'via': 'OpenRouter'}],
+ 'gpt-oss-20b': [0.018, 0.009, 0.018, 0.018, 0.09, {'via': 'OpenRouter'}],
+ 'gpt-oss-safeguard-20b': [0.075, 0.0375, 0.075, 0.075, 0.3, {'via': 'OpenRouter'}],
+ 'kimi-k2': [0.57, 0.57, 0.57, 0.57, 2.3, {'via': 'OpenRouter'}],
+ 'kimi-k2-0905': [0.6, 0.6, 0.6, 0.6, 2.5, {'via': 'OpenRouter'}],
+ 'kimi-k2-thinking': [0.6, 0.15, 0.6, 0.6, 2.5, {'via': 'OpenRouter'}],
+ 'kimi-k2.5': [0.45, 0.07, 0.45, 0.45, 2.25, {'via': 'OpenRouter'}],
+ 'kimi-k2.6': [0.465, 0.0975, 0.465, 0.465, 2.45, {'via': 'OpenRouter'}],
+ 'kimi-k2.7-code': [0.6712, 0.18, 0.6712, 0.6712, 3.35, {'via': 'OpenRouter'}],
+ 'kimi-k3': [0.76, 0.4, 0.76, 0.76, 13, {'via': 'OpenRouter'}],
+ 'llama-3-70b-instruct': [0.59, 0.59, 0.59, 0.59, 0.79, {'via': 'OpenRouter'}],
+ 'llama-3.1-70b-instruct': [0.4, 0.4, 0.4, 0.4, 0.4, {'via': 'OpenRouter'}],
+ 'llama-3.1-8b-instruct': [0.05, 0.025, 0.05, 0.05, 0.08, {'via': 'OpenRouter'}],
+ 'llama-3.2-1b-instruct': [0.027, 0.027, 0.027, 0.027, 0.201, {'via': 'OpenRouter'}],
+ 'llama-3.2-3b-instruct': [0.05, 0.05, 0.05, 0.05, 0.33, {'via': 'OpenRouter'}],
+ 'llama-3.3-70b-instruct': [0.22, 0.11, 0.22, 0.22, 0.5, {'via': 'OpenRouter'}],
+ 'llama-4-maverick': [0.1875, 0.05, 0.1875, 0.1875, 0.6525, {'via': 'OpenRouter'}],
+ 'llama-4-scout': [0.1, 0.1, 0.1, 0.1, 0.3, {'via': 'OpenRouter'}],
+ 'llama-guard-4-12b': [0.18, 0.18, 0.18, 0.18, 0.18, {'via': 'OpenRouter'}],
+ 'mimo-v2-flash': [0.1, 0.01, 0, 0, 0.3, {'via': 'OpenRouter'}],
+ 'mimo-v2.5': [0.14, 0.0028, 0, 0, 0.28, {'via': 'OpenRouter'}],
+ 'mimo-v2.5-pro': [0.435, 0.0036, 0, 0, 0.87, {'via': 'OpenRouter'}],
+ 'mimo-v2.6-flash': [0.14, 0.0028, 0.14, 0.14, 0.28, {'via': 'OpenRouter'}],
+ 'mimo-v2.6-pro': [0.435, 0.0036, 0.435, 0.435, 0.87, {'via': 'OpenRouter'}],
+ 'mimo-v2.6-pro-ultraspeed': [4.35, 0.036, 4.35, 4.35, 8.7, {'via': 'OpenRouter'}],
+ 'minimax-01': [0.2, 0.2, 0.2, 0.2, 1.1, {'via': 'OpenRouter'}],
+ 'minimax-m1': [0.55, 0.55, 0.55, 0.55, 2.2, {'via': 'OpenRouter'}],
+ 'minimax-m2': [0.3, 0.3, 0.3, 0.3, 1.2, {'via': 'OpenRouter'}],
+ 'minimax-m2-her': [0.3, 0.03, 0.3, 0.3, 1.2, {'via': 'OpenRouter'}],
+ 'minimax-m2.1': [0.3, 0.03, 0, 0, 1.2, {'via': 'OpenRouter'}],
+ 'minimax-m2.5': [0.27, 0.027, 0.27, 0.27, 1.08, {'via': 'OpenRouter'}],
+ 'minimax-m2.7': [0.21, 0.042, 0.21, 0.21, 0.84, {'via': 'OpenRouter'}],
+ 'minimax-m3': [0.3, 0.06, 0.3, 0.3, 1.2, {'via': 'OpenRouter'}],
+ 'ministral-14b-2512': [0.2, 0.02, 0.2, 0.2, 0.2, {'via': 'OpenRouter'}],
+ 'ministral-3b-2512': [0.1, 0.01, 0.1, 0.1, 0.1, {'via': 'OpenRouter'}],
+ 'ministral-8b-2512': [0.15, 0.015, 0.15, 0.15, 0.15, {'via': 'OpenRouter'}],
+ 'mistral-7b-instruct': [0.13, 0.13, 0.13, 0.13, 0.13, {'via': 'OpenRouter'}],
+ 'mistral-large': [2, 0.2, 2, 2, 6, {'via': 'OpenRouter'}],
+ 'mistral-large-2407': [2, 0.2, 2, 2, 6, {'via': 'OpenRouter'}],
+ 'mistral-large-2512': [0.5, 0.05, 0.5, 0.5, 1.5, {'via': 'OpenRouter'}],
+ 'mistral-large-4-0': [0.68, 0.07, 0.68, 0.68, 2.09, {'via': 'OpenRouter'}],
+ 'mistral-medium-3': [0.4, 0.04, 0.4, 0.4, 2, {'via': 'OpenRouter'}],
+ 'mistral-medium-3-5': [1.5, 1.5, 1.5, 1.5, 7.5, {'via': 'OpenRouter'}],
+ 'mistral-medium-3.1': [0.4, 0.04, 0.4, 0.4, 2, {'via': 'OpenRouter'}],
+ 'mistral-nemo': [0.029, 0.029, 0.029, 0.029, 0.03, {'via': 'OpenRouter'}],
+ 'mistral-saba': [0.2, 0.02, 0.2, 0.2, 0.6, {'via': 'OpenRouter'}],
+ 'mistral-small-24b-instruct-2501': [0.05, 0.05, 0.05, 0.05, 0.08, {'via': 'OpenRouter'}],
+ 'mistral-small-2603': [0.15, 0.015, 0.15, 0.15, 0.6, {'via': 'OpenRouter'}],
+ 'mistral-small-3.1-24b-instruct': [0.351, 0.351, 0.351, 0.351, 0.555, {'via': 'OpenRouter'}],
+ 'mistral-small-3.2-24b-instruct': [0.09375, 0.09375, 0.09375, 0.09375, 0.25, {'via': 'OpenRouter'}],
+ 'mixtral-8x22b-instruct': [2, 0.2, 2, 2, 6, {'via': 'OpenRouter'}],
+ 'nemotron-3-nano-30b-a3b': [0.06, 0.03, 0.06, 0.06, 0.24, {'via': 'OpenRouter'}],
+ 'nemotron-3-super-120b-a12b': [0.08, 0.08, 0.08, 0.08, 0.45, {'via': 'OpenRouter'}],
+ 'nemotron-3-ultra-550b-a55b': [0.5, 0.1, 0.5, 0.5, 2.2, {'via': 'OpenRouter'}],
+ 'nemotron-3.5-content-safety': [0.2, 0.2, 0.2, 0.2, 0.2, {'via': 'OpenRouter'}],
+ 'nemotron-3.5-lightning': [0.049, 0.0245, 0.049, 0.049, 0.14, {'via': 'OpenRouter'}],
  'o3': [2, 0.5, 2, 2, 8],
  'o3-2025-04-16': [2, 0.5, 2, 2, 8],
  'o3-deep-research': [10, 2.5, 10, 10, 40],
@@ -370,10 +461,13 @@ PRICES = {'claude-fable-5': [10, 1, 12.5, 20, 50, {'us': 1.1}],
  'qwen3.7-plus': [0.4, 0.08, 0.4, 0.4, 1.6, {'tiers': [[256000, 1.2, 0.24, 1.2, 1.2, 4.8]]}],
  'qwen3.8-flash': [0.15, 0.016, 0.2, 0.2, 0.47],
  'qwen3.8-max': [2, 0.25, 2, 2, 6],
- 'qwen3.8-omni-flash': [0.15, 0.016, 0.15, 0.15, 0.47]}
+ 'qwen3.8-omni-flash': [0.15, 0.016, 0.15, 0.15, 0.47],
+ 'voxtral-small-24b-2507': [0.1, 0.01, 0.1, 0.1, 0.3, {'via': 'OpenRouter'}]}
 # --- prices end ---
 CLASSES = ["input", "cache read", "cache write", "cache write (1 h)", "output"]
 SEARCH = 0.01  # dollars per web search, Anthropic's and OpenAI's list price
+# makers whose models many providers sell, so no one price is theirs: OpenRouter's stands in (OpenAI's gpt-oss too)
+OPENROUTER = re.compile(r"openrouter/(?:(?:xiaomi|nvidia|deepseek|z-ai|moonshotai|minimax|mistralai|meta-llama)/|openai/(?=gpt-oss))[^:/]+")
 
 
 def price_table(litellm):
@@ -403,11 +497,14 @@ def price_table(litellm):
         hour = write if hour is None else hour
         return [per_m(x) for x in (i, read, write, hour, out)]
 
-    table = {}
+    table, resold = {}, {}
     for name, v in litellm.items():
         prov = v.get("litellm_provider") if isinstance(v, dict) else None
+        via = None
         if prov in ("anthropic", "openai") and re.match(r"(claude-|gpt-[56]|o[34]|codex-)", name):
             model = name
+        elif prov == "openrouter" and OPENROUTER.fullmatch(name):
+            model, via = name.split("/")[-1], "OpenRouter"
         elif (prov, name.split("/")[0]) in (("gemini", "gemini"), ("dashscope", "dashscope")) and re.match(
             r"[a-z]+/(gemini-|qwen)", name
         ):  # Gemini CLI's models at Google's prices; Qwen Code's at Alibaba Cloud's
@@ -419,7 +516,7 @@ def price_table(litellm):
             key=lambda t: t["range"][0],
         )
         row = five(v, "") or (five(tiers[0], "") if tiers else None)
-        if not row:
+        if not row or (via and not any(row)):
             continue
         extra = {
             k: x
@@ -432,7 +529,11 @@ def price_table(litellm):
             m = re.fullmatch(r"input_cost_per_token(_above_(\d+)k_tokens)", key)
             if m and five(v, m.group(1)):
                 extra["above"] = [int(m.group(2)) * 1000] + five(v, m.group(1))
-        table[model] = row + ([extra] if extra else [])
+        if via:
+            extra["via"] = via
+        (resold if via else table)[model] = row + ([extra] if extra else [])
+    for model, row in resold.items():  # a maker's own price comes first
+        table.setdefault(model, row)
     return table
 
 
@@ -440,6 +541,7 @@ def rates_for(model):
     """-> a PRICES row for a model as a log names it (claude-opus-5-5[1m], anthropic/claude-…, …-20251001), else None"""
     name = re.sub(r"\[.*\]$", "", model or "").split("/")[-1].lower()
     name = re.sub(r"-1m(-internal)?$", "", name)  # Copilot CLI's name for the long-context version
+    name = re.sub(r"[-:]free$", "", name)  # OpenCode's and OpenRouter's free versions: the same model
     for n in (
         name,
         re.sub(r"(?<=\d)\.(?=\d)", "-", name),  # Copilot CLI's claude-opus-4.7 is claude-opus-4-7
@@ -461,6 +563,7 @@ class Bill:
         )  # model -> tokens, for models with no price
         self.given = {}  # model -> $, calls the log shows only as the tool's own figure
         self.fast = self.us = 0  # calls in fast mode / processed in the US only
+        self.via = set()  # models priced at OpenRouter's list price, as the log names them
 
     def add(self, model, n, fast=False, us=False, searches=0, summed=False):
         """n: tokens of each kind, in CLASSES' order; summed: n adds up several calls, so no one prompt's size is known"""
@@ -471,6 +574,8 @@ class Bill:
                 self.unpriced[model] += sum(n)
             return
         extra = row[5] if len(row) > 5 else {}
+        if extra.get("via"):
+            self.via.add(model)
         rates, mult = row[:5], 1
         if extra.get("above") and sum(n[:4]) > extra["above"][0] and not summed:
             rates = extra["above"][1:]
@@ -514,11 +619,17 @@ class Bill:
     def total(self):
         return sum(i.get("usd", 0) for i in self.items())
 
+    def at(self):
+        """how the lines were priced, for a cost note"""
+        if not self.via:
+            return "at API prices"
+        return "at OpenRouter's price" if self.via >= {m for m, _, _ in self.lines} else "at API and OpenRouter prices"
+
 
 def priced(r, bill, own=None):
     """put a bill's lines on a receipt, and say whether they add up to the tool's own total"""
     r["items"] = bill.items()
-    r["prices"] = PRICES_FROM
+    r["prices"] = PRICES_FROM + (f"; OpenRouter's for {', '.join(sorted(bill.via))}" if bill.via else "")
     extras = {}
     if bill.fast:
         extras["fast_calls"] = bill.fast
@@ -1913,10 +2024,18 @@ def oc_prompts(sid, with_time=False):
             for p in [json.loads(pd)]
             if p.get("type") == "text" and not p.get("synthetic")
         ]
-        text = "\n".join(t for t in texts if t.strip())
+        text = oc_unquote("\n".join(t for t in texts if t.strip()))
         if text:
             out.append((created, text) if with_time else text)
     return out
+
+
+def oc_unquote(text):
+    """`opencode run "a prompt"` sends "a prompt", quotes and all: it puts each word of its command line that holds a
+    space in quotes (escaping the quotes inside) and joins them. A prompt that is one such word is unwrapped, so the
+    receipt shows what was typed and its rerun line sends the same text; quotes typed inside a prompt stay."""
+    m = re.fullmatch(r'"((?:[^"\\]|\\.)*)"', text, re.S)
+    return m.group(1).replace('\\"', '"') if m and " " in m.group(1) else text
 
 
 def opencode(sid, part=None):
@@ -1937,6 +2056,7 @@ def opencode(sid, part=None):
     cost, tin, tcached, tout, busy = 0.0, 0, 0, 0, 0
     bill = Bill()
     errors, model_errors, interrupted, written, texts = 0, 0, 0, set(), {}
+    free = []  # OpenCode's free models are named <model>-free
     # subagents run in child sessions: their cost and tokens count, as in Claude Code's totals
     children = []
     for c, kind in oc().execute(
@@ -1990,6 +2110,8 @@ def opencode(sid, part=None):
                 where_ = ", on this computer" if pid in LOCAL else ""
                 models.append(f"{m['modelID']} ({pid}{where_})")
                 providers.append(pid)
+                if str(m["modelID"]).endswith("-free"):
+                    free.append(m["modelID"])
             if tm.get("created") and tm.get("completed"):
                 busy += tm["completed"] - tm["created"]
             err = (m.get("error") or {}).get("name")
@@ -2041,7 +2163,7 @@ def opencode(sid, part=None):
     ):  # OpenCode can record a cost of 0 for providers it has no price for
         r["cost_usd"] = round(bill.total(), 6)
         r["cost_note"] = (
-            "worked out from the logged calls at API prices; OpenCode recorded $0" + sub
+            f"worked out from the logged calls {bill.at()}; OpenCode recorded $0" + sub
         )
         priced(r, bill)
     else:
@@ -2053,6 +2175,7 @@ def opencode(sid, part=None):
         "none: the model ran on this computer"
         if providers and all(p in LOCAL for p in providers)
         else f"through {', '.join(providers) or 'an unrecorded provider'}"
+        + (f", which recorded $0 for {', '.join(dict.fromkeys(free))} (a free model)" if free and not cost else "")
     )
     r["tokens_in"], r["tokens_cached"], r["tokens_out"] = tin, tcached, tout
     r["tool_calls"] = sum(tools.values())
@@ -4896,7 +5019,7 @@ def item_lines(r, width=80):
             ("check    " if i == 0 else " " * 9) + w
             for i, w in enumerate(textwrap.wrap(msg, width - 9))
         ]
-    out.append(f"prices   API list prices per million tokens ($/M), from {r['prices']}")
+    out.append(labelled("prices   ", f"API list prices per million tokens ($/M), from {r['prices']}", width))
     return out
 
 
@@ -6911,7 +7034,8 @@ def emit(a, r, s, payload, table=False, pic=None, note=None):
     if a.png:
         total = None
         if not table and r.get("cost_usd") is not None and any(x.startswith("cost     $") for x in s.split("\n")):
-            word = "TOTAL at API prices" if "API" in r.get("cost_note", "") else "TOTAL as reported" if r.get("reported") else "TOTAL"
+            note = r.get("cost_note", "")
+            word = "TOTAL at API prices" if "API" in note else "TOTAL at OpenRouter's price" if "OpenRouter" in note else "TOTAL as reported" if r.get("reported") else "TOTAL"
             total = (word, money(r["cost_usd"]))
         no = None if table else r.get("receipt_no")
         if table or a.look in (None, "strip"):

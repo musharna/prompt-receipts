@@ -242,7 +242,7 @@ class Base(unittest.TestCase):
             f.write("".join(json.dumps(e) + "\n" for e in entries))
         return path
 
-    def opencode_db(self):
+    def opencode_db(self, model="qwen3:8b", provider="ollama", prompt="Write a haiku file"):
         folder = os.path.join(self.data_dir, "opencode")
         os.makedirs(folder, exist_ok=True)
         db = sqlite3.connect(os.path.join(folder, "opencode.db"))
@@ -260,11 +260,11 @@ class Base(unittest.TestCase):
         )
         msgs = [
             ("m1", t, {"role": "user", "time": {"created": t}}),
-            ("m2", t + 1000, {"role": "assistant", "modelID": "qwen3:8b", "providerID": "ollama", "cost": 0,
+            ("m2", t + 1000, {"role": "assistant", "modelID": model, "providerID": provider, "cost": 0,
                               "time": {"created": t + 1000, "completed": t + 5000},
                               "tokens": {"input": 400, "output": 50, "reasoning": 10, "cache": {"read": 0, "write": 0}}}),
             ("m3", t + 6000, {"role": "user", "time": {"created": t + 6000}}),
-            ("m4", t + 7000, {"role": "assistant", "modelID": "qwen3:8b", "providerID": "ollama", "cost": 0,
+            ("m4", t + 7000, {"role": "assistant", "modelID": model, "providerID": provider, "cost": 0,
                               "time": {"created": t + 7000}, "error": {"name": "MessageAbortedError"}}),
         ]  # fmt: skip
         for mid, created, data in msgs:
@@ -273,7 +273,7 @@ class Base(unittest.TestCase):
                 (mid, created, json.dumps(data)),
             )
         parts = [
-            ("p1", "m1", {"type": "text", "text": "Write a haiku file"}),
+            ("p1", "m1", {"type": "text", "text": prompt}),
             ("p2", "m2", {"type": "tool", "tool": "write", "state": {"status": "completed",
                                                                      "input": {"filePath": "/x/haiku.txt"}}}),
             ("p3", "m2", {"type": "tool", "tool": "bash", "state": {"status": "error", "input": {}}}),
@@ -358,6 +358,17 @@ class Receipts(Base):
         self.assertIn(
             "2 prompts", self.ok("ses_1").stdout
         )  # an OpenCode id works as SESSION
+
+    def test_opencode_run_quotes_undone(self):
+        # `opencode run "a prompt"` sends the prompt in quotes (it wraps each word holding a space); the receipt shows
+        # what was typed, and its rerun line, run again, sends the same text
+        self.opencode_db(prompt='"Write a \\"haiku\\" file"')
+        out = self.ok("--opencode", "--prompt", "--recipe").stdout
+        self.assertIn('prompts  1  Write a "haiku" file', out)
+        self.assertIn("""opencode run -m ollama/qwen3:8b --agent build 'Write a "haiku" file'""", out)
+        os.remove(os.path.join(self.data_dir, "opencode", "opencode.db"))
+        self.opencode_db(prompt='fix "the bug" and "the test"')  # control: quotes typed inside stay
+        self.assertIn('prompts  1  fix "the bug" and "the test"', self.ok("--opencode", "--prompt").stdout)
 
     def test_last_prompt_only(self):
         self.claude_log()
@@ -620,6 +631,39 @@ class LineItems(Base):
         p = self.run_receipt("--prices", prices)
         self.assertEqual(p.returncode, 1)
         self.assertIn("no Anthropic, OpenAI, Gemini or Qwen prices", p.stderr)
+
+    def test_open_model_at_openrouters_price(self):
+        # OpenCode's free models record $0; an open model's tokens are priced at OpenRouter's list price, which says so
+        self.opencode_db(model="mimo-v2.6-flash-free", provider="opencode")
+        out = self.ok("--opencode").stdout
+        self.assertRegex(out, r"input +400 × \$0\.14/M")
+        self.assertRegex(out, r"output +60 × \$0\.28/M")
+        self.assertIn("at OpenRouter's price; OpenCode recorded $0", out)
+        self.assertIn("OpenRouter's for mimo-v2.6-flash-free", out)
+        self.assertIn("billing  through opencode, which recorded $0 for mimo-v2.6-flash-free (a free model)", out)
+        os.remove(os.path.join(self.data_dir, "opencode", "opencode.db"))
+        self.opencode_db(model="claude-opus-5-5", provider="anthropic")  # positive control: a maker's own price
+        out = self.ok("--opencode").stdout
+        self.assertRegex(out, r"output +60 × \$20\.00/M")
+        self.assertNotIn("OpenRouter", out)
+
+    def test_price_table_takes_open_makers_from_openrouter(self):
+        spec = importlib.util.spec_from_file_location("receipt_under_test", RECEIPT)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        row = lambda prov, i, o: {"litellm_provider": prov, "input_cost_per_token": i, "output_cost_per_token": o}  # noqa: E731
+        t = mod.price_table({
+            "claude-opus-5-5": row("anthropic", 4e-6, 2e-5),
+            "openrouter/anthropic/claude-opus-5.5": row("openrouter", 9e-6, 9e-5),  # a closed model: its maker's price
+            "openrouter/xiaomi/mimo-v2.6-flash": row("openrouter", 1.4e-7, 2.8e-7),
+            "openrouter/openai/gpt-oss-120b": row("openrouter", 1e-7, 5e-7),
+            "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free": row("openrouter", 0, 0),
+            "openrouter/deepseek/claude-opus-5-5": row("openrouter", 1e-6, 1e-6),  # never over a maker's own price
+        })  # fmt: skip
+        self.assertEqual(t["mimo-v2.6-flash"], [0.14, 0.14, 0.14, 0.14, 0.28, {"via": "OpenRouter"}])
+        self.assertIn("gpt-oss-120b", t)
+        self.assertEqual(t["claude-opus-5-5"], [4, 4, 4, 4, 20])
+        self.assertFalse([k for k in t if "free" in k or "5.5" in k])
 
     def test_hiding_the_lines(self):
         self.claude_log()
