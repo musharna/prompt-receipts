@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-- The gallery has 30 more prompts, each run on the same 7 models (210 runs): audio, fonts, game art, carts, Godot shaders and toys, craft charts, video and more. Every run has its receipt, a preview, whether it worked and what it made, and 34 open with **Play it**. Runs that didn't work are in too.
+- The gallery has 28 more prompts, each run on the same 7 models (196 runs): audio, fonts, game art, carts, Godot shaders and toys, craft charts, video and more. Every run has its receipt, a preview, whether it worked and what it made, and 32 open with **Play it**. Runs that didn't work are in too.
 - **What it makes**: filter the gallery by kind (Audio, Image, Video, 3D, Interactive, Game art, Print and craft, Type and text, Web effects, Motion, Generative), from a menu, the chips or a `?what=` link. The main page links to each.
 - Fixed: a `claude -p` log that starts with a UI event before its init line (a first launch in an empty home writes one) was read as a session log, so the receipt said "Claude Code not recorded", worked its cost out from the calls instead of Claude Code's own total, and could count a note as a prompt.
-- The runs are now sandboxed with an empty home, `/run`, `/var/tmp` and `/mnt`, and Codex with a fresh `CODEX_HOME` holding only the login. Before, a run could read other folders on the machine; of the 210 new runs, any that did was run again.
+- The runs are now sandboxed with an empty home, `/run`, `/var/tmp` and `/mnt`, and Codex with a fresh `CODEX_HOME` holding only the login. Before, a run could read other folders on the machine; of the new runs, any that did was run again.
 
 ## receipt.py 7.9 (2026-10-11)
 
