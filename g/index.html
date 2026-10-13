@@ -247,7 +247,8 @@ function render() {
   const list = $('list'), s = $('sort').value;
   list.replaceChildren();
   if (s === 'prompt') {
-    // the site's cards in the site's order, then the receipts people sent, newest first, under one heading
+    // the site's cards in the site's order; a receipt someone sent of one of their prompts joins it, the rest go
+    // newest first under one heading
     const sent = rows.filter(e => e.kind !== 'site').reverse();
     const groups = new Map();
     for (const e of rows.filter(e => e.kind === 'site')) {
@@ -265,10 +266,12 @@ function render() {
       g.append(runs);
       list.append(g);
     };
+    const byPrompt = new Map([...groups.values()].map(rs => [rs[0].prompt, rs])), loose = [];
+    for (const e of sent) (byPrompt.get(e.prompt) || loose).push(e);
     // a site card's runs link back to the card; a prompt run only for this page has no card
     for (const rs of groups.values()) group(/^p\d+$/.test(rs[0].card) ? link('../#' + rs[0].card, rs[0].title) : rs[0].title,
       rs[0].prompt, rs, false, rs[0].note);
-    if (sent.length) group('Sent in', '', sent, true);
+    if (loose.length) group('Sent in', '', loose, true);
   } else {
     const key = s === 'fast' ? e => secs(e.time) : e => e.usd;
     const has = rows.filter(e => key(e) !== null && key(e) !== undefined).sort((a, b) => s === 'dear' ? key(b) - key(a) : key(a) - key(b));
