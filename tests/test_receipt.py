@@ -242,7 +242,7 @@ class Base(unittest.TestCase):
             f.write("".join(json.dumps(e) + "\n" for e in entries))
         return path
 
-    def opencode_db(self, model="qwen3:8b", provider="ollama"):
+    def opencode_db(self, model="qwen3:8b", provider="ollama", prompt="Write a haiku file"):
         folder = os.path.join(self.data_dir, "opencode")
         os.makedirs(folder, exist_ok=True)
         db = sqlite3.connect(os.path.join(folder, "opencode.db"))
@@ -273,7 +273,7 @@ class Base(unittest.TestCase):
                 (mid, created, json.dumps(data)),
             )
         parts = [
-            ("p1", "m1", {"type": "text", "text": "Write a haiku file"}),
+            ("p1", "m1", {"type": "text", "text": prompt}),
             ("p2", "m2", {"type": "tool", "tool": "write", "state": {"status": "completed",
                                                                      "input": {"filePath": "/x/haiku.txt"}}}),
             ("p3", "m2", {"type": "tool", "tool": "bash", "state": {"status": "error", "input": {}}}),
@@ -358,6 +358,17 @@ class Receipts(Base):
         self.assertIn(
             "2 prompts", self.ok("ses_1").stdout
         )  # an OpenCode id works as SESSION
+
+    def test_opencode_run_quotes_undone(self):
+        # `opencode run "a prompt"` sends the prompt in quotes (it wraps each word holding a space); the receipt shows
+        # what was typed, and its rerun line, run again, sends the same text
+        self.opencode_db(prompt='"Write a \\"haiku\\" file"')
+        out = self.ok("--opencode", "--prompt", "--recipe").stdout
+        self.assertIn('prompts  1  Write a "haiku" file', out)
+        self.assertIn("""opencode run -m ollama/qwen3:8b --agent build 'Write a "haiku" file'""", out)
+        os.remove(os.path.join(self.data_dir, "opencode", "opencode.db"))
+        self.opencode_db(prompt='fix "the bug" and "the test"')  # control: quotes typed inside stay
+        self.assertIn('prompts  1  fix "the bug" and "the test"', self.ok("--opencode", "--prompt").stdout)
 
     def test_last_prompt_only(self):
         self.claude_log()

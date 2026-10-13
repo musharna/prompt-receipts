@@ -2024,10 +2024,18 @@ def oc_prompts(sid, with_time=False):
             for p in [json.loads(pd)]
             if p.get("type") == "text" and not p.get("synthetic")
         ]
-        text = "\n".join(t for t in texts if t.strip())
+        text = oc_unquote("\n".join(t for t in texts if t.strip()))
         if text:
             out.append((created, text) if with_time else text)
     return out
+
+
+def oc_unquote(text):
+    """`opencode run "a prompt"` sends "a prompt", quotes and all: it puts each word of its command line that holds a
+    space in quotes (escaping the quotes inside) and joins them. A prompt that is one such word is unwrapped, so the
+    receipt shows what was typed and its rerun line sends the same text; quotes typed inside a prompt stay."""
+    m = re.fullmatch(r'"((?:[^"\\]|\\.)*)"', text, re.S)
+    return m.group(1).replace('\\"', '"') if m and " " in m.group(1) else text
 
 
 def opencode(sid, part=None):
