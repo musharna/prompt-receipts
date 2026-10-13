@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        A bot checks the link and replies with what the gallery will show. It goes in once the repo's owner adds the `gallery` label. Everything here is public, so check the prompt has nothing private in it first (`receipt.py --redact` or `--hide prompt` help).
+        A bot checks the link and replies with what the gallery will show. It goes in once the repo's owner adds the `gallery` label. Everything here is public, so check the prompts have nothing private in them first (`receipt.py --redact` or `--hide prompt` help). `--prompt --turns` shows each prompt with its time and cost.
   - type: input
     id: link
     attributes:
@@ -39,5 +39,5 @@ body:
     attributes:
       label: Public
       options:
-        - label: I'm happy for this receipt to be public in the gallery
+        - label: I'm happy for this receipt to be public in the gallery, its prompts under CC BY 4.0 like the site's
           required: true

@@ -44,7 +44,8 @@ th{background:#f7f4ec;font-weight:600}
 .eff .e{white-space:nowrap}
 .ttl{font-weight:600;font-size:1.02em}
 .made{color:#333;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.facts{margin-top:auto;padding-top:4px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.facts{margin-top:auto;padding-top:4px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 6px;align-items:baseline}
+.facts>a{white-space:nowrap}  /* "how it was made" goes under the cost whole, not split */
 .cost{font-weight:600;font-variant-numeric:tabular-nums}
 .v{display:inline-block;font-size:.85em;padding:0 .45em;border-radius:4px;vertical-align:1px}
 .v.worked{background:#dcefd9;color:#1d5a17}.v.partly{background:#fbeccb;color:#7a5200}.v.no{background:#f6d5d5;color:#8a1c1c}
@@ -96,10 +97,13 @@ Costs are at API list prices, as the receipts give them; on a flat-fee plan a ru
 
 <section id="add">
 <h2>Add yours</h2>
-<p class="dim">Make a link to your run's receipt with <code>receipt.py --link</code> (or <code>--share</code>, which does
-the rest for you) and paste it here. It opens a GitHub issue with the link filled in, where you can say whether it
-worked and what it made. A bot replies with what the gallery will show, and it goes in once the site's owner approves
-it. Everything in it is public. A receipt can be edited, so sent-in ones are shown as sent.</p>
+<p class="dim">To show how you made something, run <code>receipt.py --prompt --turns --recipe --redact --share</code>
+in the folder you worked in. The receipt lists each prompt you sent, with its time, cost and what it did, and the
+commands to run them again; email addresses and keys are blanked out. <code>--turns 3-5</code> covers only prompts 3 to
+5. <code>--share</code> opens a GitHub issue with the link filled in, where you can say whether it worked and what it
+made, or paste a link from <code>--link</code> here. A bot replies with what the gallery will show, and it goes in once
+the site's owner approves it. Everything in it is public, so read it first. A receipt can be edited, so sent-in ones
+are shown as sent.</p>
 <input id="paste" type="url" placeholder="https://musharna.github.io/prompt-receipts/r/#r1.…" aria-label="Receipt link">
 <button class="btn" id="checkit">Check it</button>
 <p id="pasted" hidden></p>
@@ -195,7 +199,11 @@ function tile(e, flat) {
     if (e.time_from === 'card') t.title = 'from the run’s own timer: codex exec --json logs no times';
     left.append(t);
   }
-  facts.append(left, link('../r/#' + e.link, 'receipt', 'dim'));
+  if (Number.isInteger(e.prompts) && e.prompts > 1) left.append(el('span', 'dim', ' · ' + e.prompts + '\u00a0prompts'));
+  // with --turns the receipt shows each prompt, with its time and cost
+  const r = link('../r/#' + e.link, e.turns === true ? 'how it was made' : 'receipt', 'dim');
+  if (e.turns === true) r.title = 'The receipt: each prompt, with its time, cost and what it did';
+  facts.append(left, r);
   b.append(facts);
   card.append(b);
   return card;

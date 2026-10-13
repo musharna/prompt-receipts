@@ -86,6 +86,32 @@ def cut(s):
     return s if len(s) <= FIELD else s[: FIELD - 1] + "…"
 
 
+def numbered_first(lines):
+    """a numbered list as receipt.py writes it (--prompt's prompts, --turns' lines) -> the first item's own lines.
+    Numbers are right-aligned to width w, so "1" has w-1 spaces before it and the item's text goes on w+2 in"""
+    w = len(lines[0]) - len(lines[0].lstrip()) + 1
+    out = [lines[0].lstrip()[len("1  "):]]
+    for line in lines[1:]:
+        if not line.startswith(" " * (w + 2)):
+            break
+        out.append(line.strip())
+    return out
+
+
+def first_prompt(asked, took):
+    """the receipt's first prompt: its prompt line, the first of its prompts, or the first turn's (--turns puts each
+    prompt under its turn's line)"""
+    for label, values in asked:
+        if label.strip() == "prompt":
+            return " ".join(v.strip() for v in values)
+        if label.strip() == "prompts":
+            return " ".join(numbered_first(values))
+    for label, values in took:
+        if label.strip() == "turns":
+            return " ".join(numbered_first(values)[1:])
+    return ""
+
+
 def entry(token):
     """a receipt link -> what the gallery shows of it"""
     text = decode(token)
@@ -102,8 +128,12 @@ def entry(token):
     model = said.get("model", "").split(" · ")[0].split(" (")[0]
     cost = said.get("cost", "")
     usd = re.match(r"<?\$([\d,]+(?:\.\d+)?)", cost)  # "<$0.01" counts as $0.01
-    prompt = said.get("prompt") or said.get("prompts") or ""
+    many = re.search(r"· ([\d,]+) prompts from me", said.get("time", ""))
+    steps = {"prompts": int(many.group(1).replace(",", ""))} if many else {}
+    if any(label.strip() == "turns" for label, _ in took):
+        steps["turns"] = True  # each prompt's own line: when, how long, what it cost, what it did
     return {
+        **steps,
         "link": token,
         "kind": "reported" if kind == "Reported" else "sent",
         "receipt": version,
@@ -114,7 +144,7 @@ def entry(token):
         "cost": cut(cost.split(" (")[0]),
         "usd": float(usd.group(1).replace(",", "")) if usd else None,
         "time": cut(said.get("time", "").split(" · ")[0].split(" (")[0]),
-        "prompt": cut(prompt),
+        "prompt": cut(first_prompt(asked, took)),
     }
 
 

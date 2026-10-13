@@ -234,6 +234,31 @@ class Gallery(unittest.TestCase):
         reported = "Reported v7.9 · Claude Code · 7 Oct 2026\nREPORTED from a post\nmodel    claude-opus-5-5"
         self.assertEqual(gallery.entry(pack(reported))["kind"], "reported")
 
+    def test_a_receipt_of_several_prompts_shows_the_first_and_how_many(self):
+        head = RECEIPT.split("\nprompt ")[0].replace("· 1 prompt from me", "· 10 prompts from me")
+        turns = head + "\n" + "\n".join([
+            "turns     1  3:30 PM · 27 s · $0.46 · 4 tool calls",
+            "             Make a page for my habit",
+            "             tracker",
+            "          2  3:33 PM · 30 s · $0.11 · 2 tool calls",
+            "             2 more colours, please",
+            *[f"          {n}  3:4{n} PM · 9 s · $0.01 · 0 tool calls" for n in range(3, 10)],
+            "         10  4:00 PM · 9 s · $0.01 · 0 tool calls",
+            "             Ship it",
+            "         the turns add up to the cost above"])  # fmt: skip
+        e = gallery.entry(pack(turns))
+        self.assertEqual((e["prompt"], e["prompts"], e["turns"]), ("Make a page for my habit tracker", 10, True))
+        listed = head.replace("10 prompts", "3 prompts") + "\n" + "\n".join([
+            "prompts  1  Make a page for my habit",
+            "            tracker",
+            "         2  Make it blue",
+            "         3  Ship it"])  # fmt: skip
+        e = gallery.entry(pack(listed))
+        self.assertEqual((e["prompt"], e["prompts"], "turns" in e), ("Make a page for my habit tracker", 3, False))
+        one = gallery.entry(pack(RECEIPT))
+        self.assertEqual((one["prompt"], "prompts" in one, "turns" in one),
+                         ("Make a page for my habit tracker", False, False))  # fmt: skip
+
     def test_bad_links_stay_out_and_a_good_one_goes_in(self):
         good = SITE + "r/#" + pack(RECEIPT)
         self.assertEqual(
