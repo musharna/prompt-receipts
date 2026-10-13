@@ -349,6 +349,29 @@ class Gallery(unittest.TestCase):
             "````\n" + sneaky + "\n````", p.stdout
         )  # a longer fence, so the prompt can't end it
 
+    def test_the_owner_adds_a_picture_to_a_sent_in_run(self):
+        path = os.path.join(self.dir, "gallery.json")
+        os.mkdir(os.path.join(self.dir, "m"))
+        open(os.path.join(self.dir, "m", "i7.webp"), "wb").close()
+        gallery.add(event(form(SITE + "r/#" + pack(RECEIPT))), path)
+        self.assertNotIn("thumb", gallery.load(path)[0])
+        r = self.run_gallery("picture", path, "7", "m/i7.webp")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(gallery.load(path)[0]["thumb"], {"kind": "image", "src": "m/i7.webp", "full": "m/i7.webp",
+                                                         "note": gallery.OWNER_PICTURE})  # fmt: skip
+        for bad in (("8", "m/i7.webp"), ("7", "m/none.webp"), ("7", "../secret.webp"), ("7", "https://x.test/a.webp")):
+            r = self.run_gallery("picture", path, *bad)
+            self.assertNotEqual(r.returncode, 0, bad)
+
+    def test_seeding_again_keeps_the_receipts_people_sent(self):
+        out = os.path.join(self.dir, "g.json")
+        gallery.seed(INDEX, out)
+        sent = gallery.add(event(form(SITE + "r/#" + pack(RECEIPT))), out)
+        n = len(gallery.load(out))
+        gallery.seed(INDEX, out)
+        self.assertEqual(len(gallery.load(out)), n)
+        self.assertEqual(gallery.load(out)[-1], sent)
+
     def test_add_once(self):
         g = os.path.join(self.dir, "gallery.json")
         seeded = len(gallery.seed(INDEX, g))

@@ -6,6 +6,7 @@
 - **What it makes**: filter the gallery by kind (Audio, Image, Video, 3D, Interactive, Game art, Print and craft, Type and text, Web effects, Motion, Generative), from a menu, the chips or a `?what=` link. The main page links to each.
 - Fixed: a `claude -p` log that starts with a UI event before its init line (a first launch in an empty home writes one) was read as a session log, so the receipt said "Claude Code not recorded", worked its cost out from the calls instead of Claude Code's own total, and could count a note as a prompt.
 - Sent-in receipts of several prompts: the gallery shows the first prompt and how many there were (before, a `--turns` receipt showed no prompt and a `--prompt` list ran its prompts together), and a receipt made with `--turns` links as **how it was made**. **Add yours**, the README and the issue form now lead with `--prompt --turns --recipe --redact --share`, and the form says sent-in prompts are CC BY 4.0, as the site's are.
+- A sent-in receipt of one of the site's prompts shows with that prompt's runs. The site's owner can add a picture of what a sent-in run made (`gallery.py picture`), marked as the owner's; senders can't. Fixed: seeding the gallery again dropped the receipts people had sent.
 - The runs are now sandboxed with an empty home, `/run`, `/var/tmp` and `/mnt`, and Codex with a fresh `CODEX_HOME` holding only the login. Before, a run could read other folders on the machine; of the new runs, any that did was run again.
 
 ## receipt.py 7.9 (2026-10-11)

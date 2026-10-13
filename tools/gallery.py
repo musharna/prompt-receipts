@@ -4,6 +4,8 @@ gallery.json when the repo's owner labels the issue `gallery`. Standard library 
   python3 tools/gallery.py check EVENT.json                print the issue's preview, or why it can't go in (exit 1)
   python3 tools/gallery.py add EVENT.json gallery.json     check it again and add it (exit 1 if it can't go in)
   python3 tools/gallery.py seed index.html gallery.json    the site's own runs
+  python3 tools/gallery.py picture gallery.json ISSUE m/SMALL.webp [m/FULL.webp]
+                                                           a picture of what a sent-in run made, added by the owner
 
 EVENT.json is the issue event GitHub Actions saves at $GITHUB_EVENT_PATH. A receipt's text can't show whether
 someone edited it, so the gallery shows each one as sent."""
@@ -337,8 +339,27 @@ def seed(index_html, path, pages=None, more=None):
     for (card, name), button in buttons.items():
         if next(e for e in entries if (e["card"], e["name"]) == (card, name)).get("play") != button:
             raise SystemExit(f"gallery: {card}'s Play button opens {button}, but play/runs.json doesn't give {name} it")
+    entries += [e for e in load(path) if e.get("kind") != "site"]  # the receipts people sent stay
     save(path, entries)
     return entries
+
+
+OWNER_PICTURE = "a picture the site's owner took of what it made"
+
+
+def picture(path, issue, src, full=None):
+    """the owner adds a picture of what a sent-in run made: senders can't, so a picture never comes from an issue"""
+    here = os.path.dirname(os.path.abspath(path))
+    for f in filter(None, (src, full)):
+        if not re.fullmatch(r"m/[\w.-]+\.(webp|png|jpg)", f) or not os.path.isfile(os.path.join(here, f)):
+            raise SystemExit(f"gallery: {f} isn't a picture in m/")
+    entries = load(path)
+    named = [e for e in entries if e.get("issue") == issue]
+    if len(named) != 1:
+        raise SystemExit(f"gallery: issue #{issue} is {len(named)} entries in {path}")
+    named[0]["thumb"] = {"kind": "image", "src": src, "full": full or src, "note": OWNER_PICTURE}
+    save(path, entries)
+    return named[0]
 
 
 def main(argv):
@@ -346,7 +367,7 @@ def main(argv):
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
-    if len(argv) < 2 or argv[0] not in ("check", "add", "seed"):
+    if len(argv) < 2 or argv[0] not in ("check", "add", "seed", "picture"):
         sys.exit(__doc__)
     try:
         if argv[0] == "seed":
@@ -354,6 +375,10 @@ def main(argv):
                 f"gallery: {len(seed(argv[1], argv[2]))} receipts from {argv[1]}",
                 file=sys.stderr,
             )
+            return 0
+        if argv[0] == "picture":
+            picture(argv[1], int(argv[2]), argv[3], argv[4] if len(argv) > 4 else None)
+            print(f"gallery: issue #{argv[2]} has its picture", file=sys.stderr)
             return 0
         with open(argv[1], encoding="utf-8") as fh:
             event = json.load(fh)
