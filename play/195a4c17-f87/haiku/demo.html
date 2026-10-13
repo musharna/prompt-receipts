@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pottery animations demo</title>
+  <link rel="stylesheet" href="pottery-animations.css">
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f7f3ee; color: #3b332d; margin: 0; padding: 2rem; }
+    section { margin-bottom: 2.5rem; }
+    h2 { font-size: 1.1rem; margin: 0 0 1rem; }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+    button.demo { padding: .5rem 1rem; border-radius: 6px; border: 1px solid #b9ada0; background: #fff; cursor: pointer; }
+    .status { width: 96px; height: 96px; display: flex; align-items: center; justify-content: center; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem; }
+    .pot-card { background: #fff; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 6px rgba(0,0,0,.08); overflow: hidden; }
+    .pot-card__img { height: 140px; border-radius: 6px; background: #d9c7b3; margin-bottom: .75rem; }
+    .pot-card__row { display: flex; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+
+  <section>
+    <h2>Checkout status</h2>
+    <div class="row">
+      <button class="demo" id="show-success">Payment succeeds</button>
+      <button class="demo" id="show-error">Payment fails</button>
+    </div>
+    <p id="status-text" aria-live="polite"></p>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section>
+    <h2>Pots</h2>
+    <div class="row" style="margin-bottom:1rem">
+      <button class="demo" id="add-pot">Add a new pot</button>
+    </div>
+    <div class="grid" id="pots">
+      <article class="pot-card" data-sparkle>
+        <div class="pot-card__img"></div>
+        <div class="pot-card__row">
+          <strong>Speckled mug</strong>
+          <button class="fav-btn" aria-pressed="false" aria-label="Add Speckled mug to favourites">
+            <svg class="fav-btn__heart" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 21C12 21 3 15.5 3 9 3 6 5.2 4 7.8 4 9.6 4 11.1 5 12 6.5 12.9 5 14.4 4 16.2 4 18.8 4 21 6 21 9 21 15.5 12 21 12 21Z"/>
+            </svg>
+          </button>
+        </div>
+      </article>
+      <article class="pot-card" data-sparkle>
+        <div class="pot-card__img" style="background:#b8c4b0"></div>
+        <div class="pot-card__row">
+          <strong>Tall vase</strong>
+          <button class="fav-btn" aria-pressed="false" aria-label="Add Tall vase to favourites">
+            <svg class="fav-btn__heart" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 21C12 21 3 15.5 3 9 3 6 5.2 4 7.8 4 9.6 4 11.1 5 12 6.5 12.9 5 14.4 4 16.2 4 18.8 4 21 6 21 9 21 15.5 12 21 12 21Z"/>
+            </svg>
+          </button>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <script src="pottery-animations.js"></script>
+  <script>
+    var status = document.getElementById('status');
+    var statusText = document.getElementById('status-text');
+
+    document.getElementById('show-success').addEventListener('click', function () {
+      PotteryAnim.success(status);
+      statusText.textContent = 'Payment received. Thank you!';
+    });
+
+    document.getElementById('show-error').addEventListener('click', function () {
+      PotteryAnim.error(status);
+      statusText.textContent = 'Payment declined. Please try another card.';
+    });
+
+    var potCount = 2;
+    document.getElementById('add-pot').addEventListener('click', function () {
+      potCount++;
+      var card = document.createElement('article');
+      card.className = 'pot-card';
+      card.setAttribute('data-sparkle', '');
+      card.innerHTML =
+        '<div class="pot-card__img" style="background:#e0b9a0"></div>' +
+        '<div class="pot-card__row"><strong>New pot #' + potCount + '</strong>' +
+        '<button class="fav-btn" aria-pressed="false" aria-label="Add new pot to favourites">' +
+        '<svg class="fav-btn__heart" viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path d="M12 21C12 21 3 15.5 3 9 3 6 5.2 4 7.8 4 9.6 4 11.1 5 12 6.5 12.9 5 14.4 4 16.2 4 18.8 4 21 6 21 9 21 15.5 12 21 12 21Z"/>' +
+        '</svg></button></div>';
+      document.getElementById('pots').prepend(card);
+      PotteryAnim.sparkle(card);
+    });
+  </script>
+</body>
+</html>

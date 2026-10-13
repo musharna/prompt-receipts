@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><title>Canyon parallax demo</title>
+<style>body{margin:0;background:#111;color:#ddd;font:14px sans-serif;text-align:center}canvas{width:min(100vw,1280px);display:block;margin:0 auto}button{margin:6px;padding:6px 14px}</style>
+<canvas id="c" width="1280" height="576"></canvas>
+<div><button data-t="dawn">Dawn</button><button data-t="noon">Noon</button><button data-t="night">Night</button> ←/→ change speed</div>
+<script>
+const SPEED = [0.15, 0.45, 1.0]; // far, mid, near scroll factors
+const c = document.getElementById('c'), g = c.getContext('2d');
+let time = 'dawn', x = 0, v = 120; const imgs = {};
+for (const t of ['dawn','noon','night']) imgs[t] = ['1_far','2_mid','3_near'].map(n => { const i = new Image(); i.src = `canyon_${t}_${n}.png`; return i; });
+document.querySelectorAll('button').forEach(b => b.onclick = () => time = b.dataset.t);
+addEventListener('keydown', e => { if (e.key === 'ArrowRight') v += 40; if (e.key === 'ArrowLeft') v -= 40; });
+let last = performance.now();
+(function frame(now) {
+  x += v * (now - last) / 1000; last = now;
+  imgs[time].forEach((img, k) => { if (!img.complete) return; const W = img.width, o = -(((x * SPEED[k]) % W) + W) % W;
+    for (let dx = o; dx < c.width; dx += W) g.drawImage(img, Math.round(dx), 0); });
+  requestAnimationFrame(frame);
+})(last);
+</script>

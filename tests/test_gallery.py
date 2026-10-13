@@ -5,6 +5,7 @@ import base64
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -16,6 +17,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 GALLERY = os.path.join(HERE, "..", "tools", "gallery.py")
 INDEX = os.path.join(HERE, "..", "index.html")
 PAGES = os.path.join(HERE, "..", "play", "runs.json")
+MORE = os.path.join(HERE, "..", "prompts.json")
+WHAT = {"Audio", "Interactive", "3D", "Generative", "Motion", "Type and text", "Game art", "Web effects", "Print and craft",
+        "Image", "Video"}
 NAMES = ("Claude Opus 5.5", "Claude Sonnet 5.5", "Claude Haiku 5.5", "GPT-5.6-Sol", "GPT-5.6-Terra", "GPT-5.6-Luna",
          "GPT-6-Astra")
 SITE = "https://musharna.github.io/prompt-receipts/"
@@ -72,7 +76,8 @@ class Gallery(unittest.TestCase):
 
     def test_the_sites_own_receipts_all_go_in(self):
         out = os.path.join(self.dir, "g.json")
-        entries = gallery.seed(INDEX, out)
+        everything = gallery.seed(INDEX, out)
+        entries = [e for e in everything if re.fullmatch(r"p\d+", e["card"])]  # the cards'; prompts.json's: below
         self.assertEqual(len(entries), 112)  # 16 cards × 7 models: one entry a run
         with open(INDEX, encoding="utf-8") as fh:
             self.assertEqual(fh.read().count("/r/#r1."), 113)  # the slime's Play button links its run's again
@@ -82,7 +87,7 @@ class Gallery(unittest.TestCase):
                                   "gpt-5.6-terra", "gpt-5.6-luna", "gpt-6-astra"})  # fmt: skip
         self.assertEqual({e["tool"] for e in entries}, {"Claude Code", "Codex CLI"})
         self.assertEqual({(e["kind"], e["by"]) for e in entries}, {("site", "Prompt Receipts")})
-        self.assertTrue(all(e["usd"] is not None and e["prompt"] for e in entries))
+        self.assertTrue(all(e["usd"] is not None and e["prompt"] for e in everything))
         p1 = [
             e for e in entries if e["card"] == "p1" and e["model"] == "claude-opus-5-5"
         ][0]
@@ -119,11 +124,9 @@ class Gallery(unittest.TestCase):
                 self.assertTrue(os.path.exists(os.path.join(HERE, "..", e["thumb"]["src"])), e["thumb"])
         with open(out, encoding="utf-8") as fh:
             lines = fh.read().split("\n")
-        self.assertEqual(
-            len(lines), 112 + 3
-        )  # one entry per line, so each addition is a one-line diff
+        self.assertEqual(len(lines), len(everything) + 3)  # one entry per line, so each addition is a one-line diff
         with open(out, encoding="utf-8") as fh:
-            self.assertEqual(json.load(fh), entries)
+            self.assertEqual(json.load(fh), everything)
 
     def test_a_play_button_must_name_one_run_on_its_card(self):
         with open(INDEX, encoding="utf-8") as fh:
@@ -134,9 +137,9 @@ class Gallery(unittest.TestCase):
             with open(bad, "w", encoding="utf-8") as fh:
                 fh.write(page.replace("Play the GPT-6-Astra version", f"Play the {who} version"))
             with self.assertRaises(SystemExit) as no:
-                gallery.seed(bad, out, PAGES)
+                gallery.seed(bad, out, PAGES, MORE)
             self.assertIn(f"p16's Play button names {who!r}", str(no.exception))
-        self.assertEqual(len(gallery.seed(INDEX, out)), 112)
+        self.assertEqual(len([e for e in gallery.seed(INDEX, out) if re.fullmatch(r"p\d+", e["card"])]), 112)
 
     def test_each_page_in_play_runs_json_is_its_runs_own(self):
         with open(PAGES, encoding="utf-8") as fh:
@@ -156,9 +159,58 @@ class Gallery(unittest.TestCase):
             with self.assertRaises(SystemExit) as no:
                 gallery.seed(INDEX, out, pages)
             self.assertIn(why, str(no.exception))
-        self.assertEqual(sum("play" in e for e in gallery.seed(INDEX, out, PAGES)), 34)
+        self.assertEqual(sum("play" in e for e in gallery.seed(INDEX, out, PAGES)), len(rows))
         for r in rows:
             self.assertTrue(os.path.isfile(os.path.join(HERE, "..", r["page"])), r)
+
+    def test_more_prompts_go_in_with_every_run(self):
+        with open(MORE, encoding="utf-8") as fh:
+            more = json.load(fh)
+        entries = gallery.seed(INDEX, os.path.join(self.dir, "g.json"))
+        cards = {e["card"] for e in entries if re.fullmatch(r"p\d+", e["card"])}
+        self.assertEqual(len(cards), 16)
+        self.assertEqual(set(more["cards"]), cards)  # every card on the site says what it makes
+        self.assertLessEqual(set(more["cards"].values()) | {p["what"] for p in more["prompts"]}, WHAT)
+        self.assertTrue(all(e["what"] in WHAT for e in entries))
+        extra = [e for e in entries if e["card"] not in cards]
+        self.assertEqual(len(extra), 7 * len(more["prompts"]))
+        self.assertEqual(len({p["id"] for p in more["prompts"]}), len(more["prompts"]))
+        for p in more["prompts"]:
+            runs = [e for e in extra if e["card"] == p["id"]]
+            self.assertEqual(sorted(e["name"] for e in runs), sorted(NAMES))
+            for e in runs:
+                self.assertEqual(e["prompt"], gallery.cut(p["prompt"]))  # its receipt asked exactly this
+                self.assertEqual((e["title"], e["what"], e["kind"], e["by"]), (p["title"], p["what"], "site", "Prompt Receipts"))
+                self.assertIn(e["verdict"], ("worked", "partly", "no"))
+                self.assertTrue(e["made"] and e["time"] and e["usd"] is not None, e)
+                if e["thumb"]["kind"] != "none":
+                    for f in {e["thumb"]["src"], e["thumb"]["full"]}:
+                        self.assertTrue(os.path.isfile(os.path.join(HERE, "..", f)), f)
+        asmr = {e["name"]: e for e in extra if e["prompt"].startswith("ASMR reactive")}
+        self.assertEqual((asmr["Claude Haiku 5.5"]["verdict"], asmr["Claude Haiku 5.5"]["thumb"]["kind"]), ("no", "none"))
+        self.assertEqual(asmr["Claude Haiku 5.5"]["usd"], 0.01)  # "<$0.01"
+        self.assertEqual(asmr["GPT-5.6-Sol"]["time_from"], "card")  # codex exec --json logs no times; the runner did
+
+    def test_a_prompt_with_a_wrong_receipt_or_kind_stays_out(self):
+        with open(MORE, encoding="utf-8") as fh:
+            more = json.load(fh)
+        out, bad = os.path.join(self.dir, "g.json"), os.path.join(self.dir, "prompts.json")
+        other = more["prompts"][1]["runs"][0]["link"]
+        for change, why in (
+            (lambda m: m["prompts"][0]["runs"][0].update(link=other), "asked something else"),  # another prompt's receipt
+            (lambda m: m["prompts"][0].update(what="Sculpture"), "Sculpture"),
+            (lambda m: m["cards"].pop("p16"), "p16"),
+            (lambda m: m["prompts"][0]["runs"].pop(), "6 runs"),
+            (lambda m: m["prompts"][0]["runs"][0].update(verdict="great"), "great"),
+        ):
+            m = json.loads(json.dumps(more))
+            change(m)
+            with open(bad, "w", encoding="utf-8") as fh:
+                json.dump(m, fh)
+            with self.assertRaises(SystemExit) as no:
+                gallery.seed(INDEX, out, PAGES, bad)
+            self.assertIn(why, str(no.exception))
+        self.assertEqual(len(gallery.seed(INDEX, out, PAGES, MORE)), 112 + 7 * len(more["prompts"]))
 
     def test_what_a_receipt_shows(self):
         e = gallery.entry(pack(RECEIPT))
@@ -274,7 +326,7 @@ class Gallery(unittest.TestCase):
 
     def test_add_once(self):
         g = os.path.join(self.dir, "gallery.json")
-        gallery.seed(INDEX, g)
+        seeded = len(gallery.seed(INDEX, g))
         p = self.run_gallery(
             "add",
             self.write_event(event(form(pack(RECEIPT)), number=12, login="ana")),
@@ -284,7 +336,7 @@ class Gallery(unittest.TestCase):
         self.assertIn(f"{SITE}g/#i12", p.stdout)
         with open(g, encoding="utf-8") as fh:
             entries = json.load(fh)
-        self.assertEqual(len(entries), 113)
+        self.assertEqual(len(entries), seeded + 1)
         new = entries[-1]
         self.assertEqual(
             (new["issue"], new["by"], new["kind"], new["link"]),
@@ -307,11 +359,11 @@ class Gallery(unittest.TestCase):
             p.returncode, 0, p.stdout
         )  # a different receipt from a new issue still goes in
         with open(g, encoding="utf-8") as fh:
-            self.assertEqual(len(json.load(fh)), 114)
+            self.assertEqual(len(json.load(fh)), seeded + 2)
         bad = self.run_gallery("add", self.write_event(event("nothing", number=16)), g)
         self.assertEqual(bad.returncode, 1)
         with open(g, encoding="utf-8") as fh:
-            self.assertEqual(len(json.load(fh)), 114)  # a refusal writes nothing
+            self.assertEqual(len(json.load(fh)), seeded + 2)  # a refusal writes nothing
 
 
 if __name__ == "__main__":

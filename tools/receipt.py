@@ -546,10 +546,17 @@ def claude_lines(path):
     """a Claude Code session log one entry at a time, or the output of `claude -p --output-format stream-json
     --verbose` read as one: the same replies and tool results, without the prompt, effort, hooks or memory files"""
     it = lines(path)
-    first = next(it, None)
+    first, ui = next(it, None), []
+    # a first launch (an empty home) writes UI events, with no timestamp, before claude -p's init line; a session
+    # log's entries always carry one, so these never hide a session log's own lines
+    while first and first.get("type") == "system" and first.get("subtype") != "init" and "timestamp" not in first:
+        ui.append(first)
+        first = next(it, None)
     if first is None:
+        yield from ui
         return
     if not (first.get("type") == "system" and first.get("subtype") == "init" and "claude_code_version" in first):
+        yield from ui
         yield first
         yield from it
         return

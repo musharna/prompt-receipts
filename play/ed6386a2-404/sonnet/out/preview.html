@@ -1,0 +1,23 @@
+<!doctype html><meta charset=utf-8><title>Snail Knight</title>
+<style>body{background:#2b2238;color:#f4e6c8;font:16px system-ui;text-align:center;padding:2em}
+canvas{image-rendering:pixelated;background:#7fb069;border:4px solid #3b2634;border-radius:8px;display:block;margin:1em auto}
+button{font:inherit;padding:.4em 1em;margin:.2em;border-radius:6px;border:0;background:#e08246;color:#fff;cursor:pointer}</style>
+<h1>🐌 Snail Knight</h1><canvas id=c width=384 height=256></canvas>
+<div><button data-a=walk>Walk</button><button data-a=attack>Swing lance</button><button data-a=hide>Hide in shell</button></div>
+<p>Hide plays in, holds, then pops back out.</p>
+<script>
+const A={walk:{row:0,n:6,fps:8,loop:true},attack:{row:1,n:7,fps:10},hide:{row:2,n:6,fps:8,pp:true}};
+const img=new Image();img.src='snail_knight_sheet.png';
+const c=document.getElementById('c'),x=c.getContext('2d');x.imageSmoothingEnabled=false;
+let cur='walk',f=0,hold=0,dir=1,S=8;
+function draw(){x.clearRect(0,0,c.width,c.height);const a=A[cur];
+ x.drawImage(img,f*48,a.row*32,48,32,0,0,48*S,32*S);}
+function tick(){const a=A[cur];
+ if(a.loop)f=(f+1)%a.n;
+ else if(a.pp){if(hold>0)hold--;else{f+=dir;if(f>=a.n-1){f=a.n-1;if(dir>0){hold=8;dir=-1}}if(f<=0&&dir<0){f=0;go('walk');}}}
+ else{f++;if(f>=a.n)go('walk');}
+ draw();setTimeout(tick,1000/a.fps);}
+function go(n){cur=n;f=0;dir=1;hold=0;}
+document.querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.a));
+img.onload=tick;
+</script>

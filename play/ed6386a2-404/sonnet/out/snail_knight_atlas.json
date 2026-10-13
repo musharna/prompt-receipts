@@ -1,0 +1,18 @@
+{
+  "frame_width": 48,
+  "frame_height": 32,
+  "animations": {
+    "walk": {
+      "row": 0,
+      "frames": 6
+    },
+    "attack": {
+      "row": 1,
+      "frames": 7
+    },
+    "hide": {
+      "row": 2,
+      "frames": 6
+    }
+  }
+}

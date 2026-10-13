@@ -1,0 +1,174 @@
+/* Pottery shop micro-animations
+   Base styles show the finished state; keyframes animate from hidden.
+   Under prefers-reduced-motion, everything jumps straight to the finished state. */
+
+:root {
+  --pot-success: #4f8a5b;
+  --pot-error: #b8473a;
+  --pot-heart: #d9485f;
+  --pot-spark: #e8b84a;
+  --pot-muted: #8a7f76;
+}
+
+/* ---------- Success checkmark ---------- */
+
+.anim-check {
+  width: 64px;
+  height: 64px;
+  display: block;
+  overflow: visible;
+}
+
+.anim-check__circle,
+.anim-check__tick,
+.anim-cross__circle,
+.anim-cross__line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: var(--len);
+  stroke-dashoffset: 0;
+}
+
+.anim-check__circle,
+.anim-cross__circle {
+  stroke-width: 3;
+  --len: 151;
+}
+
+.anim-check__circle { stroke: var(--pot-success); animation: pot-draw .6s ease-out both; }
+
+.anim-check__tick {
+  stroke: var(--pot-success);
+  stroke-width: 4;
+  --len: 34;
+  animation: pot-draw .35s ease-out .5s both;
+}
+
+@keyframes pot-draw {
+  from { stroke-dashoffset: var(--len); }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* ---------- Error cross: draws in, then shakes ---------- */
+
+.anim-cross {
+  width: 64px;
+  height: 64px;
+  display: block;
+  overflow: visible;
+  animation: pot-shake .5s ease-in-out .7s;
+}
+
+.anim-cross__circle { stroke: var(--pot-error); animation: pot-draw .6s ease-out both; }
+
+.anim-cross__line {
+  stroke: var(--pot-error);
+  stroke-width: 4;
+  --len: 23;
+  animation: pot-draw .3s ease-out .5s both;
+}
+
+.anim-cross__line--b { animation-delay: .7s; }
+
+@keyframes pot-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px); }
+}
+
+/* ---------- Favourite heart ---------- */
+
+.fav-btn {
+  background: none;
+  border: 0;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--pot-muted);
+  line-height: 0;
+  border-radius: 4px;
+}
+
+.fav-btn:focus-visible {
+  outline: 2px solid var(--pot-heart);
+  outline-offset: 2px;
+}
+
+.fav-btn__heart {
+  display: block;
+  width: 28px;
+  height: 28px;
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  transition: fill .2s ease, stroke .2s ease;
+}
+
+.fav-btn[aria-pressed="true"] .fav-btn__heart {
+  fill: var(--pot-heart);
+  stroke: var(--pot-heart);
+}
+
+/* Added by JS on click, removed on animationend */
+.fav-btn.is-popping .fav-btn__heart {
+  animation: pot-pop .45s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+@keyframes pot-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.35); }
+  70%  { transform: scale(.9); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- Sparkles on new items ---------- */
+
+[data-sparkle] {
+  position: relative;
+}
+
+.pot-sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pot-sparkle {
+  position: absolute;
+  color: var(--pot-spark);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  animation: pot-twinkle 1.8s ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+.pot-sparkle svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+@keyframes pot-twinkle {
+  0%, 100% { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 0; }
+  50%      { transform: translate(-50%, -50%) scale(1) rotate(45deg); opacity: 1; }
+}
+
+/* ---------- Reduced motion: show finished states, no movement ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .pot-sparkle {
+    transform: translate(-50%, -50%) scale(.8);
+    opacity: .7;
+  }
+}

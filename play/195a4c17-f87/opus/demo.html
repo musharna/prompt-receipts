@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pottery shop animations – demo</title>
+  <link rel="stylesheet" href="animations.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 40px 24px;
+      background: var(--slip);
+      color: #3b2a20;
+      font: 16px/1.5 Georgia, serif;
+    }
+    h1 { font-weight: normal; margin-top: 0; }
+    section { margin-bottom: 48px; }
+    .row { display: flex; gap: 32px; align-items: center; flex-wrap: wrap; }
+    .panel {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px 32px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(80, 40, 20, 0.08);
+      min-width: 220px;
+    }
+    .panel p { margin: 12px 0 16px; }
+    button.demo {
+      font: inherit;
+      padding: 6px 16px;
+      border: 1px solid var(--clay);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--clay-dark);
+      cursor: pointer;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 28px; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(80, 40, 20, 0.08);
+    }
+    .card .photo {
+      aspect-ratio: 1;
+      border-radius: 12px 12px 0 0;
+      background: radial-gradient(circle at 50% 60%, #d98a62 0 30%, #e9d8c6 31%);
+    }
+    .card footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 8px 10px 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pottery shop animations</h1>
+
+  <section>
+    <h2>Checkout status</h2>
+    <div class="row">
+      <div class="panel">
+        <div id="success-icon"></div>
+        <p>Thanks! Your order is on its way.</p>
+        <button class="demo" id="replay-success">Replay</button>
+      </div>
+      <div class="panel">
+        <div id="error-icon"></div>
+        <p>Payment didn't go through.</p>
+        <button class="demo" id="replay-error">Replay</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Shop grid – favourites &amp; new items</h2>
+    <div class="grid">
+      <article class="card sparkle-host" data-sparkles="6">
+        <span class="new-badge">New</span>
+        <div class="photo"></div>
+        <footer>
+          <span>Speckled mug</span>
+          <button class="fav-btn" aria-label="Favourite speckled mug"></button>
+        </footer>
+      </article>
+      <article class="card">
+        <div class="photo"></div>
+        <footer>
+          <span>Celadon bowl</span>
+          <button class="fav-btn" aria-label="Favourite celadon bowl"></button>
+        </footer>
+      </article>
+      <article class="card sparkle-host">
+        <span class="new-badge">New</span>
+        <div class="photo"></div>
+        <footer>
+          <span>Bud vase</span>
+          <button class="fav-btn" aria-label="Favourite bud vase" aria-pressed="true"></button>
+        </footer>
+      </article>
+    </div>
+  </section>
+
+  <script src="animations.js"></script>
+  <script>
+    const success = document.getElementById("success-icon");
+    const error = document.getElementById("error-icon");
+    PotteryAnim.showStatus(success, "success", "Order placed");
+    PotteryAnim.showStatus(error, "error", "Payment failed");
+    document.getElementById("replay-success").onclick = () =>
+      PotteryAnim.showStatus(success, "success", "Order placed");
+    document.getElementById("replay-error").onclick = () =>
+      PotteryAnim.showStatus(error, "error", "Payment failed");
+
+    document.addEventListener("favouritechange", (e) =>
+      console.log(e.target.getAttribute("aria-label"), e.detail.favourited));
+  </script>
+</body>
+</html>

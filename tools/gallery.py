@@ -101,7 +101,7 @@ def entry(token):
         said.setdefault(label.strip(), " ".join(v.strip() for v in values))
     model = said.get("model", "").split(" · ")[0].split(" (")[0]
     cost = said.get("cost", "")
-    usd = re.match(r"\$([\d,]+(?:\.\d+)?)", cost)
+    usd = re.match(r"<?\$([\d,]+(?:\.\d+)?)", cost)  # "<$0.01" counts as $0.01
     prompt = said.get("prompt") or said.get("prompts") or ""
     return {
         "link": token,
@@ -229,17 +229,48 @@ def site_run(row):
     return dim.group(2), dict(name=name, effort=effort, verdict=verdict, made=cut(made), thumb=thumb, card_time=time)
 
 
+WHAT = ("Audio", "Interactive", "3D", "Generative", "Motion", "Type and text", "Game art", "Web effects",
+        "Print and craft", "Image", "Video")  # what a prompt makes, for the gallery's filter
 PLAY = re.compile(r'<a class="btn" href="(play/[^"]+)"[^>]*>Play the (.+?) version</a>')
 
 
-def seed(index_html, path, pages=None):
-    """the site's own runs: one entry a run, from its receipt and what its card says, and the page it made from
-    play/runs.json (card, name, receipt no., page) if a browser opens what it made"""
+def more_runs(more, cards):
+    """prompts.json's prompts, run on the site's 7 models but not on its cards -> their entries"""
+    if set(more["cards"]) != cards:
+        raise SystemExit(f"gallery: prompts.json says what {sorted(set(more['cards']) ^ cards)} make, not the site's cards")
+    entries = []
+    for p in more["prompts"]:
+        for what in [p["what"], *more["cards"].values()]:
+            if what not in WHAT:
+                raise SystemExit(f"gallery: {what!r} isn't one of the gallery's kinds: {', '.join(WHAT)}")
+        if len(p["runs"]) != 7:
+            raise SystemExit(f"gallery: {p['id']} has {len(p['runs'])} runs, not one on each of the 7 models")
+        for run in p["runs"]:
+            if run["verdict"] not in VERDICTS.values():
+                raise SystemExit(f"gallery: {p['id']} {run['name']}'s verdict {run['verdict']!r} isn't worked, partly or no")
+            e = entry(run["link"])
+            if e["prompt"] != cut(p["prompt"]):
+                raise SystemExit(f"gallery: {p['id']} {run['name']}'s receipt asked something else: {e['prompt'][:60]}")
+            if not e["time"] or e["time"].startswith("not "):  # codex exec --json logs no times; the runner did
+                e.update(time=run["time"], time_from="card")
+            else:
+                e["time_from"] = "receipt"
+            e.update({k: run[k] for k in ("name", "effort", "verdict", "made", "thumb")}, kind="site", card=p["id"],
+                     title=p["title"], by="Prompt Receipts", what=p["what"], **({"note": p["note"]} if p.get("note") else {}))
+            entries.append(e)
+    return entries
+
+
+def seed(index_html, path, pages=None, more=None):
+    """the site's own runs: one entry a run, from its receipt and what its card says, then prompts.json's prompts, and the
+    page it made from play/runs.json (card, name, receipt no., page) if a browser opens what it made"""
+    here = os.path.dirname(os.path.abspath(index_html))
     with open(index_html, encoding="utf-8") as fh:
         page = fh.read()
-    with open(pages or os.path.join(os.path.dirname(os.path.abspath(index_html)), "play", "runs.json"),
-              encoding="utf-8") as fh:
-        played = json.load(fh)  # fmt: skip
+    with open(pages or os.path.join(here, "play", "runs.json"), encoding="utf-8") as fh:
+        played = json.load(fh)
+    with open(more or os.path.join(here, "prompts.json"), encoding="utf-8") as fh:
+        more = json.load(fh)
     entries = []
     for card in page.split("<article ")[1:]:
         card_id = re.match(r'id="([\w-]+)"', card).group(1)
@@ -261,6 +292,9 @@ def seed(index_html, path, pages=None):
                 raise SystemExit(f"gallery: {card_id}'s Play button names {who!r}, which is {len(named)} runs")
             named[0]["play"] = html.unescape(page)
         entries += runs
+    for e in entries:
+        e["what"] = more["cards"].get(e["card"])
+    entries += more_runs(more, {e["card"] for e in entries})
     buttons = {(e["card"], e["name"]): e.pop("play") for e in entries if "play" in e}
     for row in played:
         named = [e for e in entries if (e["card"], e["name"]) == (row["card"], row["name"])]

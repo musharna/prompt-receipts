@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Origami Club: crease patterns and fold-along animations</title>
+<style>
+:root{--ink:#2a2118;--paper:#fbf6ea;--card:#fff;--accent:#d2452b;--line:#e4d9c3}
+*{box-sizing:border-box}body{margin:0;font:16px/1.45 system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+header{padding:18px 22px 6px}h1{margin:0;font-size:1.5rem}header p{margin:.2rem 0 0;color:#6b5d4a}
+#tabs{display:flex;gap:8px;flex-wrap:wrap;padding:10px 22px}
+.tab{font:inherit;padding:8px 16px;border-radius:999px;border:2px solid var(--line);background:var(--card);cursor:pointer}
+.tab[aria-selected=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+.tab:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #1565c0;outline-offset:2px}
+main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;padding:8px 22px 28px}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+canvas{width:100%;height:auto;aspect-ratio:1/1;background:linear-gradient(#fffdf8,#f3ead7);border-radius:10px;display:block}
+.ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.ctl button{font:inherit;padding:8px 14px;border-radius:8px;border:2px solid var(--line);background:#fff;cursor:pointer}
+#play{background:var(--accent);color:#fff;border-color:var(--accent);min-width:110px}
+#slider{flex:1 1 200px}label{font-size:.85rem;color:#6b5d4a;display:flex;gap:6px;align-items:center}
+#stepno{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:#6b5d4a;margin-top:12px}
+#steptitle{margin:2px 0;font-size:1.25rem}#steptext{margin:0;min-height:3em}
+#cp svg{width:100%;height:auto;display:block}.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem;margin-top:6px}.lg{display:flex;gap:6px;align-items:center}
+#steps{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+#steps button{font:inherit;font-size:.8rem;padding:4px 9px;border-radius:6px;border:1px solid var(--line);background:#fff;cursor:pointer}
+#steps li.on button{background:#ffe3d9;border-color:var(--accent)}
+h2{margin:0 0 4px;font-size:1.1rem}.note{font-size:.82rem;color:#6b5d4a;margin:8px 0 0}
+#sheet{display:none}
+@media print{body>*:not(#sheet){display:none!important}#sheet{display:block}#sheet section{page-break-after:always;max-width:640px;margin:auto}#sheet svg{width:70%;display:block;margin:0 auto}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style></head><body>
+<header><h1>Origami Club</h1><p>Pick a model, press Play, and watch it fold. The crease pattern is on the right.</p></header>
+<div id="tabs" role="tablist" aria-label="Models"></div>
+<main>
+ <section class="card" aria-label="Folding animation">
+  <canvas id="cv" width="760" height="760" aria-label="Animated folding model"></canvas>
+  <div class="ctl">
+   <button id="prev" aria-label="Previous step">⏮</button><button id="play">▶ Play</button><button id="next" aria-label="Next step">⏭</button>
+   <input id="slider" type="range" min="0" max="1000" value="0" aria-label="Scrub through the folding">
+  </div>
+  <div class="ctl"><label>Speed <input id="speed" type="range" min="0.4" max="2" step="0.1" value="1"></label>
+   <label>Tilt <input id="tilt" type="range" min="0" max="1.1" step="0.05" value="0.5"></label></div>
+  <div id="stepno"></div><h3 id="steptitle"></h3><p id="steptext"></p>
+ </section>
+ <aside class="card"><h2 id="mname"></h2><p id="blurb" style="margin:0 0 8px"></p>
+  <div id="cp"></div>
+  <button id="print" style="margin-top:10px;font:inherit;padding:8px 14px;border-radius:8px;border:2px solid var(--line);background:#fff;cursor:pointer">🖨 Print all five crease patterns</button>
+  <ul id="steps" aria-label="Jump to a step"></ul>
+  <p class="note">The paper is shown with one colour on each side. Crease patterns are drawn as the paper lies in front of you when you start.</p>
+ </aside>
+</main>
+<div id="sheet"></div>
+<script>/*ENGINE*/</script>
+<script>/*MODELS*/</script>
+<script>/*APP*/</script>
+</body></html>

@@ -21,12 +21,19 @@ th{background:#f7f4ec;font-weight:600}
 .group{margin:22px 0 30px}
 .group h3{margin:0;font-size:1.1em}
 .group .prompt{margin:2px 0 10px;color:#444;font-size:.92em;max-width:900px}
+.group .note{margin:-6px 0 10px;font-size:.85em}
+#whats{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 4px}
+#whats button{font:inherit;font-size:.88em;padding:.25em .75em;border:1px solid #bbb;border-radius:999px;background:#fffdf8;color:#222;cursor:pointer}
+#whats button[aria-pressed=true]{background:#222;color:#fff;border-color:#222}
+#whats .n{color:#777;margin-left:.35em}#whats button[aria-pressed=true] .n{color:#ccc}
 .runs{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:12px}
 .run{background:#fffdf8;border:1px solid #ddd;border-radius:6px;overflow:hidden;display:flex;flex-direction:column}
 .run.hit{outline:3px solid #e8b400}
 .pic{aspect-ratio:4/3;background:#ece8df;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .pic a{display:block;width:100%;height:100%}
-.pic img,.pic video{width:100%;height:100%;object-fit:cover;display:block}
+.pic img,.pic video{width:100%;height:100%;object-fit:contain;display:block}
+.pic img.px{image-rendering:pixelated}
+.pnote{color:#666;font-size:.78em;padding:3px 10px 0}
 .pic audio{width:92%}
 .pic.empty{aspect-ratio:auto;height:34px}
 .pic .none{color:#777;font-size:.85em}
@@ -34,6 +41,7 @@ th{background:#f7f4ec;font-weight:600}
 .body{padding:8px 10px 10px;font-size:.88em;display:flex;flex-direction:column;gap:3px;flex:1}
 .who{font-weight:600}
 .eff{color:#555;margin-top:-3px}
+.eff .e{white-space:nowrap}
 .ttl{font-weight:600;font-size:1.02em}
 .made{color:#333;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .facts{margin-top:auto;padding-top:4px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
@@ -61,7 +69,7 @@ footer{color:#555;font-size:.88em;margin:24px 0}
 <main>
 <h1>Receipt gallery</h1>
 <p>What AI coding runs made, what they cost, how long they took and whether they worked: the
-<a href="../">site's 16 prompts</a>, each run on 7 models, and receipts people send in (<a href="#add">add yours</a>).
+<a href="../">site's 16 prompts</a> and 28 more, each run on the same 7 models, and receipts people send in (<a href="#add">add yours</a>).
 Costs are at API list prices, as the receipts give them; on a flat-fee plan a run isn't charged on its own.</p>
 
 <h2>By model</h2>
@@ -72,6 +80,7 @@ Costs are at API list prices, as the receipts give them; on a flat-fee plan a ru
 
 <div class="bar">
 <input id="q" type="search" placeholder="Search prompts, models, what it made" aria-label="Search">
+<select id="what" aria-label="What it makes"><option value="">Makes anything</option></select>
 <select id="tool" aria-label="Tool"><option value="">All tools</option></select>
 <select id="model" aria-label="Model"><option value="">All models</option></select>
 <select id="verdict" aria-label="Result"><option value="">Any result</option><option value="worked">Worked</option>
@@ -81,6 +90,7 @@ Costs are at API list prices, as the receipts give them; on a flat-fee plan a ru
 <select id="sort" aria-label="Sort"><option value="prompt">By prompt</option><option value="cheap">Cheapest first</option>
 <option value="dear">Dearest first</option><option value="fast">Quickest first</option></select>
 </div>
+<nav id="whats" aria-label="What it makes"></nav>
 <p id="count" class="dim">Loading…</p>
 <div id="list"></div>
 
@@ -134,9 +144,19 @@ function picture(e) {
     const a = link(page(e) || '../' + t.full, ''); a.target = '_blank'; a.rel = 'noopener';
     a.title = page(e) ? 'Open the page it made' : 'Open full size';
     const img = el('img'); img.loading = 'lazy'; img.src = '../' + t.src; img.alt = nameOf(e) + ': ' + (e.made || 'what it made');
+    // a small picture (a 32-pixel tile) is scaled up, so keep its pixels sharp
+    img.onload = () => { if (img.naturalWidth * 2 < img.clientWidth) img.classList.add('px'); };
     a.append(img); box.append(a);
   } else if (t && (t.kind === 'video' || t.kind === 'audio')) {
-    const m = el(t.kind); m.controls = true; m.preload = t.kind === 'video' ? 'metadata' : 'none'; m.src = '../' + t.src;
+    const m = el(t.kind); m.preload = 'metadata'; m.src = '../' + t.src;
+    if (t.kind === 'audio') m.controls = true;
+    else {  // the controls would cover the picture: a still until hovered, controls once clicked
+      if (t.poster) m.poster = '../' + t.poster;
+      m.muted = m.loop = m.playsInline = true; m.title = 'Hover to play, click for controls';
+      m.onpointerenter = () => m.play().catch(() => {});
+      m.onpointerleave = () => { if (!m.controls) m.pause(); };
+      m.onclick = () => { m.controls = true; m.muted = false; };
+    }
     box.append(m);
   } else if (e.kind === 'site') { box.classList.add('empty'); box.append(el('span', 'none', 'no picture')); }
   else return null;  // nothing was sent to show
@@ -147,6 +167,7 @@ function tile(e, flat) {
   if (e.issue) card.id = 'i' + e.issue;
   const pic = picture(e);
   if (pic) card.append(pic);
+  if (pic && e.thumb && e.thumb.note) card.append(el('div', 'pnote', e.thumb.note));  // a preview we made, not the run
   const b = el('div', 'body');
   if (flat) b.append(el('div', 'ttl', e.title || e.prompt || 'prompt not on the receipt'));
   b.append(el('div', 'who', nameOf(e)));
@@ -157,9 +178,9 @@ function tile(e, flat) {
     eff.append(v, ' ');
   }
   // the site's cards say "Codex's default model, effort not set" for GPT-6-Astra
-  if (e.effort) eff.append(e.effort.startsWith("Codex's default") ? 'default effort' : e.effort);
+  if (e.effort) eff.append(el('span', 'e', e.effort.startsWith("Codex's default") ? 'default effort' : e.effort));
   if (eff.childNodes.length) b.append(eff);
-  if (e.made) b.append(el('div', 'made', e.made));
+  if (e.made) { const m = el('div', 'made', e.made); m.title = e.made; b.append(m); }
   if (page(e)) { const a = link(page(e), 'Play it', 'btn play'); a.target = '_blank'; a.rel = 'noopener'; b.append(a); }
   if (e.kind !== 'site') {
     const from = el('div', 'dim');
@@ -209,9 +230,11 @@ function summary(rows) {
   }
 }
 function render() {
-  const q = $('q').value.trim().toLowerCase(), f = {tool: $('tool').value, model: $('model').value, verdict: $('verdict').value, kind: $('kind').value};
+  const q = $('q').value.trim().toLowerCase(), f = {what: $('what').value, tool: $('tool').value, model: $('model').value, verdict: $('verdict').value, kind: $('kind').value};
   const rows = all.filter(e => Object.entries(f).every(([k, v]) => !v || (k === 'model' ? nameOf(e) : e[k]) === v)
-    && (!q || [e.title, e.prompt, nameOf(e), e.model, e.tool, e.made, e.by].join(' ').toLowerCase().includes(q)));
+    && (!q || [e.title, e.prompt, nameOf(e), e.model, e.tool, e.made, e.by, e.what].join(' ').toLowerCase().includes(q)));
+  for (const b of $('whats').children) b.setAttribute('aria-pressed', String(b.dataset.what === f.what));
+  history.replaceState(null, '', f.what ? '?what=' + encodeURIComponent(f.what) + location.hash : location.pathname + location.hash);
   summary(rows);
   const list = $('list'), s = $('sort').value;
   list.replaceChildren();
@@ -223,17 +246,20 @@ function render() {
       if (!groups.has(e.card)) groups.set(e.card, []);
       groups.get(e.card).push(e);
     }
-    const group = (head, prompt, rs, flat) => {
+    const group = (head, prompt, rs, flat, note) => {
       const g = el('section', 'group'), h = el('h3');
       h.append(head);
       g.append(h);
       if (prompt) g.append(el('p', 'prompt', prompt));
+      if (note) g.append(el('p', 'note dim', note));
       const runs = el('div', 'runs');
       for (const r of rs) runs.append(tile(r, flat));
       g.append(runs);
       list.append(g);
     };
-    for (const rs of groups.values()) group(link('../#' + rs[0].card, rs[0].title), rs[0].prompt, rs, false);
+    // a site card's runs link back to the card; a prompt run only for this page has no card
+    for (const rs of groups.values()) group(/^p\d+$/.test(rs[0].card) ? link('../#' + rs[0].card, rs[0].title) : rs[0].title,
+      rs[0].prompt, rs, false, rs[0].note);
     if (sent.length) group('Sent in', '', sent, true);
   } else {
     const key = s === 'fast' ? e => secs(e.time) : e => e.usd;
@@ -274,9 +300,21 @@ $('paste').addEventListener('keydown', ev => { if (ev.key === 'Enter') check(); 
 fetch('../gallery.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(g => {
   all = g;
   for (const e of all) if (e.name && known(e.model)) names[e.model] = e.name;
+  // what the runs make, in the order the gallery lists kinds, each a button with its count
+  const whats = [...new Set(all.map(e => e.what).filter(known))].sort();
+  for (const w of whats) {
+    $('what').append(Object.assign(el('option', '', w), {value: w}));
+    const b = el('button', '', w);
+    b.type = 'button'; b.dataset.what = w;
+    b.append(el('span', 'n', String(all.filter(e => e.what === w).length)));
+    b.addEventListener('click', () => { $('what').value = $('what').value === w ? '' : w; render(); });
+    $('whats').append(b);
+  }
+  const asked = new URLSearchParams(location.search).get('what');
+  if (whats.includes(asked)) $('what').value = asked;
   options('tool', all.map(e => e.tool));
   options('model', all.map(nameOf));
-  for (const id of ['q', 'tool', 'model', 'verdict', 'kind', 'sort']) $(id).addEventListener('input', render);
+  for (const id of ['q', 'what', 'tool', 'model', 'verdict', 'kind', 'sort']) $(id).addEventListener('input', render);
   render();
   // the bot's reply links to g/#i<issue>; that tile is drawn after load, so :target can't see it
   const hit = location.hash.startsWith('#i') && document.getElementById(location.hash.slice(1));

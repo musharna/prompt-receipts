@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ASMR Toys</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#1c1920;color:#eee;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;user-select:none;-webkit-user-select:none}
+  #bar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:8px;
+    padding:0 12px;box-sizing:border-box;background:rgba(18,16,22,.9);z-index:2;overflow-x:auto;white-space:nowrap}
+  button{font:inherit;font-size:14px;color:#ddd;background:#2c2833;border:1px solid #3c3645;border-radius:999px;
+    padding:7px 14px;cursor:pointer;transition:background .15s}
+  button:hover{background:#3a3443}
+  button.on{background:#f1e6ff;color:#221c2a;border-color:#f1e6ff}
+  .sp{flex:1}
+  input[type=range]{width:90px;accent-color:#c9a0ff}
+  canvas{position:fixed;top:56px;left:0;display:block;touch-action:none;cursor:pointer}
+  #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);padding:6px 14px;border-radius:999px;
+    background:rgba(0,0,0,.35);font-size:13px;color:#cfc8d8;pointer-events:none;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="bar">
+  <button class="tab" data-t="wax">🕯️ Wax</button>
+  <button class="tab" data-t="soap">🧼 Soap</button>
+  <button class="tab" data-t="slime">🟢 Slime</button>
+  <button class="tab" data-t="wrap">🫧 Bubble Wrap</button>
+  <div class="sp"></div>
+  <button id="reset">↻ New</button>
+  <button id="mute">🔊</button>
+  <input id="vol" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Volume">
+</div>
+<canvas id="c"></canvas>
+<div id="hint"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const cv = $('#c'), ctx = cv.getContext('2d');
+const BAR = 56, TAU = Math.PI * 2;
+let W = 0, H = 0, DPR = 1, shake = 0, now = 0;
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+function hex(h) { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); }
+function mix(a, b, t, al = 1) {
+  const A = hex(a), B = hex(b);
+  return `rgba(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')},${al})`;
+}
+function makeLayer() {
+  const c = document.createElement('canvas');
+  c.width = Math.round(W * DPR); c.height = Math.round(H * DPR);
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.setTransform(DPR, 0, 0, DPR, 0, 0);
+  return x;
+}
+function alphaAt(lc, x, y) {
+  if (x < 0 || y < 0 || x >= W || y >= H) return 0;
+  return lc.getImageData((x * DPR) | 0, (y * DPR) | 0, 1, 1).data[3];
+}
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath(); c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+function randPoly(r, n = 6) {
+  const v = [];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * TAU + rand(-0.25, 0.25), rr = r * rand(0.6, 1);
+    v.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+  }
+  return v;
+}
+function polyPath(c, pts, ox = 0, oy = 0) {
+  c.beginPath(); pts.forEach((q, i) => i ? c.lineTo(q[0] + ox, q[1] + oy) : c.moveTo(q[0] + ox, q[1] + oy)); c.closePath();
+}
+
+/* ------------------------------------------------------------------ audio */
+const A = { ctx: null, vol: 0.8, muted: false };
+function audio() {
+  if (!A.ctx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    const ac = A.ctx = new AC();
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.ratio.value = 4;
+    A.master = ac.createGain(); A.master.gain.value = A.muted ? 0 : A.vol;
+    A.master.connect(comp); comp.connect(ac.destination);
+    const len = ac.sampleRate * 2;
+    A.noise = ac.createBuffer(1, len, ac.sampleRate);
+    A.brown = ac.createBuffer(1, len, ac.sampleRate);
+    const d = A.noise.getChannelData(0), b = A.brown.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      d[i] = Math.random() * 2 - 1;
+      last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; b[i] = last * 3.5;
+    }
+    A.scrape = loop(A.noise, 'bandpass', 3200, 0.9);
+    A.squelch = loop(A.brown, 'lowpass', 400, 9);
+  }
+  if (A.ctx.state === 'suspended') A.ctx.resume();
+  return A.ctx;
+}
+function loop(buf, type, freq, Q) {
+  const ac = A.ctx, s = ac.createBufferSource(); s.buffer = buf; s.loop = true;
+  const f = ac.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = Q;
+  const g = ac.createGain(); g.gain.value = 0;
+  s.connect(f); f.connect(g); g.connect(A.master); s.start();
+  return { f, g };
+}
+function setLoop(l, gain, freq, tc = 0.04) {
+  if (!A.ctx || !l) return;
+  const t = A.ctx.currentTime;
+  l.g.gain.setTargetAtTime(gain, t, tc);
+  if (freq) l.f.frequency.setTargetAtTime(freq, t, tc);
+}
+function env(g, t0, o) {
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, o.g), t0 + (o.a || 0.001));
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + o.d);
+}
+function burst(o) {
+  const ac = A.ctx; if (!ac) return;
+  const t0 = ac.currentTime + (o.t || 0) + 0.005;
+  const s = ac.createBufferSource(); s.buffer = o.brown ? A.brown : A.noise;
+  const f = ac.createBiquadFilter(); f.type = o.type || 'bandpass'; f.Q.value = o.q || 1;
+  f.frequency.setValueAtTime(o.f, t0);
+  if (o.f1) f.frequency.exponentialRampToValueAtTime(o.f1, t0 + o.d);
+  const g = ac.createGain(); env(g, t0, o);
+  s.connect(f); f.connect(g); g.connect(A.master);
+  s.start(t0, Math.random() * 1.7); s.stop(t0 + o.d + 0.05);
+}
+function tone(o) {
+  const ac = A.ctx; if (!ac) return;
+  const t0 = ac.currentTime + (o.t || 0) + 0.005;
+  const s = ac.createOscillator(); s.type = o.w || 'sine';
+  s.frequency.setValueAtTime(o.f, t0);
+  s.frequency.exponentialRampToValueAtTime(o.f1 || o.f, t0 + o.d);
+  const g = ac.createGain(); env(g, t0, o);
+  s.connect(g); g.connect(A.master); s.start(t0); s.stop(t0 + o.d + 0.05);
+}
+let lastTick = 0;
+const S = {
+  waxCrack(p) {
+    tone({ f: rand(140, 200), f1: 50, d: 0.09, g: 0.2 + 0.3 * p });
+    const n = 3 + Math.floor(p * 6);
+    for (let i = 0; i < n; i++)
+      burst({ t: Math.random() * 0.07 * (1 + p), f: rand(1200, 4200), q: rand(2, 6), d: rand(0.008, 0.03), g: rand(0.3, 0.9) });
+    burst({ type: 'lowpass', f: 900, q: 0.7, d: 0.05, g: 0.25 });
+  },
+  waxCrumble(size) {
+    const n = (12 + size * 18) | 0;
+    for (let i = 0; i < n; i++) {
+      const t = Math.pow(Math.random(), 1.7) * 0.5;
+      burst({ t, f: rand(700, 3500), q: rand(1.5, 5), d: rand(0.01, 0.045), g: rand(0.15, 0.55) * (1 - t) });
+    }
+    tone({ f: 110, f1: 45, d: 0.15, g: 0.35 });
+    burst({ brown: true, type: 'lowpass', f: 600, d: 0.18, g: 0.4 });
+  },
+  tick(v) {
+    if (now - lastTick < 25) return; lastTick = now;
+    burst({ f: rand(1800, 5000), q: 3, d: rand(0.006, 0.02), g: 0.06 + 0.3 * v });
+  },
+  soapCrunch(p = 1) {
+    const n = 5 + (Math.random() * 6 | 0);
+    for (let i = 0; i < n; i++)
+      burst({ t: Math.random() * 0.06, f: rand(2000, 7000), q: rand(1, 4), d: rand(0.005, 0.02), g: rand(0.25, 0.7) * p });
+    burst({ type: 'lowpass', f: 1400, d: 0.07, g: 0.35 * p });
+    tone({ f: 220, f1: 90, d: 0.05, g: 0.12 * p });
+  },
+  grain(v) { burst({ f: rand(2500, 8000), q: rand(2, 5), d: rand(0.004, 0.012), g: rand(0.08, 0.3) * v }); },
+  bubble(t = 0, g = 1) { const f = rand(350, 900); tone({ t, f, f1: f * rand(1.4, 2.2), d: rand(0.03, 0.07), g: rand(0.05, 0.14) * g }); },
+  squish() {
+    burst({ brown: true, type: 'lowpass', f: 1400, f1: 180, q: 6, d: 0.3, g: 0.9, a: 0.02 });
+    S.bubble(0.05);
+  },
+  plop() {
+    tone({ f: rand(260, 340), f1: 110, d: 0.12, g: 0.25 });
+    burst({ brown: true, type: 'lowpass', f: 900, f1: 200, q: 8, d: 0.15, g: 0.6 });
+    for (let i = 0; i < 3; i++) S.bubble(Math.random() * 0.25);
+  },
+  airPop() { const f = rand(700, 1100); tone({ f, f1: f * 2, d: 0.04, g: 0.18 }); burst({ type: 'highpass', f: 3000, d: 0.02, g: 0.2 }); },
+  pop(big = 1) {
+    burst({ type: 'highpass', f: 900, q: 0.7, d: 0.035 * big, g: 0.9 });
+    burst({ f: rand(1500, 2600), q: 2, d: 0.06, g: 0.6 });
+    tone({ f: rand(160, 230), f1: 60, d: 0.07, g: 0.4 * big });
+    if (navigator.vibrate) navigator.vibrate(8);
+  },
+  creak() { burst({ f: rand(600, 1200), q: 8, d: 0.06, g: 0.1 }); },
+};
+
+/* -------------------------------------------------------------- particles */
+class Parts {
+  constructor() { this.a = []; }
+  add(p) { this.a.push(p); if (this.a.length > 600) this.a.splice(0, this.a.length - 600); }
+  update(dt) {
+    const fl = H - 4;
+    for (const p of this.a) {
+      if (p.life !== undefined) p.life -= dt;
+      if (p.rest) continue;
+      p.vy += (p.g || 0) * dt;
+      if (p.drag) { const k = Math.exp(-p.drag * dt); p.vx *= k; p.vy *= k; }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot = (p.rot || 0) + (p.vr || 0) * dt;
+      const bottom = fl - (p.size || 2) * 0.6;
+      if (p.g && p.y > bottom) {
+        p.y = bottom;
+        if (p.sound && p.vy > 220) S.tick(Math.min(1, p.vy / 1400));
+        p.vy *= -0.28; p.vx *= 0.55; p.vr = (p.vr || 0) * 0.4;
+        if (Math.abs(p.vy) < 45) { p.vy = 0; if (Math.abs(p.vx) < 8) p.rest = true; }
+      }
+      if (p.x < 4 || p.x > W - 4) { p.vx *= -0.5; p.x = clamp(p.x, 4, W - 4); }
+    }
+    this.a = this.a.filter(p => p.life === undefined || p.life > 0);
+  }
+  draw(c) {
+    for (const p of this.a) {
+      c.save(); c.translate(p.x, p.y); c.rotate(p.rot || 0);
+      if (p.type === 'shard') {
+        polyPath(c, p.pts, 0, 2.5); c.fillStyle = p.dark; c.fill();
+        polyPath(c, p.pts); c.fillStyle = p.col; c.fill();
+        c.strokeStyle = 'rgba(0,0,0,.15)'; c.lineWidth = 0.8; c.stroke();
+      } else if (p.type === 'crumb') {
+        c.fillStyle = p.col; c.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+      } else if (p.type === 'curl') {
+        c.beginPath();
+        const T = p.turns * TAU;
+        for (let t = 0; t <= T; t += 0.3) {
+          const rr = p.r * (1 - t / T * 0.75);
+          t ? c.lineTo(Math.cos(t) * rr, Math.sin(t) * rr) : c.moveTo(rr, 0);
+        }
+        c.lineCap = 'round'; c.strokeStyle = p.dark; c.lineWidth = 3.4; c.stroke();
+        c.strokeStyle = p.col; c.lineWidth = 2; c.stroke();
+      } else if (p.type === 'puff') {
+        c.globalAlpha = Math.max(0, p.life / p.max);
+        c.fillStyle = p.col; c.beginPath(); c.arc(0, 0, p.size, 0, TAU); c.fill();
+      } else if (p.type === 'ring') {
+        const t = 1 - p.life / p.max;
+        c.globalAlpha = Math.max(0, 1 - t); c.strokeStyle = p.col; c.lineWidth = 2;
+        c.beginPath(); c.arc(0, 0, p.r0 + t * p.r1, 0, TAU); c.stroke();
+      }
+      c.restore();
+    }
+  }
+}
+
+/* -------------------------------------------------------------------- WAX */
+const wax = {
+  hint: 'Press & hold to crack · keep pressing to crumble · crush the fallen pieces',
+  reset() {
+    this.parts = new Parts(); this.layer = makeLayer(); this.dmg = new Map(); this.press = null;
+    const sw = Math.min(W * 0.78, 720), sh = Math.min(H * 0.5, 360);
+    const r = this.rect = { x: (W - sw) / 2, y: (H - sh) / 2 - 30, w: sw, h: sh };
+    const [c1, c2] = pick([['#f3e6c8', '#c9b07f'], ['#e9d3ee', '#b18fbd'], ['#cfe7dc', '#8fb9a5'],
+      ['#f6d1c1', '#cf9580'], ['#f4ecd8', '#cbbb92'], ['#d6e4f5', '#98afcf']]);
+    this.col = c1; this.dark = c2;
+    const c = this.layer;
+    roundRect(c, r.x, r.y + 14, r.w, r.h, 18); c.fillStyle = c2; c.fill();
+    roundRect(c, r.x, r.y, r.w, r.h, 18);
+    const g = c.createLinearGradient(r.x, r.y, r.x + r.w * 0.4, r.y + r.h);
+    g.addColorStop(0, mix(c1, '#ffffff', 0.35)); g.addColorStop(1, c1);
+    c.fillStyle = g; c.fill();
+    c.save(); c.clip();
+    for (let i = 0; i < 700; i++) {
+      c.fillStyle = Math.random() < 0.6 ? `rgba(255,255,255,${rand(0.04, 0.14)})` : `rgba(0,0,0,${rand(0.02, 0.05)})`;
+      const s = rand(1, 3); c.fillRect(rand(r.x, r.x + r.w), rand(r.y, r.y + r.h), s, s);
+    }
+    c.lineWidth = 6; // faint swirls in the wax
+    for (let i = 0; i < 10; i++) {
+      c.strokeStyle = `rgba(255,255,255,${rand(0.03, 0.07)})`; c.beginPath();
+      let x = rand(r.x, r.x + r.w), y = rand(r.y, r.y + r.h); c.moveTo(x, y);
+      for (let k = 0; k < 4; k++) c.quadraticCurveTo(x += rand(-80, 80), y += rand(-50, 50), x += rand(-80, 80), y += rand(-50, 50));
+      c.stroke();
+    }
+    c.restore();
+    roundRect(c, r.x + 1, r.y + 1, r.w - 2, r.h - 2, 17);
+    c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 2; c.stroke();
+  },
+  key(x, y) { return ((x / 28) | 0) + ',' + ((y / 28) | 0); },
+  solid(p) { return alphaAt(this.layer, p.x, p.y) > 20; },
+  down(p) {
+    if (this.crushAt(p)) return;
+    if (this.solid(p)) this.press = { x: p.x, y: p.y, pr: 0, next: 0.08 };
+  },
+  move(p, isDown) {
+    if (!isDown) return;
+    const pr = this.press;
+    if (pr) {
+      if (Math.hypot(p.x - pr.x, p.y - pr.y) > 12) {
+        pr.x = p.x; pr.y = p.y; pr.pr *= 0.6; pr.next = pr.pr + 0.1;
+        if (!this.solid(p)) this.press = null;
+      }
+    } else if (!this.crushAt(p) && this.solid(p)) this.press = { x: p.x, y: p.y, pr: 0, next: 0.08 };
+  },
+  up() { this.press = null; },
+  update(dt) {
+    const pr = this.press;
+    if (pr) {
+      pr.pr += dt * 1.1;
+      if (pr.pr >= pr.next) { this.crack(pr.x, pr.y, pr.pr); pr.next += rand(0.15, 0.3); }
+      const k = this.key(pr.x, pr.y);
+      if (pr.pr >= 1.15 || (this.dmg.get(k) || 0) >= 6) {
+        this.crumble(pr.x, pr.y); this.dmg.set(k, 0);
+        pr.pr = 0.35; pr.next = 0.5;
+        if (!this.solid(pr)) this.press = null;
+      }
+    }
+    this.parts.update(dt);
+  },
+  branch(c, x, y, a, len, w, depth) {
+    const pts = [[x, y]]; let dist = 0;
+    while (dist < len) {
+      a += rand(-0.45, 0.45); const st = rand(3, 7);
+      x += Math.cos(a) * st; y += Math.sin(a) * st; dist += st; pts.push([x, y]);
+      if (depth < 2 && Math.random() < 0.07)
+        this.branch(c, x, y, a + rand(-1.2, 1.2), (len - dist) * rand(0.4, 0.7), w * 0.7, depth + 1);
+    }
+    for (const [ox, oy, col, k] of [[0, 0, mix(this.dark, '#000000', 0.45, 0.55), 1], [0.8, 1, 'rgba(255,255,255,.45)', 0.55]]) {
+      c.strokeStyle = col;
+      for (let i = 1; i < pts.length; i++) {
+        c.lineWidth = Math.max(0.4, w * k * (1 - i / pts.length * 0.75));
+        c.beginPath(); c.moveTo(pts[i - 1][0] + ox, pts[i - 1][1] + oy); c.lineTo(pts[i][0] + ox, pts[i][1] + oy); c.stroke();
+      }
+    }
+  },
+  crack(x, y, p) {
+    const c = this.layer;
+    c.save(); c.globalCompositeOperation = 'source-atop'; c.lineCap = 'round';
+    const n = 1 + (Math.random() < p ? 1 : 0) + (p > 0.6 ? 1 : 0);
+    for (let i = 0; i < n; i++) this.branch(c, x, y, rand(0, TAU), 18 + p * 70, 1.8, 0);
+    c.restore();
+    S.waxCrack(Math.min(1, p)); shake = Math.max(shake, 1 + p * 1.5);
+    const k = this.key(x, y); this.dmg.set(k, (this.dmg.get(k) || 0) + 1);
+    for (let i = 0; i < 4; i++)
+      this.parts.add({ type: 'crumb', x, y, vx: rand(-60, 60), vy: rand(-140, -30), size: rand(1, 2.5), col: this.col, g: 900 });
+  },
+  shard(x, y, pts, vx, vy) {
+    let size = 0; for (const q of pts) size = Math.max(size, Math.hypot(q[0], q[1]));
+    this.parts.add({ type: 'shard', x, y, pts, vx, vy, vr: rand(-6, 6), g: 1400, size,
+      col: mix(this.col, '#ffffff', rand(0, 0.25)), dark: this.dark, sound: true });
+  },
+  crumble(x, y) {
+    const c = this.layer, R = rand(22, 40), k = 7 + (Math.random() * 4 | 0);
+    const v = randPoly(R, k).map(q => [x + q[0] * 1.15, y + q[1] * 1.15]);
+    let made = 0;
+    for (let i = 0; i < k; i++) {
+      const a = v[i], b = v[(i + 1) % k];
+      const cx = (x + a[0] + b[0]) / 3, cy = (y + a[1] + b[1]) / 3;
+      if (alphaAt(c, cx, cy) < 40) continue;
+      const tri = [[x - cx, y - cy], [a[0] - cx, a[1] - cy], [b[0] - cx, b[1] - cy]];
+      this.shard(cx, cy, tri, (cx - x) * rand(3, 8), rand(-260, -60) + (cy - y) * 3); made++;
+    }
+    c.save(); c.globalCompositeOperation = 'destination-out'; polyPath(c, v); c.fill();
+    c.globalCompositeOperation = 'source-atop';
+    polyPath(c, v); c.strokeStyle = mix(this.dark, '#000000', 0.2, 0.9); c.lineWidth = 6; c.stroke();
+    c.lineCap = 'round';
+    for (const q of v) if (Math.random() < 0.4) this.branch(c, q[0], q[1], Math.atan2(q[1] - y, q[0] - x), rand(10, 35), 1.2, 1);
+    c.restore();
+    for (let i = 0; i < 16; i++)
+      this.parts.add({ type: 'crumb', x: x + rand(-R, R) * 0.6, y: y + rand(-R, R) * 0.6, vx: rand(-120, 120), vy: rand(-250, 0),
+        size: rand(1.5, 4), col: Math.random() < 0.7 ? this.col : this.dark, g: 1300, sound: true });
+    S.waxCrumble(Math.min(1, made / 8)); shake = 5;
+  },
+  crushAt(p) {
+    const a = this.parts.a;
+    for (let i = a.length - 1; i >= 0; i--) {
+      const s = a[i];
+      if (s.type !== 'shard' || Math.hypot(s.x - p.x, s.y - p.y) > Math.max(s.size, 8) + 6) continue;
+      a.splice(i, 1);
+      if (s.size > 5) for (let j = 0; j < 3; j++)
+        this.shard(s.x + rand(-4, 4), s.y - 2, randPoly(s.size * 0.5, 5), rand(-120, 120), rand(-260, -80));
+      for (let j = 0; j < 8; j++)
+        this.parts.add({ type: 'crumb', x: s.x, y: s.y - 2, vx: rand(-100, 100), vy: rand(-220, -40), size: rand(1, 2.5), col: this.col, g: 1300 });
+      S.waxCrack(0.25); shake = 2;
+      return true;
+    }
+    return false;
+  },
+  draw(c) {
+    c.drawImage(this.layer.canvas, 0, 0, W, H);
+    const pr = this.press;
+    if (pr) {
+      const r = 20 + pr.pr * 30, g = c.createRadialGradient(pr.x, pr.y, 0, pr.x, pr.y, r);
+      g.addColorStop(0, `rgba(0,0,0,${0.08 + pr.pr * 0.15})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = g; c.beginPath(); c.arc(pr.x, pr.y, r, 0, TAU); c.fill();
+    }
+    this.parts.draw(c);
+  },
+};
+
+/* ------------------------------------------------------------------- SOAP */
+const soap = {
+  hint: 'Drag to carve · tap to crunch · go over grooves again to dig deeper',
+  reset() {
+    this.parts = new Parts(); this.inner = makeLayer(); this.top = makeLayer(); this.last = null; this.acc = 0; this.n = 0;
+    const sw = Math.min(W * 0.62, 600), sh = Math.min(H * 0.48, 330), R = sh * 0.3;
+    const r = this.rect = { x: (W - sw) / 2, y: (H - sh) / 2 - 30, w: sw, h: sh };
+    const [col, dark] = pick([['#bfe6d8', '#7fb9a2'], ['#f7c9d6', '#cf8aa1'], ['#cfdcf7', '#8ea4d4'],
+      ['#fbe7a9', '#d4b964'], ['#e3d3f5', '#ac92d0']]);
+    this.col = col; this.dark = dark;
+    const c = this.inner;
+    roundRect(c, r.x, r.y + 16, r.w, r.h, R); c.fillStyle = mix(dark, '#000000', 0.1); c.fill();
+    roundRect(c, r.x, r.y, r.w, r.h, R); c.fillStyle = mix(col, dark, 0.45); c.fill();
+    c.save(); c.clip();
+    for (let i = 0; i < 900; i++) { c.fillStyle = `rgba(255,255,255,${rand(0.05, 0.2)})`; c.fillRect(rand(r.x, r.x + r.w), rand(r.y, r.y + r.h), 1.5, 1.5); }
+    c.restore();
+    const t = this.top;
+    roundRect(t, r.x, r.y, r.w, r.h, R);
+    const g = t.createLinearGradient(r.x, r.y, r.x + r.w * 0.3, r.y + r.h);
+    g.addColorStop(0, mix(col, '#ffffff', 0.45)); g.addColorStop(1, col);
+    t.fillStyle = g; t.fill();
+    t.save(); t.clip();
+    for (let i = 0; i < 500; i++) { t.fillStyle = `rgba(0,0,0,${rand(0.02, 0.05)})`; t.fillRect(rand(r.x, r.x + r.w), rand(r.y, r.y + r.h), 2, 2); }
+    t.strokeStyle = 'rgba(0,0,0,.09)'; t.lineWidth = 0.8; // dried hairline cracks
+    for (let i = 0; i < 28; i++) {
+      let x = rand(r.x, r.x + r.w), y = rand(r.y, r.y + r.h), a = rand(0, TAU);
+      t.beginPath(); t.moveTo(x, y);
+      for (let k = 0; k < 12; k++) { a += rand(-0.6, 0.6); x += Math.cos(a) * 6; y += Math.sin(a) * 6; t.lineTo(x, y); }
+      t.stroke();
+    }
+    const word = pick(['SOAP', 'PURE', 'CALM', 'LAVENDER', 'FRESH', 'OLIVE']);
+    t.font = `800 ${Math.min(sh * 0.28, sw / word.length * 1.3)}px Georgia, serif`;
+    t.textAlign = 'center'; t.textBaseline = 'middle';
+    t.fillStyle = 'rgba(255,255,255,.55)'; t.fillText(word, W / 2 + 1.5, r.y + r.h / 2 + 1.5);
+    t.fillStyle = mix(dark, '#000000', 0.2, 0.35); t.fillText(word, W / 2, r.y + r.h / 2);
+    t.restore();
+    roundRect(t, r.x + 6, r.y + 6, r.w - 12, r.h - 12, R - 6);
+    t.strokeStyle = 'rgba(255,255,255,.35)'; t.lineWidth = 3; t.stroke();
+  },
+  solid(p) { return alphaAt(this.inner, p.x, p.y) > 30; },
+  down(p) {
+    this.last = p; this.lastT = now;
+    if (this.solid(p)) this.crunch(p);
+  },
+  crunch(p) {
+    const blob = randPoly(rand(9, 14), 7).map(q => [q[0] + p.x, q[1] + p.y]);
+    this.top.save(); this.top.globalCompositeOperation = 'destination-out'; polyPath(this.top, blob); this.top.fill(); this.top.restore();
+    this.inner.save(); this.inner.globalCompositeOperation = 'source-atop'; polyPath(this.inner, blob);
+    this.inner.fillStyle = mix(this.dark, '#000000', 0.3, 0.25); this.inner.fill(); this.inner.restore();
+    for (let i = 0; i < 9; i++)
+      this.parts.add({ type: 'crumb', x: p.x, y: p.y, vx: rand(-110, 110), vy: rand(-240, -40), size: rand(1.5, 3.5),
+        col: Math.random() < 0.6 ? this.col : this.dark, g: 1300, sound: true });
+    S.soapCrunch(); shake = 1.5;
+  },
+  move(p, isDown) {
+    this.ptr = p;
+    if (!isDown || !this.last) return;
+    const d = Math.hypot(p.x - this.last.x, p.y - this.last.y);
+    if (d < 1) return;
+    const speed = d / Math.max(0.004, (now - this.lastT) / 1000);
+    if (this.solid(p) || this.solid(this.last)) {
+      const seg = (c, w, style, op) => {
+        c.save(); c.globalCompositeOperation = op; c.lineCap = 'round'; c.lineWidth = w; c.strokeStyle = style;
+        c.beginPath(); c.moveTo(this.last.x, this.last.y); c.lineTo(p.x, p.y); c.stroke(); c.restore();
+      };
+      seg(this.top, 18, '#000', 'destination-out');
+      seg(this.inner, 11, mix(this.dark, '#000000', 0.35, 0.07), 'source-atop');
+      seg(this.inner, 18, 'rgba(255,255,255,.015)', 'source-atop');
+      this.acc += d;
+      while (this.acc > 7) {
+        this.acc -= 7; S.grain(clamp(speed / 900, 0.3, 1));
+        if (++this.n % 3 === 0) {
+          const curl = Math.random() < 0.65;
+          this.parts.add(curl
+            ? { type: 'curl', x: p.x, y: p.y, vx: rand(-90, 90), vy: rand(-200, -50), vr: rand(-8, 8), rot: rand(0, TAU),
+                r: rand(3, 7), turns: rand(1.2, 2.4), size: 8, col: mix(this.col, '#ffffff', 0.2), dark: this.dark, g: 1100 }
+            : { type: 'crumb', x: p.x, y: p.y, vx: rand(-90, 90), vy: rand(-200, -40), size: rand(1.5, 3), col: this.col, g: 1200, sound: true });
+        }
+      }
+      setLoop(A.scrape, clamp(speed / 2200, 0.04, 0.45), 2200 + Math.min(speed, 3000) * 1.2);
+      this.scrapeT = now;
+    }
+    this.last = p; this.lastT = now;
+  },
+  up() { this.last = null; setLoop(A.scrape, 0); },
+  update(dt) {
+    if (now - (this.scrapeT || 0) > 70) setLoop(A.scrape, 0, null, 0.03);
+    this.parts.update(dt);
+  },
+  draw(c) {
+    c.drawImage(this.inner.canvas, 0, 0, W, H);
+    c.drawImage(this.top.canvas, 0, 0, W, H);
+    this.parts.draw(c);
+    if (this.ptr) { // little carving loop tool
+      const { x, y } = this.ptr;
+      c.save(); c.lineCap = 'round';
+      c.strokeStyle = '#6b5a45'; c.lineWidth = 7; c.beginPath(); c.moveTo(x + 14, y - 14); c.lineTo(x + 46, y - 46); c.stroke();
+      c.strokeStyle = '#d7dbe0'; c.lineWidth = 2.5; c.beginPath(); c.arc(x, y, 8, 0, TAU); c.stroke();
+      c.beginPath(); c.moveTo(x + 6, y - 6); c.lineTo(x + 15, y - 15); c.stroke();
+      c.restore();
+    }
+  },
+};
+
+/* ------------------------------------------------------------------ SLIME */
+const slime = {
+  hint: 'Poke it · grab & stretch it · pop the air bubbles',
+  reset() {
+    const R = this.R = Math.min(W, H) * 0.27, N = 72;
+    this.cx = W / 2; this.cy = H / 2 + 10; this.mx = this.cx; this.my = this.cy;
+    this.parts = new Parts(); this.grab = null; this.ripples = []; this.pts = [];
+    for (let i = 0; i < N; i++) {
+      const a = i / N * TAU, ox = Math.cos(a) * R * 1.08, oy = Math.sin(a) * R * 0.88;
+      this.pts.push({ ox, oy, x: this.cx + ox, y: this.cy + oy, vx: 0, vy: 0 });
+    }
+    [this.col, this.dark] = pick([['#7ee8c8', '#23977a'], ['#ff9ecf', '#c4407f'], ['#9fb8ff', '#4057c9'],
+      ['#ffd56e', '#cf8d12'], ['#c9a0ff', '#6e3cc6']]);
+    this.glitter = Array.from({ length: 80 }, () => ({ fi: rand(0, N), f: Math.sqrt(Math.random()) * 0.92, s: rand(0.6, 2), ph: rand(0, TAU) }));
+    this.bubbles = [];
+    for (let i = 0; i < 6; i++) this.addBubble();
+  },
+  addBubble() {
+    if (this.bubbles.length < 10) this.bubbles.push({ fi: rand(0, this.pts.length), f: rand(0.15, 0.8), r: rand(4, 11) });
+  },
+  map(fi, f) {
+    const N = this.pts.length, i0 = Math.floor(fi) % N, t = fi - Math.floor(fi);
+    const a = this.pts[i0], b = this.pts[(i0 + 1) % N];
+    const ex = a.x + (b.x - a.x) * t, ey = a.y + (b.y - a.y) * t;
+    return [this.mx + (ex - this.mx) * f, this.my + (ey - this.my) * f];
+  },
+  inside(p) {
+    let ins = false; const P = this.pts;
+    for (let i = 0, j = P.length - 1; i < P.length; j = i++)
+      if ((P[i].y > p.y) !== (P[j].y > p.y) && p.x < (P[j].x - P[i].x) * (p.y - P[i].y) / (P[j].y - P[i].y) + P[i].x) ins = !ins;
+    return ins;
+  },
+  down(p) {
+    for (let i = 0; i < this.bubbles.length; i++) {
+      const b = this.bubbles[i], [bx, by] = this.map(b.fi, b.f);
+      if (Math.hypot(bx - p.x, by - p.y) < b.r + 8) {
+        this.bubbles.splice(i, 1); S.airPop();
+        this.parts.add({ type: 'ring', x: bx, y: by, r0: b.r, r1: 14, life: 0.25, max: 0.25, col: 'rgba(255,255,255,.8)' });
+        break;
+      }
+    }
+    if (!this.inside(p)) {
+      let near = Infinity; for (const q of this.pts) near = Math.min(near, Math.hypot(q.x - p.x, q.y - p.y));
+      if (near > 24) return;
+    }
+    const s = this.R * 0.8;
+    this.grab = { sx: p.x, sy: p.y, x: p.x, y: p.y, t: now, moved: 0, max: 0,
+      w: this.pts.map(q => Math.exp(-((q.x - p.x) ** 2 + (q.y - p.y) ** 2) / (s * s))) };
+    this.lastT = now; S.squish();
+  },
+  move(p, isDown) {
+    const g = this.grab; if (!g || !isDown) return;
+    const d = Math.hypot(p.x - g.x, p.y - g.y);
+    const speed = d / Math.max(0.004, (now - this.lastT) / 1000);
+    g.moved += d; g.x = p.x; g.y = p.y; this.lastT = now;
+    setLoop(A.squelch, clamp(speed / 2500, 0, 0.7), 220 + Math.min(speed, 2000) * 0.45);
+    this.squelchT = now;
+    if (Math.random() < speed / 5000) S.bubble(0, 0.8);
+    if (Math.random() < speed / 400) this.ripples.push({ x: p.x, y: p.y, t: 0, s: 0.5 });
+  },
+  up(p) {
+    const g = this.grab; if (!g) return;
+    this.grab = null; setLoop(A.squelch, 0);
+    if (now - g.t < 220 && g.moved < 8) { // poke: jiggle outward
+      for (const q of this.pts) {
+        const dx = q.x - p.x, dy = q.y - p.y, dd = Math.hypot(dx, dy) || 1;
+        const w = Math.exp(-((dd / this.R) ** 2) * 1.5);
+        q.vx += dx / dd * 520 * w; q.vy += dy / dd * 520 * w;
+      }
+      this.ripples.push({ x: p.x, y: p.y, t: 0, s: 1 });
+    } else if (g.max > this.R * 0.6) {
+      S.plop(); shake = 2;
+      for (let i = 0; i < 1 + Math.random() * 2; i++) this.addBubble();
+    } else S.bubble(0, 0.7);
+  },
+  update(dt) {
+    if (now - (this.squelchT || 0) > 70) setLoop(A.squelch, 0, null, 0.05);
+    const g = this.grab, P = this.pts, N = P.length;
+    let dx = 0, dy = 0;
+    if (g) {
+      dx = g.x - g.sx; dy = g.y - g.sy;
+      const m = Math.hypot(dx, dy), L = this.R * 2.5;
+      if (m > 0) { const k = L / (L + m); dx *= k; dy *= k; }
+      g.max = Math.max(g.max, Math.hypot(dx, dy));
+    }
+    const steps = 3, h = dt / steps;
+    for (let s = 0; s < steps; s++) {
+      for (let i = 0; i < N; i++) {
+        const q = P[i], a = P[(i + N - 1) % N], b = P[(i + 1) % N];
+        const w = g ? g.w[i] : 0;
+        const tx = this.cx + q.ox + dx * w, ty = this.cy + q.oy + dy * w;
+        q.vx += ((tx - q.x) * 90 + ((a.x + b.x) / 2 - q.x) * 320) * h;
+        q.vy += ((ty - q.y) * 90 + ((a.y + b.y) / 2 - q.y) * 320) * h;
+        const damp = Math.exp(-5 * h); q.vx *= damp; q.vy *= damp;
+      }
+      for (const q of P) { q.x += q.vx * h; q.y += q.vy * h; }
+    }
+    let sx = 0, sy = 0; for (const q of P) { sx += q.x; sy += q.y; }
+    this.mx = sx / N; this.my = sy / N;
+    for (const r of this.ripples) r.t += dt;
+    this.ripples = this.ripples.filter(r => r.t < 0.6);
+    this.parts.update(dt);
+  },
+  path(c, oy = 0) {
+    const P = this.pts, N = P.length;
+    const mid = (a, b) => [(a.x + b.x) / 2, (a.y + b.y) / 2 + oy];
+    c.beginPath(); const m0 = mid(P[N - 1], P[0]); c.moveTo(m0[0], m0[1]);
+    for (let i = 0; i < N; i++) { const m = mid(P[i], P[(i + 1) % N]); c.quadraticCurveTo(P[i].x, P[i].y + oy, m[0], m[1]); }
+    c.closePath();
+  },
+  draw(c) {
+    const R = this.R, t = now / 1000;
+    c.save(); c.filter = 'blur(10px)'; this.path(c, 16); c.fillStyle = 'rgba(0,0,0,.35)'; c.fill(); c.restore();
+    this.path(c);
+    const g = c.createRadialGradient(this.mx - R * 0.35, this.my - R * 0.4, R * 0.1, this.mx, this.my, R * 1.7);
+    g.addColorStop(0, mix(this.col, '#ffffff', 0.45)); g.addColorStop(0.45, this.col); g.addColorStop(1, this.dark);
+    c.fillStyle = g; c.fill();
+    c.save(); c.clip();
+    this.path(c); c.strokeStyle = mix(this.dark, '#000000', 0.2, 0.35); c.lineWidth = 22; c.stroke();
+    for (const s of this.glitter) {
+      const [x, y] = this.map(s.fi, s.f), a = 0.25 + 0.75 * Math.abs(Math.sin(t * 1.7 + s.ph));
+      c.fillStyle = `rgba(255,255,255,${a})`; c.fillRect(x - s.s / 2, y - s.s / 2, s.s, s.s);
+    }
+    for (const b of this.bubbles) {
+      const [x, y] = this.map(b.fi, b.f);
+      c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 1.3; c.beginPath(); c.arc(x, y, b.r, 0, TAU); c.stroke();
+      c.fillStyle = 'rgba(255,255,255,.2)'; c.fill();
+      c.fillStyle = 'rgba(255,255,255,.85)'; c.beginPath(); c.arc(x - b.r * 0.35, y - b.r * 0.35, b.r * 0.25, 0, TAU); c.fill();
+    }
+    for (const r of this.ripples) {
+      c.strokeStyle = `rgba(255,255,255,${(1 - r.t / 0.6) * 0.35 * r.s})`; c.lineWidth = 3;
+      c.beginPath(); c.arc(r.x, r.y, 10 + r.t * 160 * r.s, 0, TAU); c.stroke();
+    }
+    if (this.grab) {
+      const { x, y } = this.grab, dg = c.createRadialGradient(x, y, 0, x, y, 46);
+      dg.addColorStop(0, 'rgba(0,0,0,.28)'); dg.addColorStop(0.7, 'rgba(0,0,0,.05)'); dg.addColorStop(0.85, 'rgba(255,255,255,.18)'); dg.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = dg; c.beginPath(); c.arc(x, y, 46, 0, TAU); c.fill();
+    }
+    const [hx, hy] = this.map(this.pts.length * 0.625, 0.6);
+    c.filter = 'blur(6px)'; c.fillStyle = 'rgba(255,255,255,.5)';
+    c.beginPath(); c.ellipse(hx, hy, R * 0.28, R * 0.12, -0.7, 0, TAU); c.fill();
+    c.filter = 'none';
+    c.restore();
+    this.parts.draw(c);
+  },
+};
+
+/* ------------------------------------------------------------ BUBBLE WRAP */
+const wrap = {
+  hint: 'Press bubbles to pop · drag across to pop a whole row',
+  reset() {
+    this.parts = new Parts(); this.b = []; this.active = null; this.count = 0; this.doneT = 0;
+    const s = clamp(Math.min(W, H) / 9, 44, 66), r = s * 0.38, rowH = s * 0.87;
+    const sw = W - 60, sh = H - 110;
+    const cols = Math.floor((sw - s / 2) / s), rows = Math.floor(sh / rowH);
+    const gw = cols * s + s / 2, gh = rows * rowH;
+    const x0 = (W - gw) / 2 + s / 2, y0 = (H - 40 - gh) / 2 + rowH / 2;
+    this.sheet = { x: x0 - s * 0.6, y: y0 - rowH * 0.6, w: gw + s * 0.2, h: gh + rowH * 0.2 };
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++)
+      this.b.push({ x: x0 + i * s + (j % 2) * s / 2, y: y0 + j * rowH, r: r * rand(0.95, 1.05), sq: 0, tough: Math.random() < 0.08 });
+  },
+  target(p) {
+    let hit = null;
+    for (const b of this.b) if (!b.popped && Math.hypot(b.x - p.x, b.y - p.y) < b.r * 1.1) { hit = b; break; }
+    if (hit !== this.active) {
+      if (this.active) this.active.held = false;
+      this.active = hit;
+      if (hit) { hit.held = true; S.creak(); }
+    }
+  },
+  down(p) { this.target(p); },
+  move(p, isDown) { if (isDown) this.target(p); },
+  up() { if (this.active) this.active.held = false; this.active = null; },
+  pop(b) {
+    b.popped = true; b.held = false; this.active = null; this.count++;
+    b.wr = randPoly(b.r * 0.95, 9);
+    S.pop(b.tough ? 1.6 : 1); shake = b.tough ? 4 : 2;
+    this.parts.add({ type: 'ring', x: b.x, y: b.y, r0: b.r, r1: 18, life: 0.18, max: 0.18, col: 'rgba(255,255,255,.7)' });
+    for (let i = 0; i < 6; i++) {
+      const a = rand(0, TAU);
+      this.parts.add({ type: 'puff', x: b.x, y: b.y, vx: Math.cos(a) * rand(80, 200), vy: Math.sin(a) * rand(80, 200),
+        drag: 8, size: rand(1, 2.2), life: 0.35, max: 0.35, col: 'rgba(255,255,255,.8)' });
+    }
+    if (this.count === this.b.length) this.doneT = 1.8;
+  },
+  update(dt) {
+    for (const b of this.b) {
+      if (b.popped) continue;
+      if (b.held) { b.sq += dt * (b.tough ? 3.5 : 14); if (b.sq >= 1) this.pop(b); }
+      else b.sq = Math.max(0, b.sq - dt * 8);
+    }
+    if (this.doneT > 0 && (this.doneT -= dt) <= 0) this.reset();
+    this.parts.update(dt);
+  },
+  draw(c) {
+    const sh = this.sheet;
+    roundRect(c, sh.x, sh.y, sh.w, sh.h, 10);
+    const g = c.createLinearGradient(sh.x, sh.y, sh.x + sh.w, sh.y + sh.h);
+    g.addColorStop(0, 'rgba(210,230,255,.16)'); g.addColorStop(0.5, 'rgba(210,230,255,.08)'); g.addColorStop(1, 'rgba(210,230,255,.14)');
+    c.fillStyle = g; c.fill(); c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 1.5; c.stroke();
+    for (const b of this.b) {
+      if (b.popped) {
+        polyPath(c, b.wr, b.x, b.y);
+        c.fillStyle = 'rgba(255,255,255,.07)'; c.fill(); c.strokeStyle = 'rgba(255,255,255,.28)'; c.lineWidth = 1; c.stroke();
+        c.beginPath(); c.moveTo(b.x + b.wr[0][0] * 0.8, b.y + b.wr[0][1] * 0.8); c.lineTo(b.x + b.wr[4][0] * 0.6, b.y + b.wr[4][1] * 0.6);
+        c.lineTo(b.x + b.wr[6][0] * 0.7, b.y + b.wr[6][1] * 0.7); c.strokeStyle = 'rgba(255,255,255,.15)'; c.stroke();
+        continue;
+      }
+      const sq = b.sq, r = b.r * (1 + sq * 0.12), hr = r * (1 - sq * 0.4);
+      c.fillStyle = 'rgba(0,0,0,.2)'; c.beginPath(); c.arc(b.x + 2, b.y + 3, r, 0, TAU); c.fill();
+      const dg = c.createRadialGradient(b.x - r * 0.35, b.y - r * 0.35, r * 0.05, b.x, b.y, r);
+      dg.addColorStop(0, `rgba(255,255,255,${0.55 + sq * 0.2})`); dg.addColorStop(0.6, `rgba(200,225,255,${0.16 + sq * 0.15})`);
+      dg.addColorStop(1, `rgba(150,190,235,${0.38 + sq * 0.2})`);
+      c.fillStyle = dg; c.beginPath(); c.arc(b.x, b.y, r, 0, TAU); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1.2; c.stroke();
+      c.fillStyle = 'rgba(255,255,255,.75)'; c.beginPath();
+      c.ellipse(b.x - hr * 0.38, b.y - hr * 0.4, hr * 0.22, hr * 0.12, -0.7, 0, TAU); c.fill();
+    }
+    this.parts.draw(c);
+    c.fillStyle = 'rgba(255,255,255,.55)'; c.font = '600 14px system-ui,sans-serif'; c.textAlign = 'center';
+    c.fillText(this.doneT > 0 ? '✨ All popped! Fresh sheet coming…' : `${this.count} / ${this.b.length} popped`, W / 2, sh.y + sh.h + 26);
+  },
+};
+
+/* ------------------------------------------------------------------- main */
+const toys = { wax, soap, slime, wrap };
+let cur = null, curName = '';
+function select(name) {
+  if (cur && cur.up) cur.up({ x: 0, y: 0 });
+  setLoop(A.scrape, 0); setLoop(A.squelch, 0);
+  curName = name; cur = toys[name];
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.t === name));
+  $('#hint').textContent = cur.hint;
+  cv.style.cursor = name === 'soap' ? 'none' : 'pointer';
+}
+let sized = [0, 0];
+function resize(force) {
+  const w = innerWidth, h = innerHeight - BAR;
+  if (!force && Math.abs(w - sized[0]) < 40 && Math.abs(h - sized[1]) < 40) return;
+  sized = [w, h]; W = w; H = h; DPR = Math.min(2, devicePixelRatio || 1);
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  for (const t of Object.values(toys)) t.reset();
+}
+let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => resize(false), 200); });
+
+let pid = null, isDown = false;
+const pt = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+cv.addEventListener('pointerdown', e => {
+  if (pid !== null) return;
+  audio(); pid = e.pointerId; isDown = true; cv.setPointerCapture(pid);
+  cur.down(pt(e));
+});
+cv.addEventListener('pointermove', e => { if (pid === null || e.pointerId === pid) cur.move(pt(e), isDown); });
+const end = e => { if (e.pointerId !== pid) return; isDown = false; pid = null; cur.up(pt(e)); };
+cv.addEventListener('pointerup', end);
+cv.addEventListener('pointercancel', end);
+cv.addEventListener('pointerleave', () => { if (curName === 'soap' && !isDown) soap.ptr = null; });
+
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => select(b.dataset.t));
+$('#reset').onclick = () => cur.reset();
+const applyVol = () => { if (A.master) A.master.gain.setTargetAtTime(A.muted ? 0 : A.vol, A.ctx.currentTime, 0.02); };
+$('#mute').onclick = () => { A.muted = !A.muted; $('#mute').textContent = A.muted ? '🔇' : '🔊'; audio(); applyVol(); };
+$('#vol').oninput = e => { A.vol = +e.target.value; applyVol(); };
+addEventListener('keydown', e => {
+  const k = { 1: 'wax', 2: 'soap', 3: 'slime', 4: 'wrap' }[e.key];
+  if (k) select(k); else if (e.key === 'r' || e.key === 'R') cur.reset();
+});
+
+let prev = performance.now();
+function frame(t) {
+  const dt = Math.min(0.033, (t - prev) / 1000); prev = t; now = t;
+  cur.update(dt);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#2a2530'); bg.addColorStop(1, '#17141b');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(0, H - 4, W, 4);
+  if (shake > 0.1) { ctx.translate(rand(-shake, shake), rand(-shake, shake)); shake *= Math.exp(-dt * 18); } else shake = 0;
+  cur.draw(ctx);
+  requestAnimationFrame(frame);
+}
+resize(true);
+select('wax');
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

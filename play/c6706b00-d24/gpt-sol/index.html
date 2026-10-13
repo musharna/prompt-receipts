@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lithic — Crystal Growth Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Lithic home">
+          <span class="brand-mark"><i></i><i></i><i></i></span>
+          <span>LITHIC</span>
+        </a>
+        <div class="experiment-name">
+          <span class="eyebrow">ACTIVE CULTURE</span>
+          <strong id="cultureName">AM-024 / DREAM VIOLET</strong>
+        </div>
+        <div class="top-actions">
+          <button class="icon-button" id="soundButton" aria-label="Toggle sound" title="Ambient sound">
+            <svg viewBox="0 0 24 24"><path d="M5 9v6h4l5 4V5L9 9H5Zm12.5 3a4.5 4.5 0 0 0-1.5-3.35v6.7A4.5 4.5 0 0 0 17.5 12Z"/></svg>
+          </button>
+          <button class="icon-button" id="fullButton" aria-label="Enter fullscreen" title="Fullscreen">
+            <svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+          </button>
+          <div class="status"><span></span> SIMULATION LIVE</div>
+        </div>
+      </header>
+
+      <aside class="control-panel">
+        <section>
+          <div class="section-heading"><span>01</span><h2>Mineral seed</h2></div>
+          <div class="mineral-grid" id="mineralGrid">
+            <button class="mineral" data-mineral="quartz"><span class="swatch quartz"></span><em>Clear quartz</em><small>SiO₂</small></button>
+            <button class="mineral active" data-mineral="amethyst"><span class="swatch amethyst"></span><em>Amethyst</em><small>Fe:SiO₂</small></button>
+            <button class="mineral" data-mineral="citrine"><span class="swatch citrine"></span><em>Citrine</em><small>Fe³⁺:SiO₂</small></button>
+            <button class="mineral" data-mineral="fluorite"><span class="swatch fluorite"></span><em>Fluorite</em><small>CaF₂</small></button>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-heading"><span>02</span><h2>Growth environment</h2></div>
+          <label class="range-control">
+            <span>Temperature <output id="tempOut">42°C</output></span>
+            <input id="temperature" type="range" min="10" max="90" value="42" />
+          </label>
+          <label class="range-control">
+            <span>Saturation <output id="satOut">78%</output></span>
+            <input id="saturation" type="range" min="30" max="100" value="78" />
+          </label>
+          <label class="range-control">
+            <span>Growth rate <output id="rateOut">1.2×</output></span>
+            <input id="growthRate" type="range" min="2" max="30" value="12" />
+          </label>
+        </section>
+
+        <section class="time-section">
+          <div class="section-heading"><span>03</span><h2>Elapsed time</h2></div>
+          <div class="time-display"><strong id="dayCount">DAY 18</strong><span id="timeCount">06:42:18</span></div>
+          <div class="time-progress"><i id="timeProgress"></i></div>
+          <div class="time-marks"><span>SEED</span><span>MATURITY / DAY 40</span></div>
+        </section>
+
+        <div class="panel-actions">
+          <button id="pauseButton" class="primary-button"><span class="pause-icon">Ⅱ</span><span class="play-icon">▶</span><b>PAUSE GROWTH</b></button>
+          <button id="resetButton" class="secondary-button">RESET CULTURE</button>
+        </div>
+      </aside>
+
+      <section class="viewport" id="viewport">
+        <canvas id="crystalCanvas" aria-label="Interactive 3D crystal simulation"></canvas>
+        <div class="viewport-title">
+          <span class="eyebrow">SPECIMEN VIEW</span>
+          <h1 id="mineralTitle">Amethyst<br><i>Geode Cluster</i></h1>
+        </div>
+        <div class="specimen-tag tag-a"><span></span><div><small>PRIMARY TERMINATION</small><strong id="heightLabel">82.4 mm</strong></div></div>
+        <div class="specimen-tag tag-b"><span></span><div><small>NEW GROWTH</small><strong id="growthLabel">+3.8 mm / day</strong></div></div>
+        <div class="drag-hint"><span class="mouse-icon"></span>DRAG TO ORBIT · SCROLL TO ZOOM</div>
+        <div class="axis-widget" aria-hidden="true">
+          <span class="axis-y">Y</span><span class="axis-x">X</span><span class="axis-z">Z</span><i></i><b></b><em></em>
+        </div>
+        <div class="view-actions">
+          <button id="autoRotate" class="view-button active"><span>↻</span> AUTO ROTATE</button>
+          <button id="snapshot" class="view-button"><span>◎</span> SNAPSHOT</button>
+        </div>
+        <div class="scale"><span>50 MM</span><i></i></div>
+      </section>
+
+      <footer class="telemetry">
+        <div><span>CHAMBER</span><strong>04</strong></div>
+        <div><span>PRESSURE</span><strong id="pressure">1.04 ATM</strong></div>
+        <div><span>SOLUTION PH</span><strong id="ph">6.82</strong></div>
+        <div><span>FACETS</span><strong id="facetCount">168</strong></div>
+        <p>CRYSTALLOGRAPHIC GROWTH ENGINE <b>v2.4.1</b></p>
+      </footer>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
