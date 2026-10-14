@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pixel Aquarium</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0d17; overflow: hidden; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; cursor: pointer; display: block; }
+  #bar { display: flex; align-items: center; gap: 14px; margin-top: 8px; }
+  #hint { color: #4f5d7c; font: 12px monospace; user-select: none; }
+  #feed {
+    font: bold 13px monospace; color: #fff3d6; background: #b4642c; cursor: pointer;
+    border: 2px solid #f29a2e; border-bottom-color: #6e3a1a; border-right-color: #6e3a1a;
+    padding: 4px 14px; text-transform: uppercase; letter-spacing: 1px;
+  }
+  #feed:hover { background: #c8743a; }
+  #feed:active { border-color: #6e3a1a #f29a2e #f29a2e #6e3a1a; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="bar">
+  <button id="feed">Feed</button>
+  <div id="hint">click the water to drop pellets · click the pufferfish to startle it</div>
+</div>
+<script>
+const W = 256, H = 144;
+const WATER_Y = 22;    // surface line; the strip above it shows the sky
+const BASE_Y = 138;    // top of the tank stand
+
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+cv.width = W; cv.height = H;
+
+function resize() {
+  const s = Math.max(1, Math.floor(Math.min(innerWidth / W, (innerHeight - 50) / H)));
+  cv.style.width = W * s + 'px';
+  cv.style.height = H * s + 'px';
+}
+addEventListener('resize', resize);
+resize();
+
+// Seeded RNG so the static scenery is the same every load
+function rng(seed) {
+  return () => {
+    seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const R = rng(1234);
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+
+function px(c, x, y, col) { c.fillStyle = col; c.fillRect(x, y, 1, 1); }
+
+// ---------- Sand profile ----------
+const sandTop = new Array(W);
+for (let x = 0; x < W; x++) {
+  sandTop[x] = Math.round(117 + Math.sin(x * 0.045) * 3 + Math.sin(x * 0.13 + 1) * 1.5);
+}
+const minSand = Math.min(...sandTop);
+
+// ---------- Static background ----------
+const bg = document.createElement('canvas');
+bg.width = W; bg.height = H;
+const b = bg.getContext('2d');
+
+(function buildBackground() {
+  // Lid and air gap
+  b.fillStyle = '#262a3c'; b.fillRect(0, 0, W, 4);
+  b.fillStyle = '#3b4160'; b.fillRect(0, 3, W, 1);
+  // rows 4..WATER_Y stay transparent: the sky is drawn behind them every frame
+
+  // Water: dithered vertical gradient
+  const WATER = ['#46b3d1', '#3aa0c4', '#2f8db6', '#277ba7', '#206a97', '#1b5a86', '#174c75', '#134066'];
+  const span = 120 - WATER_Y;
+  for (let y = WATER_Y; y < BASE_Y; y++) {
+    const f = Math.min(WATER.length - 1.001, (y - WATER_Y) / span * (WATER.length - 1));
+    const i = Math.floor(f), frac = f - i;
+    for (let x = 0; x < W; x++) {
+      px(b, x, y, frac * 16 > BAYER[y & 3][x & 3] ? WATER[i + 1] : WATER[i]);
+    }
+  }
+
+  // Distant dunes for depth
+  for (let x = 0; x < W; x++) {
+    const top = Math.round(100 + Math.sin(x * 0.03 + 2) * 5 + Math.sin(x * 0.11) * 2);
+    for (let y = top; y < sandTop[x]; y++) {
+      const d = y - top;
+      px(b, x, y, d === 0 ? '#22688a' : (d < 3 && (x + y) % 2 ? '#1d5f80' : '#1a5677'));
+    }
+  }
+
+  // Sand
+  const SPECK = ['#b8925a', '#f2dca4', '#a07c4a', '#8d8a8a', '#c9a76a'];
+  for (let x = 0; x < W; x++) {
+    for (let y = sandTop[x]; y < BASE_Y; y++) {
+      const d = y - sandTop[x];
+      let col;
+      if (d === 0) col = '#f5e2ab';
+      else if (d < 3) col = '#e6c98a';
+      else {
+        const f = Math.min(1, (d - 3) / 14);
+        col = f * 16 > BAYER[y & 3][x & 3] ? '#c5a161' : '#d8b875';
+      }
+      if (d > 0 && R() < 0.07) col = SPECK[Math.floor(R() * SPECK.length)];
+      px(b, x, y, col);
+    }
+  }
+
+  // Pebbles
+  const PEB = [['#6b6f7d', '#8e93a3'], ['#8a5a3a', '#b07a52'], ['#5c6b5a', '#7f927b'], ['#9a8f86', '#c4bbb1']];
+  for (let i = 0; i < 28; i++) {
+    const x = Math.floor(R() * (W - 4)) + 1;
+    const y = sandTop[x] + 2 + Math.floor(R() * (BASE_Y - sandTop[x] - 4));
+    const p = PEB[Math.floor(R() * PEB.length)];
+    px(b, x, y, p[0]); px(b, x + 1, y, p[0]); px(b, x, y - 1, p[1]);
+    if (R() < 0.5) px(b, x + 1, y - 1, p[0]);
+  }
+
+  // Rocks
+  const ROCK = ['#2f3442', '#474e60', '#646d82', '#8791a6', '#aab3c5'];
+  const rocks = [
+    { x: 38, y: 121, rx: 15, ry: 11 }, { x: 54, y: 125, rx: 8, ry: 6 },
+    { x: 192, y: 122, rx: 19, ry: 14 }, { x: 212, y: 127, rx: 9, ry: 7 },
+    { x: 124, y: 129, rx: 6, ry: 4 }, { x: 24, y: 128, rx: 5, ry: 3 },
+  ];
+  for (const r of rocks) {
+    for (let y = r.y - r.ry; y <= r.y + 2; y++) {
+      for (let x = r.x - r.rx; x <= r.x + r.rx; x++) {
+        const nx = (x - r.x) / r.rx, ny = (y - r.y) / r.ry;
+        const wob = Math.sin(Math.atan2(ny, nx) * 5 + r.x) * 0.06;
+        const d = nx * nx + ny * ny + wob;
+        if (d > 1) continue;
+        let light = -nx * 0.55 - ny * 0.75 + (R() - 0.5) * 0.35;
+        let idx = light > 0.75 ? 4 : light > 0.35 ? 3 : light > -0.1 ? 2 : light > -0.5 ? 1 : 0;
+        if (d > 0.82) idx = Math.max(0, idx - 1);
+        px(b, x, y, ROCK[idx]);
+        // moss on top
+        if (ny < -0.6 && R() < 0.35) px(b, x, y, R() < 0.5 ? '#4f8a3a' : '#3b6e2e');
+      }
+    }
+    // sand piled against the base
+    for (let x = r.x - r.rx; x <= r.x + r.rx; x++) {
+      if (R() < 0.6) px(b, x, r.y + 2, '#e6c98a');
+      if (R() < 0.3) px(b, x, r.y + 1, '#f5e2ab');
+    }
+  }
+
+  // Shells and a starfish
+  const shell = (x, y) => {
+    const s = sandTop[x] + y;
+    px(b, x, s, '#f6d2c4'); px(b, x + 1, s, '#e8a998'); px(b, x + 2, s, '#f6d2c4');
+    px(b, x + 1, s - 1, '#fbe6dc'); px(b, x, s + 1, '#c98676'); px(b, x + 2, s + 1, '#c98676');
+  };
+  shell(80, 6); shell(150, 10); shell(232, 4);
+  const sx = 102, sy = sandTop[102] + 8;
+  for (const [dx, dy] of [[0, 0], [0, -1], [0, -2], [-1, 0], [-2, 0], [1, 0], [2, 0], [-1, 1], [-2, 2], [1, 1], [2, 2]]) {
+    px(b, sx + dx, sy + dy, '#e8743a');
+  }
+  px(b, sx, sy, '#f6a060');
+
+  // Tank stand
+  b.fillStyle = '#4a3324'; b.fillRect(0, BASE_Y, W, H - BASE_Y);
+  b.fillStyle = '#6e4c34'; b.fillRect(0, BASE_Y, W, 1);
+  b.fillStyle = '#35241a'; b.fillRect(0, H - 1, W, 1);
+})();
+
+// ---------- Plants ----------
+const PAL = {
+  green:  ['#1f5e2e', '#2f8a3c', '#62c958'],
+  lime:   ['#4f6a1c', '#82a42a', '#c4e04e'],
+  red:    ['#6e2236', '#ac3c4a', '#e6746a'],
+  back:   ['#174a44', '#1f5f52', '#2b7862'],
+  teal:   ['#1b5a50', '#2a8a72', '#5ccaa4'],
+};
+const plants = [];
+function addKelp(x, h, layer, pal) {
+  plants.push({ type: 'kelp', x, h, layer, pal, ph: R() * 6.28 });
+}
+function addGrass(x, n, hMin, hMax, layer, pal) {
+  const blades = [];
+  for (let i = 0; i < n; i++) {
+    blades.push({ dx: Math.round((R() - 0.5) * n * 1.6), h: hMin + R() * (hMax - hMin), lean: (R() - 0.5) * 0.6, ph: R() * 6.28 });
+  }
+  plants.push({ type: 'grass', x, layer, pal, blades });
+}
+// back layer
+addKelp(14, 70, 0, PAL.back); addKelp(70, 85, 0, PAL.back); addKelp(160, 60, 0, PAL.back);
+addKelp(236, 80, 0, PAL.back); addGrass(110, 8, 12, 30, 0, PAL.back);
+// middle layer (behind fish)
+addKelp(30, 60, 1, PAL.green); addKelp(36, 48, 1, PAL.green);
+addKelp(176, 72, 1, PAL.green); addKelp(182, 54, 1, PAL.teal);
+addGrass(88, 9, 8, 22, 1, PAL.lime); addGrass(140, 7, 10, 26, 1, PAL.red);
+addGrass(204, 8, 8, 20, 1, PAL.lime);
+// front layer (in front of fish)
+addKelp(6, 40, 2, PAL.teal); addGrass(60, 7, 6, 16, 2, PAL.green);
+addGrass(248, 6, 8, 18, 2, PAL.red); addKelp(208, 34, 2, PAL.green);
+
+function drawPlant(p, t) {
+  if (p.type === 'kelp') {
+    const base = sandTop[Math.max(0, Math.min(W - 1, p.x))] + 1;
+    let x = p.x;
+    for (let i = 0; i < p.h; i++) {
+      const y = base - i, k = i / p.h;
+      const off = Math.sin(t * 1.1 + p.ph + i * 0.13) * k * k * 4 + Math.sin(t * 0.4 + p.ph) * k * 2;
+      x = Math.round(p.x + off);
+      px(ctx, x, y, p.pal[0]);
+      px(ctx, x + 1, y, p.pal[1]);
+      if (i > 3 && i % 5 === 0) {
+        const side = (i / 5) % 2 ? 1 : -1;
+        const len = 3 + Math.round((1 - k) * 2);
+        for (let j = 1; j <= len; j++) {
+          const lx = side > 0 ? x + 1 + j : x - j;
+          const ly = y - (j >= len - 1 ? 1 : 0);
+          px(ctx, lx, ly, j === len ? p.pal[2] : p.pal[1]);
+        }
+      }
+    }
+    px(ctx, x, base - p.h, p.pal[2]);
+  } else {
+    const base = sandTop[p.x] + 1;
+    for (const bl of p.blades) {
+      for (let i = 0; i < bl.h; i++) {
+        const k = i / bl.h;
+        const off = Math.sin(t * 1.5 + bl.ph + i * 0.2) * k * k * 3 + bl.lean * k * k * bl.h * 0.4;
+        const col = k > 0.8 ? p.pal[2] : k > 0.3 ? p.pal[1] : p.pal[0];
+        px(ctx, Math.round(p.x + bl.dx + off), base - i, col);
+      }
+    }
+  }
+}
+
+// ---------- Fish ----------
+// 1 body, 2 fins, 3 stripe/accent, 4 belly, w eye white, 0 pupil. Sprites face right.
+const SPECIES = [
+  {
+    name: 'tetra', speed: 0.6, count: 6, school: true,
+    rows: [
+      '....222....',
+      '2..1111111.',
+      '22133333w01',
+      '2214444444.',
+      '2..444441..',
+      '....2.2....',
+    ],
+    pals: [{ 1: '#2b4f7a', 2: '#9cc4dd', 3: '#43e6ff', 4: '#ec4436', w: '#ffffff', 0: '#10131c' }],
+  },
+  {
+    name: 'clown', speed: 0.55, count: 3,
+    rows: [
+      '....222....',
+      '2.13111311.',
+      '221311131w0',
+      '2.13111311.',
+      '....2.2....',
+    ],
+    pals: [{ 1: '#f2741c', 2: '#c44a16', 3: '#fbf4ea', w: '#ffffff', 0: '#10131c' }],
+  },
+  {
+    // drawn procedurally as a chain of segments, see Eel
+    name: 'eel', kind: 'eel', speed: 0.4, count: 1, w: 30, h: 7,
+    pals: [{ top: '#1a3a8a', body: '#2a5fc8', belly: '#7ab0f0', fin: '#58d0ff', eye: '#f8e870' }],
+  },
+  {
+    // normal sprite here; the puffed-up frames are generated by puffSprite()
+    name: 'puffer', kind: 'puffer', speed: 0.35, count: 1,
+    rows: [
+      '....11111...',
+      '2..1131311..',
+      '22111111w01.',
+      '2214444444..',
+      '2..4444441..',
+      '....2..2....',
+    ],
+    pals: [{ 1: '#d8b24a', 2: '#c89a3a', 3: '#6a5420', 4: '#f4ecc8', 5: '#8a7030', w: '#ffffff', 0: '#10131c' }],
+  },
+  {
+    name: 'angel', speed: 0.3, count: 2,
+    rows: [
+      '......2.....',
+      '.....22.....',
+      '....3113....',
+      '...131131...',
+      '2.11311311..',
+      '22113113w01.',
+      '2.11311311..',
+      '...131131...',
+      '....3113....',
+      '.....22.....',
+      '......2.....',
+    ],
+    pals: [
+      { 1: '#e6e2cc', 2: '#bdb595', 3: '#2d2f40', w: '#ffffff', 0: '#10131c' },
+      { 1: '#f4c94a', 2: '#e0a52e', 3: '#c27a18', w: '#ffffff', 0: '#10131c' },
+    ],
+  },
+  {
+    name: 'danio', speed: 0.75, count: 3,
+    rows: [
+      '.....222.....',
+      '2.1111111111.',
+      '2213333333w01',
+      '2.4444444444.',
+      '.....2..2....',
+    ],
+    pals: [
+      { 1: '#c9c46a', 2: '#e2dc9a', 3: '#2e4fa8', 4: '#efe8b0', w: '#ffffff', 0: '#10131c' },
+      { 1: '#e07ab0', 2: '#f0a0c8', 3: '#7a2a80', 4: '#f6c0dc', w: '#ffffff', 0: '#10131c' },
+    ],
+  },
+  {
+    name: 'goldfish', speed: 0.35, count: 2,
+    rows: [
+      '.......222....',
+      '22...11111111.',
+      '2221111111111.',
+      '.2211111111w01',
+      '.2211444444441',
+      '2221144444441.',
+      '22...1444441..',
+      '.......2..2...',
+    ],
+    pals: [
+      { 1: '#f0761a', 2: '#f9c46e', 4: '#f8a640', w: '#ffffff', 0: '#10131c' },
+      { 1: '#f4f0e8', 2: '#e85a3a', 4: '#ffffff', w: '#ffffff', 0: '#10131c' },
+    ],
+  },
+];
+
+const food = [];
+const bubbles = [];
+
+class Fish {
+  constructor(sp) {
+    this.sp = sp;
+    this.pal = pick(sp.pals);
+    this.w = sp.w || sp.rows[0].length;
+    this.h = sp.h || sp.rows.length;
+    this.x = rand(20, W - 20);
+    this.y = rand(WATER_Y + 12, minSand - 12);
+    this.vx = 0; this.vy = 0;
+    this.dir = Math.random() < 0.5 ? 1 : -1;
+    this.speed = sp.speed * rand(0.8, 1.2);
+    this.ph = rand(0, 6.28);
+    this.hunger = rand(0, 10);
+    this.newTarget();
+  }
+  bounds() {
+    return {
+      x0: 4 + this.w / 2, x1: W - 4 - this.w / 2,
+      y0: WATER_Y + 3 + this.h / 2, y1: minSand - 2 - this.h / 2,
+    };
+  }
+  newTarget() {
+    const bd = this.bounds();
+    if (this.sp.school && this.sp.st) {
+      this.tx = this.sp.st.x + rand(-14, 14);
+      this.ty = this.sp.st.y + rand(-8, 8);
+    } else {
+      this.tx = rand(bd.x0, bd.x1);
+      this.ty = rand(bd.y0, bd.y1);
+    }
+    this.tx = Math.max(bd.x0, Math.min(bd.x1, this.tx));
+    this.ty = Math.max(bd.y0, Math.min(bd.y1, this.ty));
+  }
+  mouthOffset() { return this.dir * (this.w / 2); }
+  speedMul() { return 1; }
+  wantsFood() { return this.hunger > 3; }
+  update(dt) {
+    const s = dt * 60;
+    // everyone slows to 40% speed at night
+    let tx = this.tx, ty = this.ty, spd = this.speed * this.speedMul() * (1 - 0.6 * night), target = null;
+
+    if (food.length && this.wantsFood()) {
+      let best = 1e9;
+      for (const f of food) {
+        const d = Math.hypot(f.x - this.x, f.y - this.y);
+        if (d < best) { best = d; target = f; }
+      }
+      tx = target.x - this.mouthOffset() + this.dir; // aim the mouth, not the middle
+      ty = target.y;
+      spd *= 1.9;
+    }
+
+    const dx = tx - this.x, dy = ty - this.y, d = Math.hypot(dx, dy) || 1;
+    if (!target && (d < 4 || Math.random() < 0.003 * s)) this.newTarget();
+
+    const slow = target ? 1 : Math.min(1, d / 20 + 0.2);
+    const dvx = dx / d * spd * slow, dvy = dy / d * spd * slow * 0.6;
+    this.vx += (dvx - this.vx) * 0.03 * s;
+    this.vy += (dvy - this.vy) * 0.03 * s;
+    this.x += this.vx * s;
+    this.y += this.vy * s;
+
+    const bd = this.bounds();
+    this.x = Math.max(bd.x0, Math.min(bd.x1, this.x));
+    this.y = Math.max(bd.y0, Math.min(bd.y1, this.y));
+
+    if (this.vx > 0.06) this.dir = 1;
+    else if (this.vx < -0.06) this.dir = -1;
+
+    this.ph += (0.08 + Math.hypot(this.vx, this.vy) * 0.3) * s;
+    this.hunger += dt;
+
+    if (target) {
+      const mx = this.x + this.mouthOffset(), my = this.y;
+      if (Math.abs(target.x - mx) < 3 && Math.abs(target.y - my) < 3) {
+        food.splice(food.indexOf(target), 1);
+        this.hunger = 0;
+      }
+    }
+
+    if (Math.random() < 0.0012 * s) {
+      bubbles.push({ x: this.x + this.mouthOffset() + this.dir, y: this.y - 1, vy: rand(0.25, 0.4), r: 0, ph: rand(0, 6) });
+    }
+  }
+  draw() { this.drawSprite(this.sp.rows); }
+  drawSprite(rows) {
+    const w = this.w;
+    const ox = Math.round(this.x - w / 2);
+    const oy = Math.round(this.y - this.h / 2 + Math.sin(this.ph * 0.25) * 0.6);
+    const wig = Math.round(Math.sin(this.ph) * 1.2);
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r];
+      for (let c = 0; c < row.length; c++) {
+        const ch = row[c];
+        if (ch === '.') continue;
+        const yy = r + (c < 2 ? wig : 0);
+        const xx = this.dir > 0 ? c : w - 1 - c;
+        px(ctx, ox + xx, oy + yy, this.pal[ch]);
+      }
+    }
+  }
+}
+
+// A long eel: the head steers like any fish, the body is a rope of 1px segments
+// that follows the head's path, with a travelling wave on top for the wiggle.
+class Eel extends Fish {
+  constructor(sp) {
+    super(sp);
+    this.segs = [];
+    for (let i = 0; i < sp.w; i++) this.segs.push({ x: this.x - this.dir * i, y: this.y });
+  }
+  bounds() {
+    return { x0: 6, x1: W - 6, y0: WATER_Y + 10, y1: minSand - 3 };
+  }
+  newTarget() {
+    super.newTarget();
+    const bd = this.bounds();
+    this.ty = rand(Math.max(bd.y0, 60), bd.y1); // eels like to stay low
+  }
+  mouthOffset() { return this.dir; }
+  update(dt) {
+    super.update(dt);
+    this.ph += 0.06 * dt * 60; // wiggle a bit faster than a regular fish
+    const segs = this.segs;
+    segs[0].x = this.x; segs[0].y = this.y;
+    for (let i = 1; i < segs.length; i++) {
+      const a = segs[i - 1], s = segs[i];
+      const dx = s.x - a.x, dy = s.y - a.y, d = Math.hypot(dx, dy);
+      if (d > 1) { s.x = a.x + dx / d; s.y = a.y + dy / d; }
+    }
+  }
+  draw() {
+    const p = this.pal, segs = this.segs, n = segs.length;
+    // draw tail first so the head ends up on top
+    for (let i = n - 1; i >= 0; i--) {
+      const a = segs[Math.max(0, i - 1)], s = segs[Math.min(n - 1, i + 1)];
+      let tx = a.x - s.x, ty = a.y - s.y;
+      const tl = Math.hypot(tx, ty) || 1;
+      tx /= tl; ty /= tl;
+      const k = i / n;
+      const wave = Math.sin(this.ph - i * 0.45) * 1.6 * Math.min(1, i / 6);
+      const x = Math.round(segs[i].x - ty * wave);
+      const y = Math.round(segs[i].y + tx * wave);
+      if (k > 0.86) {
+        px(ctx, x, y, p.fin);
+      } else if (k > 0.7) {
+        px(ctx, x, y, p.body); px(ctx, x, y + 1, p.belly);
+        if (i % 2) px(ctx, x, y - 1, p.fin);
+      } else {
+        px(ctx, x, y - 1, p.top); px(ctx, x, y, p.body); px(ctx, x, y + 1, p.belly);
+        if (i > 4 && i % 2) px(ctx, x, y - 2, p.fin); // dorsal fin
+      }
+    }
+    const hx = Math.round(segs[0].x), hy = Math.round(segs[0].y);
+    px(ctx, hx + this.dir, hy, p.body);
+    px(ctx, hx + this.dir, hy + 1, p.belly);
+    px(ctx, hx, hy - 1, p.eye);
+  }
+}
+
+// Round puffed-up sprite of radius r, same palette codes as the fish sprites
+// (5 = spike). Tail sits in columns 0-1 so the regular tail wiggle still works.
+function puffSprite(r) {
+  const rr = Math.ceil(r), cx = rr + 3, cy = rr + 1;
+  const w = cx + rr + 2, h = 2 * rr + 3;
+  const g = Array.from({ length: h }, () => Array(w).fill('.'));
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (Math.hypot(x - cx, y - cy) > r) continue;
+      g[y][x] = y > cy ? '4' : (y < cy && (x * 5 + y * 3) % 7 === 0 ? '3' : '1');
+    }
+  }
+  for (let a = 0; a < 14; a++) {
+    const ang = a / 14 * Math.PI * 2, c = Math.cos(ang);
+    if (c < -0.8) continue; // no spikes over the tail
+    const sx = Math.round(cx + c * (r + 1)), sy = Math.round(cy + Math.sin(ang) * (r + 1));
+    if (g[sy] && g[sy][sx] === '.') g[sy][sx] = '5';
+  }
+  const ex = Math.round(cx + r * 0.5), ey = Math.round(cy - r * 0.3);
+  g[ey][ex] = 'w'; g[ey][ex + 1] = '0';
+  // tail, bridged right up to the body
+  for (let y = cy - 1; y <= cy + 1; y++) {
+    for (let x = 0; x < w && g[y][x] !== '1' && g[y][x] !== '4'; x++) {
+      if (x < 2 || y === cy) g[y][x] = '2';
+    }
+  }
+  return g.map(row => row.join(''));
+}
+
+class Puffer extends Fish {
+  constructor(sp) {
+    super(sp);
+    this.frames = [sp.rows, puffSprite(4.5), puffSprite(6.5)];
+    this.level = 0;     // 0 normal, 1 half, 2 fully puffed
+    this.puffT = 0;     // seconds left fully puffed
+    this.stepT = 0;
+  }
+  puff() {
+    this.puffT = 3.5;
+    for (let i = 0; i < 4; i++) {
+      bubbles.push({ x: this.x + rand(-4, 4), y: this.y - 3, vy: rand(0.3, 0.6), r: pick([0, 1]), ph: rand(0, 6) });
+    }
+  }
+  hit(x, y) {
+    return Math.abs(x - this.x) <= this.w / 2 + 2 && Math.abs(y - this.y) <= this.h / 2 + 2;
+  }
+  speedMul() { return this.level ? 0.25 : 1; }
+  wantsFood() { return this.level === 0 && super.wantsFood(); }
+  update(dt) {
+    this.puffT = Math.max(0, this.puffT - dt);
+    const goal = this.puffT > 0 ? 2 : 0;
+    this.stepT -= dt;
+    if (this.level !== goal && this.stepT <= 0) {
+      this.level += Math.sign(goal - this.level);
+      this.stepT = goal ? 0.08 : 0.3; // puff fast, deflate slowly
+      const rows = this.frames[this.level];
+      this.w = rows[0].length;
+      this.h = rows.length;
+    }
+    super.update(dt);
+  }
+  draw() { this.drawSprite(this.frames[this.level]); }
+}
+
+const fish = [];
+const FISH_CLASSES = { eel: Eel, puffer: Puffer };
+for (const sp of SPECIES) {
+  for (let i = 0; i < sp.count; i++) fish.push(new (FISH_CLASSES[sp.kind] || Fish)(sp));
+}
+// draw order: big/slow fish further back
+fish.sort((a, b) => a.speed - b.speed);
+
+let schoolTimer = 0;
+function updateSchools(dt) {
+  schoolTimer -= dt;
+  if (schoolTimer > 0) return;
+  schoolTimer = rand(4, 8);
+  for (const sp of SPECIES) {
+    if (sp.school) sp.st = { x: rand(30, W - 30), y: rand(WATER_Y + 16, minSand - 18) };
+  }
+}
+
+// ---------- Treasure chest (bottom-right corner) ----------
+// Leaks a few bubbles through the lid seam, and every so often the lid
+// pops open and lets out a big burst.
+const CHEST = { x: 226, w: 18 };
+CHEST.by = sandTop[CHEST.x + 9] + 3; // bottom row, half sunk in the sand
+let chestOpen = false, chestTimer = rand(3, 6), bubbleTimer = 0;
+
+function updateChest(dt) {
+  chestTimer -= dt;
+  if (chestTimer <= 0) {
+    chestOpen = !chestOpen;
+    chestTimer = chestOpen ? rand(2, 3) : rand(6, 10);
+  }
+  bubbleTimer -= dt;
+  if (bubbleTimer <= 0) {
+    const cx = CHEST.x + CHEST.w / 2;
+    if (chestOpen) {
+      bubbleTimer = rand(0.03, 0.1);
+      bubbles.push({ x: cx + rand(-6, 6), y: CHEST.by - 9, vy: rand(0.4, 0.8), r: pick([0, 1, 1, 2, 2]), ph: rand(0, 6) });
+    } else {
+      bubbleTimer = rand(0.3, 0.9);
+      bubbles.push({ x: cx + rand(-7, 7), y: CHEST.by - 8, vy: rand(0.3, 0.5), r: pick([0, 0, 1]), ph: rand(0, 6) });
+    }
+  }
+}
+
+function drawChest(t) {
+  const x0 = CHEST.x, w = CHEST.w, by = CHEST.by;
+  const rect = (x, y, rw, rh, col) => { ctx.fillStyle = col; ctx.fillRect(x, y, rw, rh); };
+  // body
+  rect(x0, by - 7, w, 8, '#6e4022');
+  rect(x0, by - 7, w, 1, '#8c5530');
+  rect(x0, by - 4, w, 1, '#4a2a16');
+  rect(x0, by - 7, 1, 8, '#3a2010'); rect(x0 + w - 1, by - 7, 1, 8, '#3a2010');
+  // gold bands and lock
+  for (const bx of [x0 + 2, x0 + w - 4]) { rect(bx, by - 7, 2, 8, '#c8962a'); rect(bx, by - 7, 1, 8, '#f2cf5a'); }
+  rect(x0 + 7, by - 6, 4, 3, '#e8b830'); rect(x0 + 7, by - 6, 4, 1, '#fde58a');
+  px(ctx, x0 + 9, by - 5, '#2a180c');
+
+  if (!chestOpen) {
+    // rounded lid
+    rect(x0 + 3, by - 12, w - 6, 1, '#9c6634');
+    rect(x0 + 1, by - 11, w - 2, 1, '#8c5530');
+    rect(x0, by - 10, w, 2, '#7a4a26');
+    rect(x0, by - 8, w, 1, '#3a2010');
+    for (const bx of [x0 + 2, x0 + w - 4]) { rect(bx, by - 11, 2, 3, '#c8962a'); rect(bx, by - 11, 1, 3, '#f2cf5a'); }
+  } else {
+    // lid swung back: we see its dark underside above the opening
+    rect(x0 + 1, by - 15, w - 2, 1, '#8c5530');
+    rect(x0, by - 14, w, 4, '#4a2c18');
+    rect(x0, by - 10, w, 1, '#3a2010');
+    for (const bx of [x0 + 2, x0 + w - 4]) rect(bx, by - 14, 2, 4, '#a07422');
+    // gold inside, with a twinkle
+    rect(x0 + 1, by - 9, w - 2, 2, '#2a180c');
+    for (let x = x0 + 2; x < x0 + w - 2; x++) px(ctx, x, by - 8 - (x % 2), x % 3 ? '#e8b830' : '#f2cf5a');
+    const sx = x0 + 3 + Math.floor(t * 4) % (w - 6);
+    px(ctx, sx, by - 9, '#ffffff');
+  }
+  // sand drifted against the front
+  for (let x = x0 - 1; x <= x0 + w; x++) {
+    px(ctx, x, by, (x * 7) % 3 ? '#e6c98a' : '#f5e2ab');
+    if ((x * 5) % 4 === 0) px(ctx, x, by - 1, '#e6c98a');
+  }
+}
+
+// ---------- Bubbles ----------
+function updateBubbles(dt) {
+  const s = dt * 60;
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const bb = bubbles[i];
+    bb.y -= bb.vy * s;
+    bb.vy = Math.min(bb.vy + 0.004 * s, 1);
+    bb.ph += 0.1 * s;
+    bb.x += Math.sin(bb.ph) * 0.15 * s;
+    if (bb.y < WATER_Y + 1 + bb.r) bubbles.splice(i, 1);
+  }
+}
+function drawBubble(bb) {
+  const x = Math.round(bb.x), y = Math.round(bb.y), r = bb.r;
+  if (r === 0) { px(ctx, x, y, '#cdf1ff'); return; }
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      const d = Math.hypot(dx, dy);
+      if (Math.abs(d - r) < 0.5) px(ctx, x + dx, y + dy, '#a6e2f6');
+    }
+  }
+  px(ctx, x - (r > 1 ? 1 : 0), y - (r > 1 ? 1 : 0), '#ffffff');
+}
+
+// ---------- Food ----------
+cv.addEventListener('click', e => {
+  const rect = cv.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width * W;
+  const y = (e.clientY - rect.top) / rect.height * H;
+  const puffer = fish.find(f => f instanceof Puffer && f.hit(x, y));
+  if (puffer) { puffer.puff(); return; }
+  const n = 4 + Math.floor(Math.random() * 4);
+  for (let i = 0; i < n; i++) {
+    food.push({
+      x: Math.max(3, Math.min(W - 4, x + rand(-6, 6))),
+      y: WATER_Y + rand(0, 3),
+      vy: rand(0.12, 0.22), ph: rand(0, 6), life: 12, float: 0,
+      col: pick(['#8a4a20', '#b4642c', '#6e3a1a']),
+    });
+  }
+});
+
+// Flakes: a pinch scattered on the surface; they float a moment, then
+// flutter down slowly, swaying side to side.
+document.getElementById('feed').addEventListener('click', () => {
+  const cx = rand(50, W - 50);
+  for (let i = 0; i < 16; i++) {
+    food.push({
+      flake: true,
+      x: Math.max(3, Math.min(W - 4, cx + rand(-30, 30))),
+      y: WATER_Y + rand(0, 2),
+      vy: rand(0.06, 0.12), ph: rand(0, 6), life: 15, float: rand(0.4, 2),
+      col: pick(['#e84a3a', '#f29a2e', '#f4d23c', '#6cc04a', '#d8603a']),
+    });
+  }
+});
+
+function updateFood(dt) {
+  const s = dt * 60;
+  for (let i = food.length - 1; i >= 0; i--) {
+    const f = food[i];
+    const floor = sandTop[Math.round(f.x)] - 1;
+    if (f.float > 0) {
+      f.float -= dt;
+      f.x += Math.sin(f.ph += 0.02 * s) * 0.05 * s;
+    } else if (f.y < floor) {
+      f.y = Math.min(floor, f.y + f.vy * s);
+      f.ph += (f.flake ? 0.04 : 0.05) * s;
+      f.x += Math.sin(f.ph) * (f.flake ? 0.25 : 0.08) * s;
+    } else {
+      f.life -= dt;
+      if (f.life <= 0) food.splice(i, 1);
+    }
+    f.x = Math.max(2, Math.min(W - 3, f.x));
+  }
+}
+
+function drawFood() {
+  for (const f of food) {
+    const x = Math.round(f.x), y = Math.round(f.y);
+    ctx.fillStyle = f.col;
+    if (!f.flake) ctx.fillRect(x, y, 1, 1);
+    else if (f.float > 0 || f.y >= sandTop[x] - 1 || Math.sin(f.ph * 3) > 0) ctx.fillRect(x, y, 2, 1);
+    else ctx.fillRect(x, y - 1, 1, 2); // edge-on while tumbling
+  }
+}
+
+// ---------- Day / night ----------
+const DAY_LENGTH = 60;  // seconds for a full cycle, starting at noon
+let night = 0;          // 0 = full day, 1 = full night
+let cyclePos = 0;       // 0..1 through the cycle; 0.5 is midnight
+
+const lerp = (a, b, k) => a + (b - a) * k;
+const mix = (c1, c2, k) => `rgb(${c1.map((v, i) => Math.round(lerp(v, c2[i], k))).join(',')})`;
+
+function updateCycle(t) {
+  cyclePos = (t / DAY_LENGTH) % 1;
+  // fully day for the first/last sixth, fully night in the middle third
+  const k = Math.max(0, Math.min(1, 0.5 - Math.cos(cyclePos * Math.PI * 2)));
+  night = k * k * (3 - 2 * k);
+}
+
+const STARS = [];
+for (let i = 0; i < 40; i++) STARS.push({ x: Math.floor(R() * W), y: 4 + Math.floor(R() * (WATER_Y - 6)), ph: R() * 6.28 });
+
+// moon arcs across the sky through the night; returns null while it's down
+function moonPos() {
+  const q = (cyclePos - 0.18) / 0.64;
+  if (q <= 0 || q >= 1) return null;
+  return { x: Math.round(lerp(24, W - 24, q)), y: Math.round(WATER_Y - 2 - Math.sin(q * Math.PI) * 11) };
+}
+
+function drawSky(t) {
+  const DAY_TOP = [118, 192, 236], DAY_LOW = [192, 230, 246];
+  const NIGHT_TOP = [5, 8, 24], NIGHT_LOW = [20, 28, 60], DUSK = [240, 150, 110];
+  const dusk = Math.sin(night * Math.PI) * 0.7;
+  for (let y = 4; y < WATER_Y; y++) {
+    const k = (y - 4) / (WATER_Y - 5);
+    const top = NIGHT_TOP.map((v, i) => lerp(DAY_TOP[i], v, night));
+    const low = NIGHT_LOW.map((v, i) => lerp(DAY_LOW[i], v, night));
+    const row = top.map((v, i) => lerp(v, low[i], k));
+    ctx.fillStyle = mix(row, DUSK, dusk * k * k);
+    ctx.fillRect(0, y, W, 1);
+  }
+  for (const st of STARS) {
+    const a = night * (0.55 + 0.45 * Math.sin(t * 2 + st.ph));
+    if (a < 0.05) continue;
+    ctx.fillStyle = `rgba(255,250,220,${a.toFixed(2)})`;
+    ctx.fillRect(st.x, st.y, 1, 1);
+  }
+  const m = moonPos();
+  if (!m) return;
+  for (let dy = -6; dy <= 6; dy++) {
+    for (let dx = -6; dx <= 6; dx++) {
+      const d = Math.hypot(dx, dy);
+      if (d > 4.3) {
+        if (d < 6.2) { ctx.fillStyle = 'rgba(255,250,215,0.12)'; ctx.fillRect(m.x + dx, m.y + dy, 1, 1); }
+        continue;
+      }
+      let col = dx + dy > 3 ? '#d6d1b2' : '#f6f2da';
+      if ((dx === -1 && dy === -1) || (dx === 2 && dy === 0) || (dx === 0 && dy === 2) || (dx === -2 && dy === 1)) col = '#c4bf9e';
+      px(ctx, m.x + dx, m.y + dy, col);
+    }
+  }
+}
+
+// Darken everything below the sky by multiplying with a deep blue, then add moonlight glints
+function drawNight(t) {
+  if (night < 0.01) return;
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = mix([255, 255, 255], [48, 68, 150], night);
+  ctx.fillRect(0, 0, W, 4);
+  ctx.fillRect(0, WATER_Y, W, H - WATER_Y);
+  ctx.globalCompositeOperation = 'source-over';
+  const m = moonPos();
+  if (!m) return;
+  ctx.fillStyle = `rgba(225,235,255,${(0.9 * night).toFixed(2)})`;
+  for (let x = m.x - 16; x <= m.x + 16; x++) {
+    if (Math.sin(x * 0.9 + t * 4) > 0.55 - Math.abs(x - m.x) / 40) ctx.fillRect(x, WATER_Y, 1, 1);
+  }
+  // faint moonbeam under the surface
+  for (let y = WATER_Y + 1; y < WATER_Y + 40; y++) {
+    const a = 0.07 * night * (1 - (y - WATER_Y) / 40);
+    ctx.fillStyle = `rgba(200,215,255,${a.toFixed(3)})`;
+    ctx.fillRect(m.x - 4 + Math.round(Math.sin(y * 0.4 + t * 2)), y, 9, 1);
+  }
+}
+
+// ---------- Ambient effects ----------
+const RAYS = [{ x: 24, w: 9, s: 0.36 }, { x: 86, w: 6, s: 0.3 }, { x: 132, w: 13, s: 0.4 }, { x: 204, w: 8, s: 0.33 }];
+function drawRays(t) {
+  RAYS.forEach((r, i) => {
+    const pulse = 0.55 + 0.45 * Math.sin(t * 0.6 + i * 2.1);
+    const shift = Math.sin(t * 0.15 + i) * 8;
+    for (let y = WATER_Y + 1; y < 116; y++) {
+      const a = 0.09 * (1 - (y - WATER_Y) / 108) * pulse * (1 - night * 0.85);
+      if (a <= 0.004) continue;
+      ctx.fillStyle = `rgba(220,250,255,${a.toFixed(3)})`;
+      ctx.fillRect(Math.round(r.x + shift + (y - WATER_Y) * r.s), y, r.w, 1);
+    }
+  });
+}
+
+function drawSurface(t) {
+  for (let x = 0; x < W; x++) {
+    const v = Math.sin(x * 0.15 + t * 2) + Math.sin(x * 0.06 - t * 1.1);
+    if (v > 0.9) px(ctx, x, WATER_Y - 1, '#5fc0de');
+    px(ctx, x, WATER_Y, Math.sin(x * 0.45 + t * 3) > 0.96 ? '#ffffff' : '#9fe6f7');
+  }
+}
+
+function drawCaustics(t) {
+  for (let x = 0; x < W; x++) {
+    const v = Math.sin(x * 0.21 + t * 1.3) + Math.sin(x * 0.09 - t * 0.8 + 1);
+    if (v > 1.25) {
+      px(ctx, x, sandTop[x], '#fff6cf');
+      if (v > 1.65) px(ctx, x, sandTop[x] + 1, '#f8e8b4');
+    }
+  }
+}
+
+function drawGlass() {
+  ctx.fillStyle = '#0d1320';
+  ctx.fillRect(0, 0, 1, BASE_Y); ctx.fillRect(W - 1, 0, 1, BASE_Y);
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
+  ctx.fillRect(1, WATER_Y, 1, BASE_Y - WATER_Y);
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  for (let y = WATER_Y; y < BASE_Y; y++) {
+    const x = W - 40 + Math.round((y - WATER_Y) * -0.35);
+    ctx.fillRect(x, y, 3, 1);
+  }
+}
+
+// ---------- Main loop ----------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  const t = now / 1000;
+
+  updateCycle(t);
+  updateSchools(dt);
+  updateChest(dt);
+  updateBubbles(dt);
+  updateFood(dt);
+  for (const f of fish) f.update(dt);
+
+  drawSky(t);
+  ctx.drawImage(bg, 0, 0);
+  drawRays(t);
+  for (const p of plants) if (p.layer === 0) drawPlant(p, t);
+  drawCaustics(t);
+  drawChest(t);
+  for (const p of plants) if (p.layer === 1) drawPlant(p, t);
+  drawFood();
+  for (const f of fish) f.draw();
+  for (const p of plants) if (p.layer === 2) drawPlant(p, t);
+  for (const bb of bubbles) drawBubble(bb);
+  drawSurface(t);
+  drawNight(t);
+  drawGlass();
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

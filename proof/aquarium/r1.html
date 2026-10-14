@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pixel Aquarium</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0f1a; overflow: hidden; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+  canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    cursor: crosshair;
+    box-shadow: 0 0 0 6px #2a2f3d, 0 0 0 10px #151924, 0 20px 60px rgba(0,0,0,.6);
+  }
+  #controls { display: flex; align-items: center; gap: 16px; font: 12px monospace; color: #5c6680; }
+  #feed {
+    font: bold 14px monospace; color: #3b230f; background: #e0b23c; cursor: pointer;
+    border: 3px solid #3b230f; padding: 6px 16px;
+    box-shadow: inset -3px -3px 0 #b8861c, inset 3px 3px 0 #ffd94a;
+  }
+  #feed:hover { background: #f0c44a; }
+  #feed:active { box-shadow: inset 3px 3px 0 #b8861c, inset -3px -3px 0 #ffd94a; }
+  #feed:focus-visible { outline: 2px solid #8fdcf0; outline-offset: 3px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="controls">
+  <button id="feed">Feed</button>
+  <span>click the tank to drop food &middot; click the pufferfish to make it puff up</span>
+</div>
+<script>
+(() => {
+  const W = 256, H = 158;          // internal pixel resolution
+  const SURF_Y = 14;                // water surface; sky above it
+  const SAND_Y = 132;               // top of sand
+  const DAY_LENGTH = 60;            // seconds for a full day/night cycle
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  canvas.width = W; canvas.height = H;
+
+  function resize() {
+    const s = Math.max(1, Math.floor(Math.min((innerWidth - 40) / W, (innerHeight - 100) / H)));
+    canvas.style.width = W * s + 'px';
+    canvas.style.height = H * s + 'px';
+  }
+  addEventListener('resize', resize); resize();
+
+  // deterministic RNG so the scenery is stable per load
+  let seed = 1337;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(x | 0, y | 0, 1, 1); };
+
+  // ---------- static background (water + sand + rocks) ----------
+  const bg = document.createElement('canvas');
+  bg.width = W; bg.height = H;
+  (() => {
+    const b = bg.getContext('2d');
+    const water = ['#3fa7c9', '#3699bd', '#2e8bb0', '#277ca2', '#216e93', '#1b6085', '#165276', '#124668'];
+    const band = (SAND_Y - SURF_Y) / water.length;
+    for (let y = SURF_Y - 2; y < SAND_Y + 4; y++) {
+      for (let x = 0; x < W; x++) {
+        // ordered dither between adjacent bands
+        const f = Math.max(0, y - SURF_Y) / band, i = Math.floor(f), t = f - i;
+        const bayer = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]][y & 3][x & 3] / 16;
+        const idx = Math.min(water.length - 1, i + (t > bayer ? 1 : 0));
+        b.fillStyle = water[idx];
+        b.fillRect(x, y, 1, 1);
+      }
+    }
+    // back silhouette hills
+    b.fillStyle = '#10405e';
+    for (let x = 0; x < W; x++) {
+      const h = 10 + Math.sin(x * 0.03) * 5 + Math.sin(x * 0.11 + 2) * 2;
+      b.fillRect(x, SAND_Y - h + 4, 1, h);
+    }
+    // sand
+    const sand = ['#e8cf8f', '#dcbf7c', '#cfae6a', '#c09c5b', '#b08a4e'];
+    for (let x = 0; x < W; x++) {
+      const top = SAND_Y + Math.round(Math.sin(x * 0.05) * 1.5 + Math.sin(x * 0.17) * 0.8);
+      for (let y = top; y < H; y++) {
+        const d = (y - top) / (H - top);
+        let i = Math.min(sand.length - 1, Math.floor(d * sand.length + rnd() * 1.4 - 0.2));
+        if (y === top) i = 0;
+        if (rnd() < 0.04) i = Math.min(sand.length - 1, i + 2);
+        b.fillStyle = sand[Math.max(0, i)];
+        b.fillRect(x, y, 1, 1);
+      }
+    }
+    // pebbles
+    const pebble = ['#8d8a86', '#a3786a', '#6f7d8c', '#c7c2b8'];
+    for (let i = 0; i < 40; i++) {
+      const x = Math.floor(rnd() * W), y = SAND_Y + 4 + Math.floor(rnd() * (H - SAND_Y - 5));
+      b.fillStyle = pebble[Math.floor(rnd() * pebble.length)];
+      b.fillRect(x, y, 2, 1);
+      if (rnd() < 0.5) b.fillRect(x, y - 1, 1, 1);
+    }
+    // rocks
+    const rock = (cx, cy, rw, rh) => {
+      for (let y = -rh; y <= 0; y++) {
+        for (let x = -rw; x <= rw; x++) {
+          const e = (x * x) / (rw * rw) + (y * y) / (rh * rh);
+          if (e > 1 + rnd() * 0.15) continue;
+          let c = '#6b6f7a';
+          if (y < -rh * 0.55 && x < rw * 0.3) c = '#8c919c';
+          else if (x > rw * 0.4 || y > -2) c = '#4b4f59';
+          if (e > 0.85) c = '#363942';
+          b.fillStyle = c;
+          b.fillRect(cx + x, cy + y, 1, 1);
+        }
+      }
+    };
+    rock(52, SAND_Y + 6, 14, 11);
+    rock(66, SAND_Y + 7, 8, 6);
+    rock(196, SAND_Y + 7, 11, 8);
+    rock(212, SAND_Y + 8, 6, 4);
+  })();
+
+  // ---------- treasure chest bubbler ----------
+  const CHEST = { x: 234, y: SAND_Y + 3 };   // bottom-right corner
+  function drawChest(t) {
+    const { x, y } = CHEST;
+    const open = (Math.sin(t * 0.6) > 0.85) ? 2 : 0;
+    ctx.fillStyle = '#3b230f'; ctx.fillRect(x - 1, y - 9, 16, 11);
+    ctx.fillStyle = '#7a4a1e'; ctx.fillRect(x, y - 6, 14, 7);
+    ctx.fillStyle = '#5c3614'; ctx.fillRect(x, y - 3, 14, 1);
+    // lid
+    ctx.fillStyle = '#3b230f'; ctx.fillRect(x - 1, y - 11 - open, 16, 5);
+    ctx.fillStyle = '#8f5a26'; ctx.fillRect(x, y - 10 - open, 14, 3);
+    ctx.fillStyle = '#e0b23c';
+    ctx.fillRect(x + 3, y - 10 - open, 1, 10 + open);
+    ctx.fillRect(x + 10, y - 10 - open, 1, 10 + open);
+    ctx.fillRect(x + 6, y - 6, 2, 2);
+    if (open) { ctx.fillStyle = '#ffd94a'; ctx.fillRect(x + 2, y - 8, 10, 1); }
+  }
+
+  // ---------- plants ----------
+  const plants = [];
+  const greens = [
+    ['#1f6b3a', '#2f8f4a', '#4fb85c'],
+    ['#2a5f2a', '#3f8a35', '#6ab04c'],
+    ['#6b2f4f', '#94406a', '#c76a92'],
+    ['#2f5b4f', '#3f8070', '#62a890'],
+  ];
+  const plantXs = [8, 16, 24, 36, 82, 92, 104, 128, 150, 162, 176, 184, 216];
+  for (const bx of plantXs) {
+    const kind = rnd() < 0.35 ? 'round' : 'grass';
+    const n = kind === 'grass' ? 2 + Math.floor(rnd() * 3) : 1;
+    for (let k = 0; k < n; k++) {
+      plants.push({
+        kind,
+        x: bx + Math.floor(rnd() * 6) - 3,
+        y: SAND_Y + 2 + Math.floor(rnd() * 3),
+        h: kind === 'grass' ? 20 + Math.floor(rnd() * 45) : 14 + Math.floor(rnd() * 22),
+        phase: rnd() * 6.28,
+        pal: greens[Math.floor(rnd() * (kind === 'grass' ? 2 : 4))],
+      });
+    }
+  }
+  // tall ones in the back first
+  plants.sort((a, b) => b.h - a.h);
+
+  function drawPlant(p, t) {
+    let x = p.x, prevX = x;
+    for (let i = 0; i < p.h; i++) {
+      const sway = Math.sin(t * 1.3 + p.phase + i * 0.12) * (i / p.h) * 4
+                 + Math.sin(t * 0.7 + p.phase) * (i / p.h) * 2;
+      x = p.x + Math.round(sway);
+      const y = p.y - i;
+      if (p.kind === 'grass') {
+        const w = i < p.h * 0.8 ? 2 : 1;
+        ctx.fillStyle = p.pal[1]; ctx.fillRect(x, y, w, 1);
+        if (w === 2) px(x, y, p.pal[0]);
+        if (x !== prevX) px(prevX, y, p.pal[1]);  // keep stem continuous
+        if (i % 7 === 3) px(x + 2, y - 1, p.pal[2]);
+        if (i % 7 === 6) px(x - 1, y - 1, p.pal[2]);
+      } else {
+        px(x, y, p.pal[0]);
+        if (i % 5 === 2) {
+          const dir = (i / 5) % 2 < 1 ? 1 : -1;
+          const lx = x + dir * 3;
+          ctx.fillStyle = p.pal[1]; ctx.fillRect(lx - 2, y - 1, 4, 3);
+          ctx.fillStyle = p.pal[2]; ctx.fillRect(lx - 1, y - 1, 2, 1);
+          px(x + dir, y, p.pal[1]);
+        }
+      }
+      prevX = x;
+    }
+    if (p.kind === 'round') {
+      ctx.fillStyle = p.pal[1]; ctx.fillRect(x - 1, p.y - p.h - 2, 3, 3);
+      px(x, p.y - p.h - 2, p.pal[2]);
+    }
+  }
+
+  // ---------- fish ----------
+  // sprites face right. palette keys: o outline, b body, s stripe, l belly, f fin, e eye, w white
+  const SPECIES = [
+    { name: 'clown', speed: 0.35, pal: { o: '#3a1a08', b: '#f07a1e', s: '#ffffff', l: '#ffa64d', f: '#e0601a', e: '#000', w: '#fff' },
+      sprite: [
+        '....ooo.....',
+        'o..obsbbo...',
+        'foobbsbbbso.',
+        'ffbbbsbbbseo',
+        'foobbsbbbsbo',
+        'o..ollsllo..',
+        '....ooo.....',
+      ] },
+    { name: 'tetra', speed: 0.55, school: true, pal: { o: '#1b2440', b: '#9fb4d6', s: '#29e3ff', l: '#ff3b5c', f: '#c8d6ee', e: '#000' },
+      sprite: [
+        'f.obbbbo.',
+        'ffsssssse',
+        'f.olllll.',
+      ] },
+    { name: 'angel', speed: 0.25, pal: { o: '#2d2a1f', b: '#f2e7b8', s: '#3d3828', l: '#fff6d6', f: '#d9cc96', e: '#000' },
+      sprite: [
+        '....o....',
+        '...obo...',
+        '..obsbo..',
+        '.obbsbbo.',
+        'fobbsbbbo',
+        'ffbbsbbeb',
+        'fobbsbblo',
+        '.olllllo.',
+        '..olslo..',
+        '...oso...',
+        '....o....',
+      ] },
+    { name: 'yellow', speed: 0.4, pal: { o: '#5a4100', b: '#ffd21f', s: '#ffe76b', l: '#fff2a8', f: '#f2b705', e: '#000' },
+      sprite: [
+        '...oooo...',
+        'f.obssbbo.',
+        'ffbbbbbbeo',
+        'ffbbbbbbbb',
+        'f.ollllll.',
+        '...oooo...',
+      ] },
+    { name: 'betta', speed: 0.3, pal: { o: '#2a0b3a', b: '#7b3fd1', s: '#b06cff', l: '#9a5ae8', f: '#d04aa8', e: '#fff' },
+      sprite: [
+        'ff..ooo....',
+        'fff.obsbo..',
+        'ffffbbbsbeo',
+        'ffffbbbsbbb',
+        'fff.olllo..',
+        'ff...ff....',
+        'f....f.....',
+      ] },
+    { name: 'small clown', speed: 0.45, pal: { o: '#3a1a08', b: '#ff8a1f', s: '#ffffff', l: '#ffb35c', f: '#f06a10', e: '#000' },
+      sprite: [
+        '...ooo....',
+        'f.obsbbso.',
+        'ffbbsbbseo',
+        'f.olsllso.',
+        '...ooo....',
+      ] },
+  ];
+
+  let calm = 1;
+
+  const fish = [];
+  function spawn(sp, x, y) {
+    const s = SPECIES[sp];
+    fish.push({
+      sp: s, x, y,
+      vx: rand(-1, 1) * s.speed, vy: 0,
+      tx: rand(10, W - 20), ty: rand(SURF_Y + 12, SAND_Y - 15),
+      face: 1, wob: rand(0, 6.28), w: s.sprite[0].length, h: s.sprite.length,
+    });
+  }
+  spawn(0, 40, 50); spawn(0, 60, 60);
+  for (let i = 0; i < 7; i++) spawn(1, 120 + rand(-15, 15), 40 + rand(-8, 8));
+  spawn(2, 180, 50);
+  spawn(3, 90, 80); spawn(3, 200, 30);
+  spawn(4, 30, 30);
+  spawn(5, 70, 70); spawn(5, 160, 85);
+  const tetraLeader = { x: 120, y: 40, tx: 60, ty: 40 };
+
+  function drawFish(f) {
+    const tailShift = Math.round(Math.sin(f.wob * 2) * 0.8);
+    const rows = f.sp.sprite;
+    const ox = Math.round(f.x), oy = Math.round(f.y + Math.sin(f.wob) * 0.6);
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r];
+      for (let c = 0; c < row.length; c++) {
+        const ch = row[c];
+        if (ch === '.') continue;
+        const dx = f.face > 0 ? c : row.length - 1 - c;
+        const dy = ch === 'f' && c < 2 ? r + tailShift : r;  // flick the tail tip
+        px(ox + dx, oy + dy, f.sp.pal[ch]);
+      }
+    }
+  }
+
+  function steer(f, tx, ty, maxSpeed, accel) {
+    const dx = tx - f.x, dy = ty - f.y;
+    const d = Math.hypot(dx, dy) || 1;
+    f.vx += (dx / d) * accel;
+    f.vy += (dy / d) * accel * 0.6;
+    const sp = Math.hypot(f.vx, f.vy);
+    if (sp > maxSpeed) { f.vx *= maxSpeed / sp; f.vy *= maxSpeed / sp; }
+    return d;
+  }
+
+  function nearestFood(x, y, range) {
+    let best = null, bd = range;
+    for (const p of food) {
+      const d = Math.hypot(p.x - x, p.y - y);
+      if (d < bd) { bd = d; best = p; }
+    }
+    return best;
+  }
+
+  // ---------- eel ----------
+  // the head steers with a side-to-side wiggle; the body follows the head's
+  // recent path, so the wiggle travels down the body as an S-curve.
+  const EEL_LEN = 34;
+  const eel = { x: 100, y: 95, heading: 0, t: 0, speed: 0.35, tx: 200, ty: 90, trail: [] };
+  for (let i = 0; i < 80; i++) eel.trail.push({ x: eel.x - i * 0.5, y: eel.y });
+
+  function updateEel() {
+    if (eel.chew > 0) eel.chew--;
+    const meal = eel.chew > 0 ? null : nearestFood(eel.x, eel.y, 300);
+    let tx = eel.tx, ty = eel.ty, speed = 0.35 * calm;
+    if (meal) { tx = meal.x; ty = meal.y; speed = 0.6 * calm; }
+    else if (Math.hypot(tx - eel.x, ty - eel.y) < 8 || Math.random() < 0.002) {
+      eel.tx = rand(15, W - 15);
+      eel.ty = Math.max(SURF_Y + 12, Math.min(SAND_Y - 6, eel.y + rand(-25, 25)));
+    }
+    eel.speed += (speed - eel.speed) * 0.05;
+    // turn gradually toward the target
+    let diff = Math.atan2(ty - eel.y, tx - eel.x) - eel.heading;
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    eel.heading += Math.max(-0.04, Math.min(0.04, diff));
+    eel.t += 0.1 * calm + eel.speed * 0.15;
+    const dir = eel.heading + Math.sin(eel.t) * 0.75;
+    eel.x = Math.max(2, Math.min(W - 2, eel.x + Math.cos(dir) * eel.speed));
+    eel.y = Math.max(SURF_Y + 6, Math.min(SAND_Y - 3, eel.y + Math.sin(dir) * eel.speed));
+    if (meal && Math.hypot(meal.x - eel.x, meal.y - eel.y) < 3) { meal.life = 0; eel.chew = 50; }
+    const h = eel.trail[0];
+    if (Math.hypot(h.x - eel.x, h.y - eel.y) > 0.01) eel.trail.unshift({ x: eel.x, y: eel.y });
+    if (eel.trail.length > 300) eel.trail.length = 300;
+  }
+
+  // sample points 1px apart along the trail, head first
+  function eelBody() {
+    const tr = eel.trail, pts = [tr[0]];
+    let k = 0, acc = 0;
+    const seg = i => Math.hypot(tr[i + 1].x - tr[i].x, tr[i + 1].y - tr[i].y) || 1e-6;
+    for (let i = 1; i < EEL_LEN; i++) {
+      while (k < tr.length - 1 && acc + seg(k) < i) { acc += seg(k); k++; }
+      if (k >= tr.length - 1) { pts.push(tr[tr.length - 1]); continue; }
+      const a = tr[k], b = tr[k + 1], u = (i - acc) / seg(k);
+      pts.push({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u });
+    }
+    return pts;
+  }
+
+  function drawEel() {
+    const pts = eelBody().map(p => ({ x: Math.round(p.x), y: Math.round(p.y) }));
+    const n = pts.length;
+    // half-height of the body: 1 for most of it, tapering to a point at the tail
+    const r = i => (i === 0 ? -1 : i < n - 5 ? 1 : i < n - 2 ? 0 : -1);
+    // dorsal fin along the back, plus a fin under the tail
+    for (let i = 6; i < n - 1; i++) {
+      const { x, y } = pts[i];
+      px(x, y - r(i) - 2, '#4a8fe8');
+      if (i > n - 11) px(x, y + r(i) + 2, '#4a8fe8');
+    }
+    ctx.fillStyle = '#0d1f4a';
+    for (let i = 0; i < n; i++) ctx.fillRect(pts[i].x, pts[i].y - r(i) - 1, 1, 2 * r(i) + 3);
+    for (let i = 1; i < n - 2; i++) {
+      const { x, y } = pts[i];
+      if (r(i) === 1) {
+        px(x, y - 1, '#1f4fa8'); px(x, y, '#2f6fd6'); px(x, y + 1, '#8fc4ff');
+      } else {
+        px(x, y, '#2f6fd6');
+      }
+    }
+    px(pts[2].x, pts[2].y - 1, '#ffe066');   // eye
+    px(pts[1].x, pts[1].y + 1, '#0d1f4a');   // mouth
+  }
+
+  // ---------- pufferfish ----------
+  const puffer = { x: 110, y: 60, vx: 0.2, vy: 0, tx: 60, ty: 50, face: 1, wob: 0, puff: 0, timer: 0 };
+  const pufferSize = () => {
+    const p = puffer.puff * puffer.puff * (3 - 2 * puffer.puff);   // smoothstep
+    return { p, rx: 5 + 3.5 * p, ry: 3.5 + 5 * p };
+  };
+
+  function updatePuffer() {
+    const f = puffer;
+    if (f.timer > 0) { f.timer--; f.puff = Math.min(1, f.puff + 0.09); }
+    else f.puff = Math.max(0, f.puff - 0.012);
+    f.wob += 0.08 * calm + Math.hypot(f.vx, f.vy) * 0.3;
+    const { rx, ry } = pufferSize();
+    if (f.puff > 0.3) {
+      // puffed up: drift slowly and bob upward
+      f.vx *= 0.94; f.vy = f.vy * 0.94 - 0.004;
+    } else {
+      if (f.chew > 0) f.chew--;
+      const meal = f.chew > 0 ? null : nearestFood(f.x, f.y, 300);
+      if (meal) {
+        steer(f, meal.x, meal.y, 0.5 * calm, 0.04);
+        if (Math.hypot(meal.x - f.x, meal.y - f.y) < 4) { meal.life = 0; f.chew = 50; }
+      } else {
+        const d = steer(f, f.tx, f.ty, 0.22 * calm, 0.01);
+        if (d < 5 || Math.random() < 0.002) { f.tx = rand(15, W - 15); f.ty = rand(SURF_Y + 12, SAND_Y - 12); }
+      }
+      f.vx *= 0.99; f.vy *= 0.97;
+    }
+    f.x = Math.max(rx + 2, Math.min(W - rx - 2, f.x + f.vx));
+    f.y = Math.max(SURF_Y + ry + 3, Math.min(SAND_Y - ry - 2, f.y + f.vy));
+    if (f.vx > 0.04) f.face = 1; else if (f.vx < -0.04) f.face = -1;
+  }
+
+  function drawPuffer() {
+    const f = puffer, { p, rx, ry } = pufferSize();
+    const cx = Math.round(f.x), cy = Math.round(f.y + Math.sin(f.wob) * 0.5 * (1 - p));
+    const flick = Math.round(Math.sin(f.wob * 2) * 0.8);
+    // tail
+    const tx = cx - f.face * (Math.round(rx) + 1);
+    ctx.fillStyle = '#c9971c';
+    ctx.fillRect(tx, cy - 1 + flick, 1, 3);
+    ctx.fillRect(tx - f.face, cy - 2 + flick, 1, 5);
+    // spikes grow out as it inflates
+    if (p > 0.35) {
+      const len = p > 0.8 ? 2.5 : 1.5;
+      for (let k = 0; k < 14; k++) {
+        const a = k * Math.PI / 7 + 0.2;
+        px(cx + Math.round(Math.cos(a) * (rx + len)), cy + Math.round(Math.sin(a) * (ry + len)), '#fff1b8');
+        if (len > 2) px(cx + Math.round(Math.cos(a) * (rx + 1)), cy + Math.round(Math.sin(a) * (ry + 1)), '#e8d48a');
+      }
+    }
+    // body
+    const X = Math.ceil(rx), Y = Math.ceil(ry);
+    for (let dy = -Y; dy <= Y; dy++) {
+      for (let dx = -X; dx <= X; dx++) {
+        const e = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
+        if (e > 1) continue;
+        let c;
+        if (e > 0.78) c = '#4a3a10';
+        else if (dy > ry * 0.2) c = '#f7f1da';
+        else if (((dx + 40) * 7 + (dy + 40) * 13) % 11 === 0) c = '#8a6a20';
+        else c = dy < -ry * 0.5 ? '#f2d468' : '#e8c547';
+        px(cx + dx, cy + dy, c);
+      }
+    }
+    // pectoral fin, eye and mouth
+    px(cx + f.face, cy + 1 + (Math.sin(f.wob * 3) > 0 ? 1 : 0), '#c9971c');
+    const ex = cx + f.face * Math.round(rx * 0.5), ey = cy - Math.round(ry * 0.3);
+    if (p > 0.5) {
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(f.face > 0 ? ex - 1 : ex, ey - 1, 2, 2);
+      px(ex, ey, '#000');
+    } else {
+      px(ex, ey, '#000');
+    }
+    px(cx + f.face * (Math.round(rx) - 1), cy + 1, '#4a3a10');
+  }
+
+  function overPuffer(x, y) {
+    const { rx, ry } = pufferSize();
+    return Math.hypot((x - puffer.x) / (rx + 3), (y - puffer.y) / (ry + 3)) <= 1;
+  }
+
+  // ---------- food & bubbles ----------
+  const food = [];
+  const bubbles = [];
+  const toTank = e => {
+    const r = canvas.getBoundingClientRect();
+    return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H];
+  };
+  canvas.addEventListener('pointermove', e => {
+    canvas.style.cursor = overPuffer(...toTank(e)) ? 'pointer' : 'crosshair';
+  });
+  canvas.addEventListener('pointerdown', e => {
+    const [x, y] = toTank(e);
+    if (overPuffer(x, y)) {
+      puffer.timer = 200;
+      puffer.vx += (puffer.x < x ? -1 : 1) * 0.4;   // startled hop away from the poke
+      return;
+    }
+    const n = 4 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < n; i++) food.push({ x: x + rand(-6, 6), y: Math.max(SURF_Y + 3, y - 4) + rand(-3, 3), vy: 0, life: 900 });
+  });
+
+  const FLAKE_COLORS = ['#d9412b', '#f08a24', '#f2c230', '#6aa84f', '#c0392b'];
+  document.getElementById('feed').addEventListener('click', () => {
+    const cx = rand(40, W - 40);
+    const n = 18 + Math.floor(Math.random() * 8);
+    for (let i = 0; i < n; i++) {
+      food.push({
+        x: cx + rand(-25, 25), y: SURF_Y + 1 + rand(0, 2), vy: 0, life: 1400,
+        flake: FLAKE_COLORS[Math.floor(Math.random() * FLAKE_COLORS.length)],
+        float: rand(20, 90), ph: rand(0, 6.28),
+      });
+    }
+  });
+
+  // 0 = full day, 1 = full night. Day and night each hold for ~20s with ~10s dusk/dawn.
+  function nightness(t) {
+    const c = -Math.cos((t / DAY_LENGTH) * Math.PI * 2);
+    const v = Math.max(0, Math.min(1, c * 1.2 + 0.5));
+    return v * v * (3 - 2 * v);
+  }
+
+  function update(t) {
+    calm = 1 - 0.6 * nightness(t);
+
+    // tetra school leader wanders
+    if (Math.hypot(tetraLeader.tx - tetraLeader.x, tetraLeader.ty - tetraLeader.y) < 6) {
+      tetraLeader.tx = rand(20, W - 30); tetraLeader.ty = rand(SURF_Y + 12, SAND_Y - 25);
+    }
+    tetraLeader.x += Math.sign(tetraLeader.tx - tetraLeader.x) * Math.min(0.45 * calm, Math.abs(tetraLeader.tx - tetraLeader.x));
+    tetraLeader.y += Math.sign(tetraLeader.ty - tetraLeader.y) * Math.min(0.2 * calm, Math.abs(tetraLeader.ty - tetraLeader.y));
+
+    for (const f of fish) {
+      f.wob += 0.08 * calm + Math.hypot(f.vx, f.vy) * 0.3;
+      // nearest food?
+      let best = null, bd = f.chew > 0 ? 0 : 300;
+      if (f.chew > 0) f.chew--;
+      for (const p of food) {
+        const d = Math.hypot(p.x - (f.x + f.w / 2), p.y - (f.y + f.h / 2));
+        if (d < bd) { bd = d; best = p; }
+      }
+      if (best) {
+        const d = steer(f, best.x - f.w / 2, best.y - f.h / 2, f.sp.speed * 2.2 * calm, 0.06);
+        if (d < 4) { best.life = 0; f.chew = 50; }
+      } else if (f.sp.school) {
+        const i = fish.indexOf(f);
+        steer(f, tetraLeader.x + Math.sin(i * 2.1) * 10, tetraLeader.y + Math.cos(i * 1.7) * 6, f.sp.speed * 1.2 * calm, 0.03);
+      } else {
+        const d = steer(f, f.tx, f.ty, f.sp.speed * calm, 0.012);
+        if (d < 5 || Math.random() < 0.002) { f.tx = rand(6, W - 20); f.ty = rand(SURF_Y + 8, SAND_Y - f.h - 6); }
+      }
+      f.vx *= 0.99; f.vy *= 0.97;
+      f.x += f.vx; f.y += f.vy;
+      f.y = Math.max(SURF_Y + 2, Math.min(SAND_Y - f.h - 1, f.y));
+      f.x = Math.max(-2, Math.min(W - f.w + 2, f.x));
+      if (f.vx > 0.05) f.face = 1; else if (f.vx < -0.05) f.face = -1;
+      // occasional bubble
+      if (Math.random() < 0.002) bubbles.push({ x: f.x + (f.face > 0 ? f.w : 0), y: f.y, r: 0, vy: -0.3, wob: rand(0, 6) });
+    }
+
+    updateEel();
+    updatePuffer();
+
+    for (const p of food) {
+      if (p.float > 0) { p.float--; p.x += Math.sin(t * 1.5 + p.ph) * 0.03; continue; }
+      p.vy = Math.min(p.flake ? 0.1 : 0.15, p.vy + 0.004);
+      if (p.y < SAND_Y + 2) p.y += p.vy; else p.life -= 2;
+      p.x += p.flake ? Math.sin(t * 3 + p.ph) * 0.15 : Math.sin(t * 2 + p.y * 0.3) * 0.05;
+      p.life--;
+    }
+    for (let i = food.length - 1; i >= 0; i--) if (food[i].life <= 0) food.splice(i, 1);
+
+    // chest bubbler
+    if (Math.random() < (Math.sin(t * 0.6) > 0.85 ? 0.4 : 0.05)) {
+      bubbles.push({ x: CHEST.x + 7 + rand(-3, 3), y: CHEST.y - 10, r: Math.random() < 0.3 ? 1 : 0, vy: -rand(0.4, 0.7), wob: rand(0, 6) });
+    }
+    if (Math.random() < 0.05) bubbles.push({ x: 120 + rand(-1, 1), y: SAND_Y, r: 0, vy: -0.5, wob: rand(0, 6) });
+
+    for (const b of bubbles) {
+      b.y += b.vy; b.wob += 0.1;
+      b.vy = Math.max(-1, b.vy - 0.004);
+      if (b.y < 60 && b.r === 0 && Math.random() < 0.003) b.r = 1;
+    }
+    for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].y < SURF_Y + 1) bubbles.splice(i, 1);
+  }
+
+  function drawBubble(b) {
+    const x = Math.round(b.x + Math.sin(b.wob) * 1.2), y = Math.round(b.y);
+    if (b.r === 0) {
+      px(x, y, '#cdeffc');
+    } else {
+      ctx.fillStyle = '#bfe8f7';
+      ctx.fillRect(x - 1, y, 1, 1); ctx.fillRect(x + 1, y, 1, 1);
+      ctx.fillRect(x, y - 1, 1, 1); ctx.fillRect(x, y + 1, 1, 1);
+      px(x, y, '#5fb9da'); px(x - 1, y - 1, '#ffffff');
+    }
+  }
+
+  const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+  function mix(a, b, k) {
+    const A = hex(a), B = hex(b);
+    return 'rgb(' + A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',') + ')';
+  }
+
+  const stars = [];
+  for (let i = 0; i < 22; i++) stars.push({ x: Math.floor(rnd() * W), y: Math.floor(rnd() * (SURF_Y - 3)), ph: rnd() * 6.28 });
+
+  // sun crosses the sky during the day, moon during the night (left to right)
+  function skyBody(t, offset) {
+    const ph = ((t / DAY_LENGTH + offset + 0.5) % 1 + 1) % 1 - 0.5;   // -0.5..0.5, 0 = overhead
+    const x = W / 2 + ph * 2 * W;
+    const k = (x / W) * 2 - 1;
+    return { x: Math.round(x), y: Math.round(9 - 5 * (1 - k * k)) };
+  }
+
+  function drawSky(t, n) {
+    for (let y = 0; y < SURF_Y + 2; y++) {
+      const k = y / SURF_Y;
+      ctx.fillStyle = mix(mix('#7ec8ea', '#c5ecf7', k), mix('#060a1f', '#18224e', k), n);
+      ctx.fillRect(0, y, W, 1);
+    }
+    if (n > 0.3) {
+      for (const s of stars) {
+        const tw = Math.sin(t * 2 + s.ph);
+        if (tw > -0.5) px(s.x, s.y, tw > 0.6 && n > 0.8 ? '#ffffff' : '#7f88b8');
+      }
+    }
+    const sun = skyBody(t, 0);
+    if (n < 1) {
+      ctx.fillStyle = '#ffd94a';
+      ctx.fillRect(sun.x - 2, sun.y - 3, 5, 7); ctx.fillRect(sun.x - 3, sun.y - 2, 7, 5);
+      ctx.fillStyle = '#fff3a8'; ctx.fillRect(sun.x - 1, sun.y - 2, 2, 2);
+    }
+    const moon = skyBody(t, 0.5);
+    if (n > 0) {
+      const { x, y } = moon;
+      ctx.fillStyle = '#2a3566';                    // faint halo
+      ctx.fillRect(x - 3, y - 5, 7, 11); ctx.fillRect(x - 5, y - 3, 11, 7); ctx.fillRect(x - 4, y - 4, 9, 9);
+      ctx.fillStyle = '#f3efd2';
+      ctx.fillRect(x - 2, y - 4, 5, 9); ctx.fillRect(x - 4, y - 2, 9, 5); ctx.fillRect(x - 3, y - 3, 7, 7);
+      ctx.fillStyle = '#d6d0ac';                    // shaded edge
+      ctx.fillRect(x + 3, y - 2, 1, 5); ctx.fillRect(x + 2, y + 2, 1, 2); ctx.fillRect(x - 1, y + 4, 3, 1);
+      ctx.fillStyle = '#bdb690';                    // craters
+      ctx.fillRect(x - 2, y - 1, 2, 2); px(x + 1, y + 1, '#bdb690'); px(x + 1, y - 3, '#bdb690');
+    }
+  }
+
+  function drawNight(n) {
+    if (n <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = 0.6 * n;
+    ctx.fillStyle = '#020824';
+    ctx.fillRect(0, SURF_Y - 2, W, H);
+    ctx.restore();
+  }
+
+  function drawLight(t, n) {
+    ctx.save();
+    ctx.globalAlpha = 0.07 * (1 - n);
+    ctx.fillStyle = '#e8fbff';
+    for (let i = 0; i < 5; i++) {
+      const x0 = ((i * 61 + t * 3) % (W + 80)) - 40;
+      const w = 8 + (i % 3) * 5;
+      const sk = 30 + Math.sin(t * 0.3 + i) * 6;
+      ctx.beginPath();
+      ctx.moveTo(x0, SURF_Y); ctx.lineTo(x0 + w, SURF_Y);
+      ctx.lineTo(x0 + w + sk, SAND_Y); ctx.lineTo(x0 + sk, SAND_Y);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawSurface(t, n) {
+    const air = mix('#c5ecf7', '#18224e', n), line = mix('#8fdcf0', '#3a5590', n);
+    const glint = mix('#d8f6ff', '#f3efd2', n);
+    const moonX = skyBody(t, 0.5).x;
+    for (let x = 0; x < W; x++) {
+      const y = SURF_Y + Math.round(Math.sin(x * 0.12 + t * 1.5) * 0.7 + Math.sin(x * 0.05 - t) * 0.6);
+      ctx.fillStyle = air; ctx.fillRect(x, SURF_Y - 2, 1, y - SURF_Y + 2);
+      px(x, y, line);
+      // sparkles: everywhere by day, only under the moon at night
+      const near = Math.abs(x - moonX) < 14;
+      if ((x + Math.floor(t * 6)) % (n > 0.5 && near ? 3 : 9) === 0 && (n < 0.5 || near)) px(x, y + 1, glint);
+    }
+  }
+
+  function drawCaustics(t, n) {
+    // flickering light spots on the sand (gone at night)
+    if (n > 0.5) return;
+    for (let x = 0; x < W; x += 3) {
+      const v = Math.sin(x * 0.21 + t * 1.7) + Math.sin(x * 0.09 - t * 1.1);
+      if (v > 1.3) {
+        const y = SAND_Y + 1 + ((x * 7) % 5);
+        ctx.fillStyle = '#fbeab3'; ctx.fillRect(x, y, 2, 1);
+      }
+    }
+  }
+
+  // ---------- main loop ----------
+  let last = performance.now(), acc = 0, time = 0;
+  const STEP = 1000 / 60;
+  function frame(now) {
+    acc += Math.min(100, now - last); last = now;
+    while (acc >= STEP) { time += STEP / 1000; update(time); acc -= STEP; }
+
+    const n = nightness(time);
+    drawSky(time, n);
+    ctx.drawImage(bg, 0, 0);
+    drawLight(time, n);
+    drawCaustics(time, n);
+    const back = plants.filter((_, i) => i % 2 === 0);
+    const front = plants.filter((_, i) => i % 2 === 1);
+    for (const p of back) drawPlant(p, time);
+    drawChest(time);
+    for (const p of food) {
+      if (!p.flake) { px(p.x, p.y, '#a0522d'); px(p.x + 1, p.y, '#c97b3f'); continue; }
+      // flakes tumble: flat, then tilted
+      px(p.x, p.y, p.flake);
+      if (p.float > 0 || Math.sin(time * 3 + p.ph) > 0) px(p.x + 1, p.y, p.flake);
+      else px(p.x + 1, p.y + 1, p.flake);
+    }
+    drawEel();
+    for (const f of fish) drawFish(f);
+    drawPuffer();
+    for (const p of front) drawPlant(p, time);
+    for (const b of bubbles) drawBubble(b);
+    drawNight(n);
+    drawSurface(time, n);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
