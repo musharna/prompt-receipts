@@ -1,0 +1,394 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Pixel Aquarium</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0f17; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center;
+         font: 12px monospace; color: #5d6b80; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair;
+           box-shadow: 0 0 0 6px #1d2330, 0 0 0 10px #10141c, 0 20px 60px #000; }
+  p { margin-top: 24px; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<p>click to feed the fish</p>
+<script>
+const W = 192, H = 108, SURF = 6;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+cv.width = W; cv.height = H;
+
+function fit() {
+  const s = Math.max(1, Math.floor(Math.min((innerWidth - 40) / W, (innerHeight - 90) / H)));
+  cv.style.width = W * s + 'px';
+  cv.style.height = H * s + 'px';
+}
+addEventListener('resize', fit); fit();
+
+const R = (a, b) => a + Math.random() * (b - a);
+const RI = (a, b) => Math.floor(R(a, b + 1));
+const pick = a => a[Math.random() * a.length | 0];
+const px = (g, x, y, c) => { g.fillStyle = c; g.fillRect(x, y, 1, 1); };
+function layer() {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  return [c, c.getContext('2d')];
+}
+
+// ---------- terrain ----------
+const sandTop = [];
+{
+  const p1 = R(0, 6), p2 = R(0, 6);
+  for (let x = 0; x < W; x++)
+    sandTop[x] = Math.round(90 + Math.sin(x * 0.045 + p1) * 2.5 + Math.sin(x * 0.12 + p2) * 1.2);
+}
+const sandAt = x => sandTop[Math.max(0, Math.min(W - 1, Math.round(x)))];
+
+// ---------- static background: water + sand ----------
+const [bgC, bg] = layer();
+{
+  const water = ['#1d7bb0', '#176aa0', '#125a8e', '#0f4c7d', '#0c3f6b', '#0a3359', '#082848'];
+  const bayer = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+  bg.fillStyle = '#0e1622'; bg.fillRect(0, 0, W, SURF);
+  for (let y = SURF; y < H; y++) {
+    const t = (y - SURF) / (H - SURF) * (water.length - 1);
+    const i = Math.floor(t), f = t - i;
+    for (let x = 0; x < W; x++)
+      px(bg, x, y, f * 16 > bayer[y & 3][x & 3] ? water[Math.min(i + 1, water.length - 1)] : water[i]);
+  }
+  const sand = ['#e2c287', '#d4b072', '#c49e62', '#b08a52', '#957444'];
+  for (let x = 0; x < W; x++)
+    for (let y = sandTop[x]; y < H; y++) {
+      const d = y - sandTop[x];
+      px(bg, x, y, d === 0 ? '#f0d79c' : sand[Math.min(4, Math.floor(d / 5 + Math.random() * 1.6))]);
+    }
+  const pebbles = ['#8a7a6a', '#a06850', '#6a7a80', '#e8e0d0', '#5a6a50'];
+  for (let i = 0; i < 70; i++) {
+    const x = RI(0, W - 2), y = RI(sandTop[x] + 2, H - 1), c = pick(pebbles);
+    px(bg, x, y, c);
+    if (Math.random() < 0.4) px(bg, x + 1, y, c);
+  }
+}
+
+// ---------- rocks (drawn over back plants) ----------
+const [rkC, rk] = layer();
+function rock(cx, rx, ry) {
+  const by = sandTop[cx] + 2;
+  const cols = ['#2f3540', '#4a5260', '#646e7c', '#8590a0'];
+  for (let dy = -ry; dy <= 0; dy++)
+    for (let dx = -rx; dx <= rx; dx++) {
+      const e = (dx / rx) ** 2 + (dy / ry) ** 2;
+      if (e > 1) continue;
+      const s = -dx / rx * 0.8 - dy / ry + R(-0.3, 0.3);
+      let c = cols[e > 0.8 ? 0 : s > 1 ? 3 : s > 0.2 ? 2 : 1];
+      if (dy < -ry * 0.6 && Math.random() < 0.15) c = pick(['#3f7a3a', '#5a9a40']); // moss
+      px(rk, cx + dx, by + dy, c);
+    }
+}
+rock(36, 10, 8); rock(48, 6, 5); rock(150, 13, 10); rock(167, 7, 6);
+const BUBBLER = 108;
+rock(BUBBLER, 4, 3);
+
+// ---------- plants ----------
+const backPlants = [], frontPlants = [];
+const KELP = ['#1f8a4c', '#2fae5e', '#7bdc6a'];
+const RED = ['#9a2a4a', '#c94a6a', '#ff8aa0'];
+const GRASS = ['#3c9a3a', '#5cc04a'];
+function plant(list, x, kind) {
+  x = Math.max(1, Math.min(W - 3, x));
+  const base = sandTop[x] + 1;
+  if (kind === 'kelp') list.push({ x, base, kind, h: RI(42, 70), ph: R(0, 6), amp: R(2, 4), c: KELP });
+  if (kind === 'red') list.push({ x, base, kind: 'kelp', h: RI(20, 34), ph: R(0, 6), amp: R(1.5, 3), c: RED });
+  if (kind === 'grass') {
+    for (let n = RI(3, 6); n--;) {
+      const bx = Math.max(0, Math.min(W - 1, x + RI(-4, 4)));
+      list.push({ x: bx, base: sandTop[bx] + 1, kind: 'blade', h: RI(7, 20), ph: R(0, 6), amp: R(1, 2.5), c: GRASS });
+    }
+  }
+}
+[[12, 'kelp'], [20, 'kelp'], [26, 'grass'], [62, 'kelp'], [70, 'red'], [88, 'grass'],
+ [124, 'kelp'], [131, 'kelp'], [140, 'grass'], [158, 'red'], [178, 'kelp'], [185, 'grass']]
+  .forEach(([x, k]) => plant(backPlants, x + RI(-3, 3), k));
+[[6, 'grass'], [96, 'grass'], [142, 'grass'], [58, 'grass']]
+  .forEach(([x, k]) => plant(frontPlants, x + RI(-3, 3), k));
+
+function drawPlant(p, t) {
+  for (let i = 0; i < p.h; i++) {
+    const k = i / p.h;
+    const ox = Math.round(Math.sin(t * 0.9 + p.ph + i * 0.09) * p.amp * k * k
+                        + Math.sin(t * 2.1 + p.ph * 2 + i * 0.3) * 0.4 * k);
+    const X = p.x + ox, y = p.base - i;
+    if (p.kind === 'blade') {
+      px(ctx, X, y, i % 3 ? p.c[0] : p.c[1]);
+    } else {
+      px(ctx, X, y, p.c[0]);
+      px(ctx, X + 1, y, p.c[1]);
+      if (i > 3 && i % 5 === 0) {
+        const s = (i / 5) % 2 ? 1 : -1, lx = s > 0 ? X + 2 : X - 1;
+        px(ctx, lx, y, p.c[1]);
+        px(ctx, lx + s, y - 1, p.c[1]);
+        px(ctx, lx + s, y - 2, p.c[1]);
+        px(ctx, lx + 2 * s, y - 2, p.c[2]);
+      }
+      if (i === p.h - 1) px(ctx, X, y - 1, p.c[2]);
+    }
+  }
+}
+
+// ---------- fish ----------
+// Sprites face right. '.' = transparent; other chars map through the palette.
+const SPECIES = {
+  tetra: {
+    rows: ['d.xxxx.',
+           'ddsssse',
+           'd.wwww.'],
+    pal: { x: '#4a6f98', s: '#2ff0ff', w: '#e83a4a', d: '#9fb8d0', e: '#111' },
+    tail: 1, speed: 16, count: 7,
+  },
+  clown: {
+    rows: ['....dd.....',
+           'd..xwxxwx..',
+           'ddxxwxxwxx.',
+           'ddxxwxxwxex',
+           'd..xwxxwxx.',
+           '....d.d....'],
+    pal: { x: '#ff7a1a', w: '#fff', d: '#c94a0a', e: '#111' },
+    tail: 2, speed: 11, count: 2,
+  },
+  tang: {
+    rows: ['...xxx....',
+           '..xxxxx...',
+           'd.xxxxxx..',
+           'ddxxxxxxe.',
+           'ddxxxxxxxw',
+           'd.xxxxxx..',
+           '..xxxxx...',
+           '...xxx....'],
+    pal: { x: '#ffd23a', d: '#e0a800', w: '#fff6c0', e: '#111' },
+    tail: 2, speed: 9, count: 2,
+  },
+  blue: {
+    rows: ['...ddddd....',
+           't.xxxxxxxx..',
+           'ttxxssxxxxx.',
+           'ttxsxxsxxxex',
+           'ttxxssxxxxx.',
+           't.xxxxxxxx..',
+           '....dd......'],
+    pal: { x: '#2b6cff', s: '#0a1a50', d: '#1a3a9a', t: '#ffd000', e: '#111' },
+    tail: 2, speed: 12, count: 1,
+  },
+  angel: {
+    rows: ['..d......',
+           '..dd.....',
+           '..ddx....',
+           't.xsxx...',
+           'ttxsxxxx.',
+           'ttxsxxxex',
+           't.xsxxxx.',
+           '..xsxx...',
+           '..ddx....',
+           '..dd.....',
+           '..d......'],
+    pal: { x: '#e8e4d0', s: '#333', d: '#9a9480', t: '#cfcab0', e: '#111' },
+    tail: 2, speed: 7, count: 2,
+  },
+};
+
+const fish = [];
+for (const key in SPECIES) {
+  const sp = SPECIES[key];
+  sp.w = sp.rows[0].length; sp.h = sp.rows.length;
+  let leader = null;
+  for (let i = 0; i < sp.count; i++) {
+    const f = {
+      sp, x: R(20, W - 20), y: R(20, 70), vx: 0, vy: 0, dir: Math.random() < 0.5 ? -1 : 1,
+      speed: sp.speed * R(0.85, 1.15), tail: R(0, 6), tx: 0, ty: 0, pause: 0,
+    };
+    // tetras school: everyone after the first follows the leader with an offset
+    if (key === 'tetra' && leader) { f.follow = leader; f.offx = R(-12, 12); f.offy = R(-6, 6); f.speed *= 1.2; }
+    if (key === 'tetra' && !leader) leader = f;
+    newTarget(f);
+    fish.push(f);
+  }
+}
+// draw big fish first so small ones pass in front
+fish.sort((a, b) => b.sp.w * b.sp.h - a.sp.w * a.sp.h);
+
+function bounds(f, x) {
+  const top = SURF + 3 + f.sp.h / 2;
+  const bot = sandAt(x) - f.sp.h / 2 - 2;
+  return [top, bot];
+}
+function newTarget(f) {
+  f.tx = R(f.sp.w / 2 + 2, W - f.sp.w / 2 - 2);
+  const [top, bot] = bounds(f, f.tx);
+  f.ty = R(top, bot);
+}
+
+function updateFish(f, dt) {
+  let tx = f.tx, ty = f.ty, sp = f.speed, target = null;
+
+  let best = 1e9;
+  for (const fd of food) {
+    const d = Math.hypot(fd.x - f.x, fd.y - f.y);
+    if (d < best) { best = d; target = fd; }
+  }
+  if (target) { tx = target.x; ty = target.y; sp *= 1.8; f.pause = 0; }
+  else if (f.follow) { tx = f.follow.x + f.offx; ty = f.follow.y + f.offy; }
+
+  const dx = tx - f.x, dy = ty - f.y, d = Math.hypot(dx, dy) || 1;
+
+  if (target && d < 3) {
+    food.splice(food.indexOf(target), 1);
+    bubbles.push({ x: f.x + f.dir * f.sp.w / 2, y: f.y - 1, r: 0, ph: R(0, 6) });
+  } else if (!target && !f.follow && d < 4) {
+    if (f.pause <= 0) f.pause = Math.random() < 0.4 ? R(0.5, 2.5) : 0.01;
+  }
+  if (f.pause > 0) {
+    f.pause -= dt;
+    if (f.pause <= 0) newTarget(f);
+    sp *= 0.1;
+  }
+
+  const k = Math.min(1, 0.25 + d / 12);
+  const dvx = dx / d * sp * k, dvy = dy / d * sp * k * 0.7;
+  const a = Math.min(1, dt * 1.6);
+  f.vx += (dvx - f.vx) * a;
+  f.vy += (dvy - f.vy) * a;
+  f.x += f.vx * dt;
+  f.y += f.vy * dt + Math.sin(f.tail * 0.3) * 0.02;
+
+  f.x = Math.max(f.sp.w / 2, Math.min(W - f.sp.w / 2, f.x));
+  const [top, bot] = bounds(f, f.x);
+  f.y = Math.max(top, Math.min(bot, f.y));
+
+  if (f.vx > 0.6) f.dir = 1; else if (f.vx < -0.6) f.dir = -1;
+  f.tail += dt * (3 + Math.hypot(f.vx, f.vy) * 0.6);
+
+  if (Math.random() < dt * 0.04)
+    bubbles.push({ x: f.x + f.dir * f.sp.w / 2, y: f.y - 1, r: 0, ph: R(0, 6) });
+}
+
+function drawFish(f) {
+  const s = f.sp;
+  const ox = Math.round(f.x - s.w / 2), oy = Math.round(f.y - s.h / 2);
+  const wig = Math.round(Math.sin(f.tail) * 0.8);
+  for (let r = 0; r < s.h; r++)
+    for (let c = 0; c < s.w; c++) {
+      const ch = s.rows[r][c];
+      if (ch === '.') continue;
+      const yy = c < s.tail ? r + wig : r;
+      const xx = f.dir > 0 ? c : s.w - 1 - c;
+      px(ctx, ox + xx, oy + yy, s.pal[ch]);
+    }
+}
+
+// ---------- bubbles & food ----------
+const bubbles = [], food = [];
+let bubbleTimer = 0;
+
+function updateBubbles(dt) {
+  bubbleTimer -= dt;
+  if (bubbleTimer <= 0) {
+    bubbleTimer = R(0.08, 0.35);
+    bubbles.push({ x: BUBBLER + R(-1, 1), y: sandTop[BUBBLER] - 2, r: Math.random() < 0.35 ? 1 : 0, ph: R(0, 6) });
+  }
+  for (let i = bubbles.length; i--;) {
+    const b = bubbles[i];
+    b.y -= dt * (b.r ? 14 : 18);
+    b.ph += dt * 5;
+    if (b.y < SURF + 1) bubbles.splice(i, 1);
+  }
+}
+function drawBubbles() {
+  for (const b of bubbles) {
+    const x = Math.round(b.x + Math.sin(b.ph) * 0.8), y = Math.round(b.y);
+    if (b.r === 0) px(ctx, x, y, '#bfe8ff');
+    else {
+      px(ctx, x, y - 1, '#9fd8f5'); px(ctx, x - 1, y, '#9fd8f5');
+      px(ctx, x + 1, y, '#9fd8f5'); px(ctx, x, y + 1, '#9fd8f5');
+      px(ctx, x - 1, y - 1, '#ffffff');
+    }
+  }
+}
+
+function updateFood(dt, t) {
+  for (let i = food.length; i--;) {
+    const f = food[i];
+    const floor = sandAt(f.x) - 1;
+    if (f.y < floor) {
+      f.y = Math.min(floor, f.y + dt * 7);
+      f.x += Math.sin(t * 2 + f.ph) * dt * 2;
+    } else if ((f.life -= dt) <= 0) food.splice(i, 1);
+  }
+}
+function drawFood() {
+  for (const f of food) px(ctx, Math.round(f.x), Math.round(f.y), f.c);
+}
+
+cv.addEventListener('pointerdown', e => {
+  const r = cv.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width * W;
+  for (let i = 0; i < 6; i++)
+    food.push({ x: Math.max(1, Math.min(W - 2, x + R(-5, 5))), y: SURF + R(0, 3),
+                ph: R(0, 6), life: 10, c: pick(['#c8783a', '#e8a050', '#a85a2a']) });
+});
+
+// ---------- light ----------
+const rays = [{ x: 20, w: 9 }, { x: 70, w: 5 }, { x: 105, w: 12 }, { x: 160, w: 7 }];
+function drawRays(t) {
+  ctx.fillStyle = '#cfefff';
+  rays.forEach((ray, i) => {
+    const cx = ray.x + Math.sin(t * 0.2 + i * 1.7) * 10;
+    const a = 0.07 + 0.03 * Math.sin(t * 0.7 + i);
+    for (let y = SURF; y < 95; y++) {
+      const d = y - SURF;
+      ctx.globalAlpha = a * (1 - d / 90);
+      ctx.fillRect(Math.round(cx + d * 0.35), y, Math.round(ray.w * (1 + d / 80)), 1);
+    }
+  });
+  ctx.globalAlpha = 1;
+}
+function drawCaustics(t) {
+  for (let x = 0; x < W; x++)
+    if (Math.sin(x * 0.31 + t * 1.8) + Math.sin(x * 0.17 - t * 1.3) > 1.3)
+      px(ctx, x, sandTop[x], '#fff0c4');
+}
+function drawSurface(t) {
+  for (let x = 0; x < W; x++) {
+    const y = SURF + Math.round(Math.sin(x * 0.2 + t * 2) * 0.6);
+    px(ctx, x, y, '#7fd0f0');
+    px(ctx, x, y + 1, '#3a9ccc');
+  }
+}
+
+// ---------- loop ----------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  const t = now / 1000;
+
+  updateBubbles(dt);
+  updateFood(dt, t);
+  for (const f of fish) updateFish(f, dt);
+
+  ctx.drawImage(bgC, 0, 0);
+  drawCaustics(t);
+  drawRays(t);
+  for (const p of backPlants) drawPlant(p, t);
+  ctx.drawImage(rkC, 0, 0);
+  drawFood();
+  for (const f of fish) drawFish(f);
+  for (const p of frontPlants) drawPlant(p, t);
+  drawBubbles();
+  drawSurface(t);
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

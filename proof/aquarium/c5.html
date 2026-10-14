@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pixel Aquarium</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0f1a; overflow: hidden; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+  canvas {
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    border: 6px solid #2b3140; border-top-width: 10px; border-radius: 3px;
+    box-shadow: 0 0 0 2px #151a25, 0 20px 60px rgba(0,0,0,.6);
+    cursor: pointer;
+  }
+  #hint { color: #5d6b88; font: 12px monospace; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">click the water to drop food</div>
+<script>
+"use strict";
+const W = 192, H = 108;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+cv.width = W; cv.height = H;
+ctx.imageSmoothingEnabled = false;
+
+function resize() {
+  const s = Math.max(1, Math.floor(Math.min((innerWidth - 40) / W, (innerHeight - 70) / H)));
+  cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
+}
+addEventListener('resize', resize); resize();
+
+// ---------- helpers ----------
+function mulberry(seed) {
+  return () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+const R = mulberry(1337);
+const rand = (a, b) => a + Math.random() * (b - a);
+const rnd = (a, b) => a + R() * (b - a);
+const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+const toHex = a => '#' + a.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+const mixA = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+const mix = (a, b, t) => toHex(mixA(hex(a), hex(b), t));
+const shade = (c, t) => mix(c, '#000000', t);
+const tint = (c, t) => mix(c, '#ffffff', t);
+function px(x, y, c) { ctx.fillStyle = c; ctx.fillRect(x | 0, y | 0, 1, 1); }
+const bayer = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+
+// ---------- terrain ----------
+const sandTop = [];
+for (let x = 0; x < W; x++) sandTop[x] = Math.round(90 + 2 * Math.sin(x * 0.045 + 1) + 1.2 * Math.sin(x * 0.13));
+const sandAt = x => sandTop[Math.max(0, Math.min(W - 1, Math.round(x)))];
+const sandMin = Math.min(...sandTop);
+
+const waterCols = ['#4fb6db', '#3d9fca', '#3189b8', '#2873a3', '#205e8e', '#1a4c79', '#153e67', '#113358'].map(hex);
+function waterAt(x, y) {
+  const t = Math.max(0, y) / (H - 1) * (waterCols.length - 1), i = Math.floor(t);
+  const th = (bayer[y & 3][x & 3] + 0.5) / 16;
+  return waterCols[Math.min(waterCols.length - 1, (t - i) > th ? i + 1 : i)];
+}
+
+// static background: water gradient, distant hills, sand
+const bg = document.createElement('canvas'); bg.width = W; bg.height = H;
+{
+  const b = bg.getContext('2d'), img = b.createImageData(W, H), d = img.data;
+  const put = (x, y, c) => { const i = (y * W + x) * 4; d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255; };
+  const sandCols = ['#f4dea8', '#e6c98f', '#d8b77c', '#c9a46a', '#b89159', '#a17c4a'].map(hex);
+  const far = hex('#0d2c47');
+  for (let x = 0; x < W; x++) {
+    const hill1 = Math.round(66 + 7 * Math.sin(x * 0.028 + 2) + 4 * Math.sin(x * 0.083));
+    const hill2 = Math.round(76 + 5 * Math.sin(x * 0.05 + 4) + 3 * Math.sin(x * 0.11 + 1));
+    for (let y = 0; y < H; y++) {
+      let c = waterAt(x, y);
+      if (y >= sandTop[x]) {
+        const depth = y - sandTop[x];
+        const th = (bayer[y & 3][x & 3] + 0.5) / 16;
+        const t = depth === 0 ? 0 : Math.min(sandCols.length - 1.01, 1 + depth / 4);
+        const i = Math.floor(t);
+        c = sandCols[depth === 0 ? 0 : ((t - i) > th ? i + 1 : i)];
+        const r = R();
+        if (depth > 0 && r < 0.07) c = mixA(c, [90, 70, 45], 0.35);
+        else if (depth > 0 && r < 0.11) c = mixA(c, [255, 245, 220], 0.4);
+      } else if (y >= hill2) c = mixA(c, far, 0.42);
+      else if (y >= hill1) c = mixA(c, far, 0.22);
+      put(x, y, c);
+    }
+  }
+  // pebbles
+  const peb = ['#8d8a83', '#6f6a62', '#a39684', '#7d6b57', '#b5ab9c'].map(hex);
+  for (let n = 0; n < 45; n++) {
+    const x = Math.floor(rnd(1, W - 3)), y = Math.floor(rnd(sandTop[x] + 2, H - 1));
+    const c = peb[Math.floor(R() * peb.length)];
+    put(x, y, c); put(x + 1, y, mixA(c, [0, 0, 0], 0.3));
+    if (R() < .4) put(x, y - 1, mixA(c, [255, 255, 255], 0.3));
+  }
+  b.putImageData(img, 0, 0);
+}
+
+// rocks + treasure chest layer (drawn in front of back plants)
+const rocks = document.createElement('canvas'); rocks.width = W; rocks.height = H;
+const CHEST = { x: 88, w: 14 };
+{
+  const r = rocks.getContext('2d'), img = r.createImageData(W, H), d = img.data;
+  const put = (x, y, c) => { if (x < 0 || y < 0 || x >= W || y >= H) return; const i = (y * W + x) * 4; d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255; };
+  const grey = ['#2f3742', '#4b5564', '#6d7a8b', '#97a4b4'].map(hex);
+  const brown = ['#3d3129', '#5e4c3c', '#836c55', '#a99278'].map(hex);
+  const list = [
+    { x: 22, rx: 15, ry: 10, p: grey }, { x: 38, rx: 8, ry: 6, p: brown },
+    { x: 128, rx: 10, ry: 6, p: brown }, { x: 166, rx: 17, ry: 12, p: grey },
+    { x: 182, rx: 8, ry: 6, p: grey }, { x: 70, rx: 5, ry: 3, p: grey },
+  ];
+  for (const k of list) {
+    const cy = sandAt(k.x) + k.ry * 0.3, seed = R() * 10;
+    for (let y = Math.floor(cy - k.ry - 2); y < H; y++) for (let x = k.x - k.rx - 2; x <= k.x + k.rx + 2; x++) {
+      if (x < 0 || x >= W || y > sandAt(x) + 1) continue;
+      const nx = (x + .5 - k.x) / k.rx, ny = (y + .5 - cy) / k.ry;
+      const a = Math.atan2(ny, nx), rr = 1 + 0.1 * Math.sin(a * 3 + seed) + 0.05 * Math.sin(a * 7 + seed * 2);
+      const q = nx * nx + ny * ny;
+      if (q > rr * rr) continue;
+      const l = -0.55 * nx - 0.85 * ny + 0.25 * (1 - q) + ((bayer[y & 3][x & 3] / 16) - .5) * .35;
+      put(x, y, k.p[l < -0.35 ? 0 : l < 0.1 ? 1 : l < 0.5 ? 2 : 3]);
+    }
+  }
+  r.putImageData(img, 0, 0);
+
+  // treasure chest
+  const x0 = CHEST.x, top = sandAt(x0 + 7) - 7;
+  CHEST.slitY = top + 3;
+  const f = (x, y, w, h, c) => { r.fillStyle = c; r.fillRect(x0 + x, top + y, w, h); };
+  f(1, 0, 12, 1, '#a86a36');                    // lid highlight
+  f(0, 1, 14, 2, '#8a5428');                    // lid
+  f(0, 3, 14, 1, '#2a1608');                    // open slit
+  f(3, 3, 8, 1, '#ffd75a');                     // gold glinting inside
+  f(0, 4, 14, 6, '#7a4a24');                    // body
+  f(0, 6, 14, 1, '#5a3418'); f(0, 8, 14, 1, '#5a3418');
+  for (const gx of [0, 13]) f(gx, 1, 1, 9, '#d9a832');
+  f(2, 0, 1, 3, '#d9a832'); f(11, 0, 1, 3, '#d9a832');
+  f(6, 4, 2, 3, '#ffd75a'); f(6, 6, 2, 1, '#8c6a10');
+  f(-1, 10, 16, 1, '#c9a46a');                  // sand piled at its base
+}
+
+// ---------- plants ----------
+const GREENS = [['#3f9e4a', '#2a7034', '#74cc6c'], ['#56b23c', '#367c27', '#93db5e'], ['#2f9466', '#1f6646', '#5ccb92']];
+const REDS = [['#c4483a', '#8c2b25', '#f08a62'], ['#d06a2c', '#93431c', '#f5a85a']];
+const dim = pal => pal.map(c => mix(c, '#1d5f86', 0.5));
+const plants = [];
+function addPlant(type, x, layer, pal, opts = {}) {
+  const p = Object.assign({ type, x: Math.round(x), layer, c: layer === 0 ? dim(pal) : pal,
+    ph: rand(0, 6.28), spd: rand(0.9, 1.5), amp: rand(2, 4) }, opts);
+  if (type === 'grass') {
+    p.blades = [];
+    const n = Math.floor(rand(5, 9));
+    for (let i = 0; i < n; i++) p.blades.push({ dx: Math.round(rand(-3, 3)), len: Math.floor(rand(3, opts.max || 9)),
+      lean: rand(-1, 1), ph: rand(0, 6), alt: Math.random() < .5 });
+  }
+  plants.push(p);
+}
+for (let i = 0; i < 10; i++) addPlant('kelp', 6 + i * 19 + rand(-5, 5), 0, GREENS[i % 3],
+  { h: Math.floor(rand(30, 64)), w: 2, gap: Math.floor(rand(3, 5)), leaf: Math.floor(rand(3, 5)) });
+for (let i = 0; i < 4; i++) addPlant('stem', rand(10, W - 10), 0, i % 2 ? REDS[0] : GREENS[2], { h: Math.floor(rand(22, 40)) });
+addPlant('kelp', 52, 1, GREENS[0], { h: 46, w: 2, gap: 4, leaf: 4 });
+addPlant('kelp', 146, 1, GREENS[1], { h: 54, w: 2, gap: 3, leaf: 5 });
+addPlant('kelp', 112, 1, GREENS[2], { h: 34, w: 1, gap: 3, leaf: 3 });
+addPlant('stem', 8, 1, REDS[0], { h: 30 });
+addPlant('stem', 14, 1, REDS[1], { h: 24 });
+addPlant('stem', 138, 1, REDS[0], { h: 26 });
+addPlant('stem', 186, 1, GREENS[1], { h: 34 });
+for (const x of [4, 30, 46, 64, 80, 106, 122, 158, 176, 190]) addPlant('grass', x + rand(-2, 2), 2, GREENS[Math.floor(rand(0, 3))], { max: 10 });
+addPlant('grass', 98, 2, GREENS[1], { max: 6 });
+
+function drawPlant(p, t) {
+  const base = sandAt(p.x) + 2;
+  const sway = (i, h) => { const k = i / h; return Math.sin(t * p.spd + p.ph - i * 0.13) * p.amp * k * k + Math.sin(t * 0.6 + p.ph) * k * 1.5; };
+  if (p.type === 'kelp') {
+    let x = p.x;
+    for (let i = 0; i < p.h; i++) {
+      x = Math.round(p.x + sway(i, p.h)); const y = base - i;
+      px(x, y, p.c[1]); if (p.w > 1) px(x + 1, y, p.c[0]);
+      if (i > 2 && i < p.h - 2 && i % p.gap === 0) {
+        const side = ((i / p.gap) | 0) % 2 ? 1 : -1;
+        for (let j = 1; j <= p.leaf; j++) {
+          const lx = side > 0 ? x + (p.w > 1 ? 1 : 0) + j : x - j;
+          px(lx, y - ((j + 1) >> 1), j === p.leaf ? p.c[2] : (j === 1 ? p.c[1] : p.c[0]));
+        }
+      }
+    }
+    px(x, base - p.h, p.c[2]);
+  } else if (p.type === 'stem') {
+    for (let i = 0; i < p.h; i++) {
+      const x = Math.round(p.x + sway(i, p.h)), y = base - i;
+      const tip = i > p.h * 0.75;
+      px(x, y, p.c[1]);
+      if (i > 1 && i % 2 === 0) {
+        const lc = tip ? p.c[2] : p.c[0];
+        px(x - 1, y, lc); px(x + 1, y, lc);
+        px(x - 2, y - 1, tip ? p.c[2] : p.c[1]); px(x + 2, y - 1, tip ? p.c[2] : p.c[1]);
+      }
+    }
+    px(Math.round(p.x + sway(p.h, p.h)), base - p.h, p.c[2]);
+  } else {
+    for (const b of p.blades) for (let i = 0; i < b.len; i++) {
+      const k = i / b.len;
+      const x = Math.round(p.x + b.dx + b.lean * k * 3 + Math.sin(t * 1.4 + b.ph + p.ph) * k * k * 1.6);
+      px(x, base - 1 - i, i > b.len * 0.6 ? p.c[2] : (b.alt ? p.c[0] : p.c[1]));
+    }
+  }
+}
+
+// ---------- fish sprites (generated pixel by pixel) ----------
+const SPECIES = {
+  clown:  { len: 12, h: 6, tail: 3, tailH: 5, dorsal: 2, ventral: 1, speed: 14, band: [0.35, 1],
+            body: '#f47a20', light: '#ffa552', dark: '#c95a10', fin: '#f78a2e',
+            pattern: x => ({ w: '#ffffff', k: '#1d1d24' })['owokwwkowkoo'[x]] || null },
+  tetra:  { len: 8, h: 4, tail: 3, tailH: 4, dorsal: 1, speed: 22, band: [0.1, 0.7], fork: true,
+            body: '#b8c6d9', light: '#e1e9f2', dark: '#8a96a8', fin: '#c9d4e2',
+            pattern: (x, v) => v > -0.5 && v < 0 ? '#2fe2ff' : (v > 0 && v < 0.5 && x < 6 ? '#ea334c' : null) },
+  tang:   { len: 9, h: 8, tail: 3, tailH: 6, dorsal: 2, ventral: 2, dRange: [0.1, 0.75], vRange: [0.15, 0.6], speed: 15, band: [0.1, 0.8],
+            body: '#ffd400', light: '#ffeb70', dark: '#e2a600', fin: '#ffcc00' },
+  blue:   { len: 12, h: 6, tail: 3, tailH: 6, dorsal: 1, ventral: 1, dRange: [0.15, 0.85], speed: 17, band: [0.1, 0.8], fork: true,
+            body: '#2f6fe0', light: '#5f98ff', dark: '#1d4aa8', fin: '#1a3c8c', tailC: '#ffcf2e',
+            pattern: (x, v) => ((v > -0.7 && v < -0.2 && x >= 2 && x <= 8) || (x >= 2 && x <= 3 && v > -0.7 && v < 0.35) || (x === 8 && v < 0.1 && v > -0.7)) ? '#13204d' : null },
+  angel:  { len: 8, h: 7, tail: 3, tailH: 5, dorsal: 6, ventral: 6, dRange: [0.05, 0.6], vRange: [0.05, 0.6], speed: 9, band: [0.15, 0.7],
+            body: '#e9e5d2', light: '#ffffff', dark: '#b9b39a', fin: '#d6d0b6',
+            pattern: x => (x === 2 || x === 5) ? '#2c2a2a' : null },
+  gold:   { len: 9, h: 6, tail: 5, tailH: 9, dorsal: 2, speed: 11, band: [0.2, 1], fork: true,
+            body: '#ff8c1a', light: '#ffb85a', dark: '#d9600a', fin: '#ffa648' },
+};
+
+function buildSprites(sp) {
+  const pad = 1, dor = sp.dorsal || 0, ven = sp.ventral || 0;
+  const bodyH = Math.max(sp.h, sp.tailH);
+  const gw = pad * 2 + sp.tail + sp.len, gh = pad * 2 + dor + bodyH + ven + 2;
+  const cy = pad + 1 + dor + bodyH / 2;
+  const fin = sp.fin, finD = shade(fin, 0.2), tailC = sp.tailC || fin, tailD = shade(tailC, 0.2);
+  const out = { w: gw, h: gh, frames: [[], []] };
+  for (const f of [-1, 0, 1]) {
+    const g = new Array(gw * gh).fill(null);
+    const set = (x, y, c) => { if (x >= 0 && y >= 0 && x < gw && y < gh) g[y * gw + x] = c; };
+    const get = (x, y) => (x >= 0 && y >= 0 && x < gw && y < gh) ? g[y * gw + x] : null;
+    const bx = pad + sp.tail, colTop = [], colBot = [];
+    // fins first so the body draws over their roots
+    const fins = (range, dir, size, cols) => {
+      for (let x = 0; x < sp.len; x++) {
+        const u = (x + .5) / sp.len; if (u < range[0] || u > range[1]) continue;
+        const t = (u - range[0]) / (range[1] - range[0]);
+        const hh = Math.round(size * Math.min(1, t / 0.3) * Math.min(1, (1 - t) / 0.6 + 0.15));
+        for (let j = 1; j <= hh; j++) set(bx + x, cols[x] + dir * j, j === hh ? finD : fin);
+      }
+    };
+    for (let x = 0; x < sp.len; x++) {
+      const dx = ((x + .5) / sp.len) * 2 - 1;
+      for (let y = 0; y < gh; y++) {
+        const v = (y + .5 - cy) / (sp.h / 2);
+        if (dx * dx + v * v > 1) continue;
+        if (colTop[x] === undefined) colTop[x] = y; colBot[x] = y;
+      }
+    }
+    if (dor) fins(sp.dRange || [0.25, 0.7], -1, dor, colTop);
+    if (ven) fins(sp.vRange || [0.3, 0.6], 1, ven, colBot);
+    for (let x = 0; x < sp.len; x++) {
+      const dx = ((x + .5) / sp.len) * 2 - 1;
+      for (let y = 0; y < gh; y++) {
+        const v = (y + .5 - cy) / (sp.h / 2);
+        if (dx * dx + v * v > 1) continue;
+        let c = v < -0.45 ? sp.light : v > 0.45 ? sp.dark : sp.body;
+        if (sp.pattern) { const p = sp.pattern(x, v); if (p) c = p; }
+        set(bx + x, y, c);
+      }
+    }
+    // tail, bent by the animation frame
+    for (let i = 0; i < sp.tail; i++) {
+      const x = bx - 1 - i, k = (i + 1) / sp.tail;
+      const half = 0.8 + k * (sp.tailH / 2 - 0.8), sh = f * k * 1.3;
+      for (let y = 0; y < gh; y++) {
+        const d = y + .5 - cy - sh;
+        if (Math.abs(d) > half) continue;
+        if (sp.fork && i === sp.tail - 1 && Math.abs(d) < half * 0.45) continue;
+        set(x, y, Math.abs(d) > half - 1 ? tailD : tailC);
+      }
+    }
+    // eye
+    const ex = bx + Math.min(sp.len - 2, Math.round(sp.len * 0.76)), ey = Math.floor(cy - sp.h * 0.15);
+    if (sp.h >= 6) set(ex - 1, ey, '#f4f4f4');
+    set(ex, ey, '#0d0d14');
+    // outline
+    const o = g.slice();
+    for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+      if (g[y * gw + x]) continue;
+      const n = get(x - 1, y) || get(x + 1, y) || get(x, y - 1) || get(x, y + 1);
+      if (n) o[y * gw + x] = shade(n, 0.6);
+    }
+    const right = document.createElement('canvas'); right.width = gw; right.height = gh;
+    const rc = right.getContext('2d');
+    for (let i = 0; i < o.length; i++) if (o[i]) { rc.fillStyle = o[i]; rc.fillRect(i % gw, (i / gw) | 0, 1, 1); }
+    const left = document.createElement('canvas'); left.width = gw; left.height = gh;
+    const lc = left.getContext('2d'); lc.translate(gw, 0); lc.scale(-1, 1); lc.drawImage(right, 0, 0);
+    out.frames[1].push(right); out.frames[0].push(left);
+  }
+  return out;
+}
+const SPRITES = {};
+for (const k in SPECIES) SPRITES[k] = buildSprites(SPECIES[k]);
+
+// ---------- creatures & particles ----------
+const foods = [], bubbles = [], motes = [];
+for (let i = 0; i < 30; i++) motes.push({ x: rand(0, W), y: rand(0, sandMin), vx: rand(-1, 1), vy: rand(-0.6, 0.6), a: rand(0.1, 0.3) });
+
+const school = { x: 60, y: 30, timer: 0 };
+class Fish {
+  constructor(kind, inSchool) {
+    this.sp = SPECIES[kind]; this.spr = SPRITES[kind];
+    const b = this.bounds();
+    this.x = rand(b.x0, b.x1); this.y = rand(b.y0, b.y1);
+    this.vx = 0; this.vy = 0; this.dir = Math.random() < .5 ? 1 : -1;
+    this.anim = rand(0, 10); this.bobPh = rand(0, 6);
+    this.school = inSchool ? school : null;
+    this.ox = rand(-14, 14); this.oy = rand(-7, 7);
+    this.newTarget();
+  }
+  bounds() {
+    const w = this.spr.w, h = this.spr.h;
+    return { x0: 3 + w / 2, x1: W - 3 - w / 2, y0: 5 + h / 2, y1: sandMin - h / 2 };
+  }
+  newTarget() {
+    const b = this.bounds(), [lo, hi] = this.sp.band;
+    this.resting = Math.random() < 0.18;
+    if (this.resting) { this.tx = this.x + rand(-4, 4); this.ty = this.y + rand(-2, 2); this.timer = rand(2, 4); }
+    else { this.tx = rand(b.x0, b.x1); this.ty = b.y0 + (b.y1 - b.y0) * rand(lo, hi); this.timer = rand(5, 12); }
+  }
+  update(dt) {
+    const b = this.bounds();
+    let tx, ty, spd = this.sp.speed, food = null, best = 75 * 75;
+    for (const f of foods) {
+      if (f.eaten || f.y > b.y1 + this.spr.h * 0.3) continue;
+      const d = (f.x - this.x) ** 2 + (f.y - this.y) ** 2;
+      if (d < best) { best = d; food = f; }
+    }
+    if (food) {
+      const side = food.x >= this.x ? 1 : -1;
+      tx = food.x - side * this.spr.w * 0.42; ty = food.y; spd *= 1.9;
+      const mx = this.x + this.dir * this.spr.w * 0.42;
+      if (Math.abs(mx - food.x) < 2.5 && Math.abs(this.y - food.y) < 2.5) { food.eaten = true; bubble(mx, this.y - 1, 1); }
+    } else if (this.school) { tx = school.x + this.ox; ty = school.y + this.oy; }
+    else {
+      this.timer -= dt;
+      if (this.timer <= 0 || (!this.resting && Math.hypot(this.tx - this.x, this.ty - this.y) < 3)) this.newTarget();
+      tx = this.tx; ty = this.ty; if (this.resting) spd *= 0.2;
+    }
+    const dx = tx - this.x, dy = ty - this.y, d = Math.hypot(dx, dy) || 1;
+    const s = Math.min(spd, d * 1.5);
+    const a = Math.min(1, dt * (food ? 3 : 1.2));
+    this.vx += (dx / d * s - this.vx) * a;
+    this.vy += (dy / d * s * 0.6 - this.vy) * a;
+    this.x = Math.max(b.x0, Math.min(b.x1, this.x + this.vx * dt));
+    this.y = Math.max(b.y0, Math.min(b.y1, this.y + this.vy * dt));
+    if (this.vx > 0.8) this.dir = 1; else if (this.vx < -0.8) this.dir = -1;
+    this.anim += dt * (3 + Math.abs(this.vx) * 0.35);
+    if (Math.random() < dt * 0.04) bubble(this.x + this.dir * this.spr.w * 0.45, this.y - 1, 1);
+  }
+  draw(t) {
+    const fi = [0, 1, 2, 1][Math.floor(this.anim) % 4];
+    const bob = Math.round(Math.sin(t * 1.6 + this.bobPh) * 0.6);
+    ctx.drawImage(this.spr.frames[this.dir > 0 ? 1 : 0][fi], Math.round(this.x - this.spr.w / 2), Math.round(this.y - this.spr.h / 2) + bob);
+  }
+}
+
+const fishes = [];
+for (let i = 0; i < 7; i++) fishes.push(new Fish('tetra', true));
+fishes.push(new Fish('clown'), new Fish('clown'), new Fish('tang'), new Fish('blue'),
+            new Fish('angel'), new Fish('gold'), new Fish('gold'));
+fishes.sort((a, b) => b.spr.h - a.spr.h); // big fish behind small ones
+
+function bubble(x, y, size) { bubbles.push({ x0: x, x, y, size, vy: rand(10, 16) + size * 3, ph: rand(0, 6) }); }
+
+let chestTimer = 2, burst = 0;
+function updateWorld(dt, t) {
+  school.timer -= dt;
+  if (school.timer <= 0) { school.x = rand(25, W - 25); school.y = rand(14, 55); school.timer = rand(4, 8); }
+  for (const f of fishes) f.update(dt);
+
+  chestTimer -= dt;
+  if (chestTimer <= 0) { burst = Math.floor(rand(4, 10)); chestTimer = rand(4, 8); }
+  if (burst > 0 && Math.random() < dt * 8) { burst--; bubble(CHEST.x + rand(3, 11), CHEST.slitY, Math.random() < .5 ? 2 : 1); }
+  if (Math.random() < dt * 3) bubble(22 + rand(-3, 3), sandAt(22) - 8, Math.random() < .3 ? 2 : 1); // airstone behind the rock
+
+  for (const b of bubbles) { b.y -= b.vy * dt; b.x = b.x0 + Math.sin(b.ph + t * 4) * 0.8; }
+  for (let i = bubbles.length - 1; i >= 0; i--) if (bubbles[i].y < 2) bubbles.splice(i, 1);
+
+  for (const f of foods) {
+    const floor = sandAt(f.x) - 1;
+    if (f.y < floor) { f.y = Math.min(floor, f.y + f.vy * dt); f.x += Math.sin(t * 2 + f.ph) * dt * 2; }
+    else f.life -= dt;
+  }
+  for (let i = foods.length - 1; i >= 0; i--) if (foods[i].eaten || foods[i].life <= 0) foods.splice(i, 1);
+
+  for (const m of motes) {
+    m.x = (m.x + m.vx * dt + W) % W; m.y += (m.vy + Math.sin(t + m.x) * 0.3) * dt;
+    if (m.y < 2 || m.y > sandMin) m.vy *= -1;
+  }
+}
+
+// ---------- rendering ----------
+const rays = [0, 1, 2, 3].map(i => ({ x: 20 + i * 50, w: rand(6, 14), sp: rand(0.15, 0.3), ph: rand(0, 6) }));
+function render(t) {
+  ctx.drawImage(bg, 0, 0);
+
+  // caustic glints on the sand surface
+  for (let x = 0; x < W; x++) {
+    if (Math.sin(x * 0.31 + t * 1.3) * Math.sin(x * 0.17 - t * 0.9) > 0.55) px(x, sandTop[x], '#fff4cc');
+  }
+
+  for (const p of plants) if (p.layer === 0) drawPlant(p, t);
+  ctx.drawImage(rocks, 0, 0);
+  for (const p of plants) if (p.layer === 1) drawPlant(p, t);
+
+  for (const f of foods) { px(f.x, f.y, '#b8642c'); px(f.x + 1, f.y, '#7a3f1a'); }
+  for (const f of fishes) f.draw(t);
+  for (const p of plants) if (p.layer === 2) drawPlant(p, t);
+
+  // bubbles
+  ctx.globalAlpha = 0.85;
+  for (const b of bubbles) {
+    const x = Math.round(b.x), y = Math.round(b.y);
+    if (b.size === 1) px(x, y, '#c8f2ff');
+    else {
+      ctx.fillStyle = '#a9e6fb';
+      ctx.fillRect(x + 1, y, 1, 1); ctx.fillRect(x, y + 1, 1, 1); ctx.fillRect(x + 2, y + 1, 1, 1); ctx.fillRect(x + 1, y + 2, 1, 1);
+      px(x + 1, y + 1, '#ffffff');
+    }
+  }
+  // floating motes
+  for (const m of motes) { ctx.globalAlpha = m.a; px(m.x, m.y, '#d8f6ff'); }
+
+  // light rays, stepped per row for crisp pixel edges
+  ctx.fillStyle = '#e8fbff';
+  for (const r of rays) {
+    const x0 = r.x + Math.sin(t * r.sp + r.ph) * 12;
+    for (let y = 0; y < sandMin; y++) {
+      ctx.globalAlpha = 0.09 * (1 - y / sandMin);
+      ctx.fillRect(Math.round(x0 + y * 0.45), y, Math.round(r.w + y * 0.1), 1);
+    }
+  }
+  // water surface
+  for (let x = 0; x < W; x++) {
+    const sy = Math.round(1.5 + Math.sin(x * 0.18 + t * 1.8) * 0.8 + Math.sin(x * 0.07 - t) * 0.7);
+    ctx.globalAlpha = 0.35; ctx.fillStyle = '#c6f0ff'; ctx.fillRect(x, 0, 1, sy);
+    ctx.globalAlpha = 0.8; px(x, sy, '#e4faff');
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- input & loop ----------
+cv.addEventListener('pointerdown', e => {
+  const r = cv.getBoundingClientRect();
+  const x = (e.clientX - r.left - cv.clientLeft) / cv.clientWidth * W;
+  for (let i = 0; i < 6; i++) foods.push({ x: Math.max(2, Math.min(W - 3, x + rand(-6, 6))), y: rand(1, 4), vy: rand(6, 10), ph: rand(0, 6), life: 8 });
+});
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const t = now / 1000;
+  updateWorld(dt, t);
+  render(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
