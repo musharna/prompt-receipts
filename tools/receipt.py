@@ -28,6 +28,8 @@ usage: python3 receipt.py [SESSION] [options]
                    says it is the sender's words, and a --record still vouches only for the log
   --reply          also print the model's last reply, checked the same way
   --recipe         also print the commands that rerun your prompts with the same model and effort
+  --replay RECEIPT show the commands in a receipt's rerun lines (a link or a saved receipt, made with --recipe);
+                   with --run, run them in a new empty folder, then print that run's receipt
   --outcome TEXT   add your own words on how it went ("worked first try")
   --redact         replace email addresses and keys with [email] and [key] instead of stopping
   --prompt-id      add a short fingerprint of the prompt (not the prompt), so --compare can tell runs of one prompt
@@ -6417,6 +6419,8 @@ def main():
     ap.add_argument("--reply", action="store_true")
     ap.add_argument("--outcome", metavar="TEXT")
     ap.add_argument("--recipe", action="store_true")
+    ap.add_argument("--replay", metavar="RECEIPT")
+    ap.add_argument("--run", action="store_true")
     ap.add_argument("--link", action="store_true")
     ap.add_argument("--share", action="store_true")
     ap.add_argument("--bundle", metavar="FILE.zip")
@@ -6446,6 +6450,11 @@ def main():
         return
     if a.signers:
         sys.exit("receipt: --signers goes with --verify")
+    if a.replay or a.run:
+        if not a.replay or any(v not in (None, False, [], "") for k, v in vars(a).items() if k not in ("replay", "run")):
+            sys.exit("receipt: --replay takes a receipt link or file, and --run to run it; nothing else")
+        replay(a.replay, a.run)
+        return
     a.link = a.link or a.share
     if a.reported:  # no log: only what makes, shows or signs the receipt goes with it
         keep = ("reported", "out", "png", "json", "md", "look", "theme", "picture", "link", "share", "redact", "prices",
@@ -6881,6 +6890,98 @@ def main():
             sign(a.sign, p)
     if a.link:
         print(link(text(r, hide, a.prompt), a.share))
+
+
+# --replay runs only these, each with the flag receipt.py reads its logs with afterwards
+REPLAY_TOOLS = {"claude": [], "codex": ["--codex"], "opencode": ["--opencode"], "qwen": ["--qwen"],
+                "gemini": ["--gemini"], "copilot": ["--copilot"]}  # fmt: skip
+
+
+def unlink(src):
+    """a receipt link (the receipt rides after #r1.), or a file holding a receipt or its link -> the receipt's text"""
+    if "#r1." not in src:
+        if not os.path.isfile(src):
+            sys.exit(f"receipt: {src} is neither a receipt link nor a file")
+        with open(src, encoding="utf-8") as f:
+            body = f.read()
+        if "#r1." not in body:
+            return body
+        src = body
+    packed = re.search(r"#r1\.([A-Za-z0-9_-]+)", src).group(1)
+    try:
+        return zlib.decompress(base64.urlsafe_b64decode(packed + "=" * (-len(packed) % 4)), -15).decode("utf-8")
+    except (ValueError, zlib.error) as e:
+        sys.exit(f"receipt: the link doesn't unpack ({e}); copy it whole")
+
+
+def rerun_commands(text):
+    """a receipt's rerun lines -> each command as its words. A prompt can hold line breaks inside its quotes, so a
+    line starts a new command only once the one before it parses whole"""
+    m = re.search(r"^rerun    (.*?)(?=^ {9}\(the same prompts|\Z)", text, re.M | re.S)
+    if not m:
+        sys.exit("receipt: this receipt has no rerun lines; the receipt needs to be made with --recipe")
+    cmds, buf = [], None
+    for line in m.group(1).rstrip("\n").split("\n"):
+        if buf is None:
+            buf = line
+            continue
+        try:
+            whole = shlex.split(buf)
+        except ValueError:
+            whole = None
+        if whole and line.startswith(" " * 9):
+            cmds.append(whole)
+            buf = line[9:]
+        else:
+            buf += "\n" + line
+    try:
+        cmds.append(shlex.split(buf))
+    except ValueError:
+        sys.exit("receipt: a rerun line doesn't parse (a quote never closes); is the receipt cut short?")
+    tools = {c[0] if c else "" for c in cmds}
+    other = sorted(tools - set(REPLAY_TOOLS))
+    if other:
+        sys.exit(f"receipt: --replay runs only {', '.join(REPLAY_TOOLS)}; this receipt's rerun lines also run: "
+                 + ", ".join(other))  # fmt: skip
+    if len(tools) > 1:
+        sys.exit(f"receipt: the rerun lines mix tools ({', '.join(sorted(tools))}); --replay runs one tool's")
+    return cmds
+
+
+def replay(src, run):
+    """--replay: show a receipt's rerun commands; with --run, run them in a new empty folder and print the receipt
+    of what they did"""
+    text = unlink(src)
+    cmds = rerun_commands(text)
+    no = re.search(r"· no\. ([0-9a-f]{4}-[0-9a-f]{4})", text.split("\n", 1)[0])
+    folder = os.path.abspath("replay-" + no.group(1) if no else "replay")
+    print(f"replay   {text.split(chr(10), 1)[0]}")
+    for i, c in enumerate(cmds, 1):
+        print(f"{i:>4}     " + " ".join(shlex.quote(w) for w in c))
+    risky = [c for c in cmds if "bypassPermissions" in c or "--dangerously-skip-permissions" in c or "--yolo" in c]
+    if risky:
+        print("note     these run with the agent's permission checks off, as the original did: it runs commands "
+              "without asking")  # fmt: skip
+    if not run:
+        print(f"         to run them in a new folder, {tilde(folder)}: add --run")
+        return
+    if os.path.exists(folder):
+        sys.exit(f"receipt: {tilde(folder)} already exists; --replay runs in a new empty folder")
+    exe = shutil.which(cmds[0][0])
+    if not exe:
+        sys.exit(f"receipt: {cmds[0][0]} isn't installed here (not on PATH)")
+    if exe.lower().endswith((".cmd", ".bat")):  # cmd.exe would read the prompt's quotes and symbols itself
+        sys.exit(f"receipt: {cmds[0][0]} is a .cmd script here, which can't take a prompt safely; run the lines above by hand")
+    os.makedirs(folder)
+    for i, c in enumerate(cmds, 1):
+        print(f"replay   prompt {i} of {len(cmds)} in {tilde(folder)}", flush=True)
+        done = subprocess.run([exe] + c[1:], cwd=folder)
+        if done.returncode:
+            sys.exit(f"receipt: {c[0]} stopped with exit code {done.returncode} on prompt {i}; the run so far is in {tilde(folder)}")
+    print(f"replay   done; the new run's receipt:", flush=True)
+    made = subprocess.run([sys.executable, os.path.abspath(__file__)] + REPLAY_TOOLS[cmds[0][0]] + ["--turns"], cwd=folder)
+    if made.returncode:
+        sys.exit(f"receipt: the new run's receipt failed (above); make it in {tilde(folder)} with receipt.py --turns")
 
 
 def link(s, share=False):

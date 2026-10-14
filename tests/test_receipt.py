@@ -3108,5 +3108,75 @@ class MadeWhileItRan(Base):
         self.assertIn("song.mp3 is a sound; receipt.py reads PNGs and WAVs itself and needs ffmpeg", p.stderr)
 
 
+
+class Replay(Base):
+    """--replay: run a receipt's rerun commands again, in a new empty folder"""
+
+    def receipt_link(self, prompt="Make a page for my habit tracker", second="now make it blue"):
+        self.claude_log(prompt=prompt, second=second)
+        out = self.ok("--prompt", "--recipe", "--link").stdout
+        return re.search(r"https://\S+#r1\.\S+", out).group(0)
+
+    def fake_claude(self):
+        """a `claude` on PATH that only notes each call: its arguments and the folder it ran in"""
+        bin_dir, log = os.path.join(self.home, "bin"), os.path.join(self.home, "calls.jsonl")
+        os.makedirs(bin_dir, exist_ok=True)
+        with open(os.path.join(bin_dir, "claude"), "w", encoding="utf-8") as f:
+            f.write(f"#!{sys.executable}\nimport json, os, sys\n"
+                    f"open({log!r}, 'a').write(json.dumps([sys.argv[1:], os.getcwd()]) + '\\n')\n")  # fmt: skip
+        os.chmod(os.path.join(bin_dir, "claude"), 0o755)
+        env = dict(self.env, PATH=bin_dir + os.pathsep + self.env.get("PATH", ""))
+        return env, log
+
+    def test_replay_shows_the_commands_and_waits(self):
+        link = self.receipt_link()
+        out = self.ok("--replay", link).stdout
+        self.assertIn("claude -p 'Make a page for my habit tracker' --model claude-opus-5-5", out)
+        self.assertIn("claude -p -c 'now make it blue'", out)
+        self.assertIn("--run", out)
+        self.assertFalse([d for d in os.listdir(self.proj) if d.startswith("replay")])  # nothing ran
+
+    @unittest.skipIf(os.name == "nt", "the stand-in claude is a script with a #! line")
+    def test_replay_runs_in_a_new_folder(self):
+        prompt = "Make it 'nice'\nand put a \"quote\" in it"  # quotes and a line break come back whole
+        link = self.receipt_link(prompt=prompt)
+        env, log = self.fake_claude()
+        p = self.run_receipt("--replay", link, "--run", env=env)
+        # the stand-in writes no session log, so the new run's receipt can't be made, and says so
+        self.assertEqual(p.returncode, 1, p.stderr)
+        self.assertIn("the new run's receipt failed", p.stderr)
+        calls = [json.loads(line) for line in open(log, encoding="utf-8")]
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0][0][:2], ["-p", prompt])
+        self.assertEqual(calls[1][0][:3], ["-p", "-c", "now make it blue"])
+        folder = calls[0][1]
+        self.assertEqual(os.path.dirname(folder), self.proj)
+        self.assertRegex(os.path.basename(folder), r"^replay-[0-9a-f]{4}-[0-9a-f]{4}$")
+        self.assertEqual(calls[1][1], folder)
+        again = self.run_receipt("--replay", link, "--run", env=env)  # the folder must be new
+        self.assertEqual(again.returncode, 1)
+        self.assertIn("already exists", again.stderr)
+        self.assertEqual(len(open(log, encoding="utf-8").readlines()), 2)
+
+    def test_replay_refuses_other_programs(self):
+        bad = os.path.join(self.home, "bad.txt")
+        with open(bad, "w", encoding="utf-8") as f:
+            f.write("Receipt v7.11 · Claude Code 2.1.300 · no. 0000-0001\nrerun    claude -p hi\n         rm -rf ~\n")
+        p = self.run_receipt("--replay", bad)
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("rm", p.stderr)
+        good = os.path.join(self.home, "good.txt")  # positive control: the same receipt without the stray line
+        with open(good, "w", encoding="utf-8") as f:
+            f.write("Receipt v7.11 · Claude Code 2.1.300 · no. 0000-0001\nrerun    claude -p hi\n")
+        self.assertIn("claude -p hi", self.ok("--replay", good).stdout)
+
+    def test_replay_needs_a_recipe(self):
+        self.claude_log()
+        link = re.search(r"https://\S+#r1\.\S+", self.ok("--link").stdout).group(0)
+        p = self.run_receipt("--replay", link)
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("--recipe", p.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `--replay RECEIPT`: hand someone a receipt and they can make the same thing. It reads a receipt link (or a saved receipt) made with `--recipe`, shows its rerun commands, and with `--run` runs them in a new empty folder with the same model, effort and permission mode, then prints the new run's receipt. In a test, 5 replays of a 3-prompt pixel-art aquarium receipt each had all 12 things its prompts asked for; 5 runs of its first prompt alone had about half.
+
 ## receipt.py 7.11 (2026-10-13)
 
 - Open models are priced at OpenRouter's list price: MiMo, Nemotron, DeepSeek, GLM, Kimi, MiniMax, Mistral, Llama and gpt-oss, which many providers sell, so no one price is the maker's. OpenCode's free models (`…-free`) record $0; their receipt now gives the cost at that price, says whose price it is, and the billing line says OpenCode recorded $0 for a free model. Before, the receipt said $0.00 and listed no prices.
