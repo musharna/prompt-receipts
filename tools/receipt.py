@@ -113,7 +113,7 @@ import urllib.parse
 import zipfile
 import zlib
 
-VERSION = "7.11"
+VERSION = "7.12"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 SITE = "https://musharna.github.io/prompt-receipts/"
 LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters

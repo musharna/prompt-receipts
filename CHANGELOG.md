@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## receipt.py 7.12 (2026-10-13)
 
 - `--replay RECEIPT`: hand someone a receipt and they can make the same thing. It reads a receipt link (or a saved receipt) made with `--recipe`, shows its rerun commands, and with `--run` runs them in a new empty folder with the same model, effort and permission mode, then prints the new run's receipt. In a test, 5 replays of a 3-prompt pixel-art aquarium receipt each had all 12 things its prompts asked for; 5 runs of its first prompt alone had about half.
 
