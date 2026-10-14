@@ -1,5 +1,9 @@
 # Changelog
 
+## receipt.py 7.13 (2026-10-14)
+
+- `--replay RECEIPT --picture FILE`: replay a receipt with a picture of what the original made. The picture goes into the new folder as `look.png` (or `.jpg`, `.webp`, `.gif`), and the first prompt gets "look.png is a picture of what this should look like." In a test of 5 prompts picked at random from the gallery, 3 runs each, judged blind against the original: the receipt with a picture made the same thing 15 times of 15, the receipt alone 10 and a picture alone 9. The receipt carries what a picture can't show (a faint effect, 3D model files); the picture carries the look a prompt leaves open.
+
 ## receipt.py 7.12 (2026-10-13)
 
 - `--replay RECEIPT`: hand someone a receipt and they can make the same thing. It reads a receipt link (or a saved receipt) made with `--recipe`, shows its rerun commands, and with `--run` runs them in a new empty folder with the same model, effort and permission mode, then prints the new run's receipt. In a test, 5 replays of a 3-prompt pixel-art aquarium receipt each had all 12 things its prompts asked for; 5 runs of its first prompt alone had about half.

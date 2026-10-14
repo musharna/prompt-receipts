@@ -29,7 +29,8 @@ usage: python3 receipt.py [SESSION] [options]
   --reply          also print the model's last reply, checked the same way
   --recipe         also print the commands that rerun your prompts with the same model and effort
   --replay RECEIPT show the commands in a receipt's rerun lines (a link or a saved receipt, made with --recipe);
-                   with --run, run them in a new empty folder, then print that run's receipt
+                   with --run, run them in a new empty folder, then print that run's receipt; with --picture FILE,
+                   a picture of what the original made goes into that folder and the first prompt points to it
   --outcome TEXT   add your own words on how it went ("worked first try")
   --redact         replace email addresses and keys with [email] and [key] instead of stopping
   --prompt-id      add a short fingerprint of the prompt (not the prompt), so --compare can tell runs of one prompt
@@ -113,7 +114,7 @@ import urllib.parse
 import zipfile
 import zlib
 
-VERSION = "7.12"
+VERSION = "7.13"
 ISSUES = "https://github.com/musharna/prompt-receipts/issues"
 SITE = "https://musharna.github.io/prompt-receipts/"
 LINK_BUDGET = 2000  # Discord cuts messages at 2,000 characters
@@ -6451,9 +6452,9 @@ def main():
     if a.signers:
         sys.exit("receipt: --signers goes with --verify")
     if a.replay or a.run:
-        if not a.replay or any(v not in (None, False, [], "") for k, v in vars(a).items() if k not in ("replay", "run")):
-            sys.exit("receipt: --replay takes a receipt link or file, and --run to run it; nothing else")
-        replay(a.replay, a.run)
+        if not a.replay or any(v not in (None, False, [], "") for k, v in vars(a).items() if k not in ("replay", "run", "picture")):
+            sys.exit("receipt: --replay takes a receipt link or file, --picture with a picture of what it made, and --run to run it; nothing else")
+        replay(a.replay, a.run, a.picture)
         return
     a.link = a.link or a.share
     if a.reported:  # no log: only what makes, shows or signs the receipt goes with it
@@ -6948,11 +6949,29 @@ def rerun_commands(text):
     return cmds
 
 
-def replay(src, run):
+# --replay --picture: what the first prompt gets added. In a test of 5 gallery receipts, 3 runs each, the prompts plus a
+# picture of the original made the same thing 15 times of 15; the prompts alone 10, the picture alone 9
+PICTURE_LINE = "{} is a picture of what this should look like."
+PICTURE_TYPES = (".png", ".jpg", ".jpeg", ".webp", ".gif")
+
+
+def replay(src, run, picture=None):
     """--replay: show a receipt's rerun commands; with --run, run them in a new empty folder and print the receipt
-    of what they did"""
+    of what they did. With a picture of what the original made, the picture goes into that folder and the first
+    prompt says what it is"""
     text = unlink(src)
     cmds = rerun_commands(text)
+    look = None
+    if picture:
+        if not os.path.isfile(picture):
+            sys.exit(f"receipt: {picture} isn't a file")
+        ext = os.path.splitext(picture)[1].lower()
+        if ext not in PICTURE_TYPES:
+            sys.exit(f"receipt: --picture with --replay takes a picture ({', '.join(PICTURE_TYPES)}), not {ext or picture}")
+        look = "look" + ext
+        first = cmds[0]  # claude, gemini and copilot take the prompt after -p; the others take it last
+        at = first.index("-p") + 1 if first[0] in ("claude", "gemini", "copilot") and "-p" in first else len(first) - 1
+        first[at] += "\n\n" + PICTURE_LINE.format(look)
     no = re.search(r"· no\. ([0-9a-f]{4}-[0-9a-f]{4})", text.split("\n", 1)[0])
     folder = os.path.abspath("replay-" + no.group(1) if no else "replay")
     print(f"replay   {text.split(chr(10), 1)[0]}")
@@ -6962,6 +6981,8 @@ def replay(src, run):
     if risky:
         print("note     these run with the agent's permission checks off, as the original did: it runs commands "
               "without asking")  # fmt: skip
+    if look:
+        print(f"picture  {tilde(os.path.abspath(picture))} goes into the folder as {look}")
     if not run:
         print(f"         to run them in a new folder, {tilde(folder)}: add --run")
         return
@@ -6973,6 +6994,8 @@ def replay(src, run):
     if exe.lower().endswith((".cmd", ".bat")):  # cmd.exe would read the prompt's quotes and symbols itself
         sys.exit(f"receipt: {cmds[0][0]} is a .cmd script here, which can't take a prompt safely; run the lines above by hand")
     os.makedirs(folder)
+    if look:
+        shutil.copyfile(picture, os.path.join(folder, look))
     for i, c in enumerate(cmds, 1):
         print(f"replay   prompt {i} of {len(cmds)} in {tilde(folder)}", flush=True)
         done = subprocess.run([exe] + c[1:], cwd=folder)

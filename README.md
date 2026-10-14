@@ -85,6 +85,7 @@ python3 receipt.py --pick 2 --prompt       # a receipt for one of them, with you
 python3 receipt.py --hide cost --link      # leave out the cost and print a link to share
 python3 receipt.py --turns --recipe        # a line per prompt, and the commands to rerun them
 python3 receipt.py --replay LINK --run     # run someone's receipt again, in a new empty folder
+python3 receipt.py --replay LINK --picture shot.png --run   # ...with a picture of what it made
 python3 receipt.py --out receipt.png       # a picture, for posting where text gets mangled
 python3 receipt.py --totals week --all     # cost, prompts and time by week, every folder
 
@@ -133,7 +134,7 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 | `--reply` | Add the model's last reply, checked for email addresses and keys like a prompt |
 | `--outcome TEXT` | Add your own word on how it went, marked as yours |
 | `--recipe` | Add the commands that send the same prompts again, each with the model and effort it ran on (`claude -p`, `codex exec`, `opencode run`, `qwen`, `gemini -p`, `copilot -p`). Models give a different answer each time, so it reruns the run, not its output |
-| `--replay RECEIPT` | Show the rerun commands in a receipt link or saved receipt made with `--recipe`. With `--run`, run them one by one in a new empty folder (`replay-<receipt no.>`), with the model, effort and permission mode the receipt names, then print the new run's receipt. It runs only `claude`, `codex`, `opencode`, `qwen`, `gemini` or `copilot`, never through a shell, and says when the original ran with permission checks off |
+| `--replay RECEIPT` | Show the rerun commands in a receipt link or saved receipt made with `--recipe`. With `--run`, run them one by one in a new empty folder (`replay-<receipt no.>`), with the model, effort and permission mode the receipt names, then print the new run's receipt. It runs only `claude`, `codex`, `opencode`, `qwen`, `gemini` or `copilot`, never through a shell, and says when the original ran with permission checks off. With `--picture FILE` (a .png, .jpg, .webp or .gif of what the original made), the picture goes into the new folder as `look.png` and the first prompt gets a line saying it's a picture of what this should look like. In a test of 5 gallery prompts, 3 runs each, the receipt with a picture made the same thing 15 times of 15, the receipt alone 10 and a picture alone 9 ([the test](https://musharna.github.io/prompt-receipts/proof/)) |
 
 ### Saving and sharing
 
@@ -200,7 +201,7 @@ Found a post that shares a prompt, what it cost and what it made? `--reported FI
 
 ```
 $ receipt --reported post.txt
-Reported v7.12 · Claude Code · 7 Oct 2026
+Reported v7.13 · Claude Code · 7 Oct 2026
 REPORTED from a post, not read from a log: what it says, unchecked; no receipt number or
          record
 post     https://musharna.github.io/prompt-receipts/#p1 · by Prompt Receipts
