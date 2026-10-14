@@ -293,7 +293,7 @@ class Receipts(Base):
     def test_claude_code_receipt(self):
         self.claude_log()
         out = self.ok().stdout
-        self.assertIn("Receipt v7.11 · Claude Code 2.1.300", out)
+        self.assertIn("Receipt v7.12 · Claude Code 2.1.300", out)
         self.assertIn(
             "2 prompts from me", out
         )  # the "[Request interrupted" line isn't a prompt
@@ -348,7 +348,7 @@ class Receipts(Base):
     def test_opencode(self):
         self.opencode_db()
         out = self.ok("--opencode").stdout
-        self.assertIn("Receipt v7.11 · OpenCode 1.18.31", out)
+        self.assertIn("Receipt v7.12 · OpenCode 1.18.31", out)
         self.assertIn("qwen3:8b (ollama, on this computer)", out)
         self.assertIn("2 prompts from me", out)
         self.assertIn("1 failed call", out)
@@ -433,7 +433,7 @@ class Receipts(Base):
             "prompt_id",
         ):
             self.assertNotIn(k, r)
-        self.assertEqual(r["receipt_version"], "7.11")
+        self.assertEqual(r["receipt_version"], "7.12")
         self.assertEqual(r["tool_errors"], 1)
         names = json.loads(self.ok("--json", "--file-names").stdout)["file_names"]
         self.assertEqual(names, ["index.html"])
@@ -447,7 +447,7 @@ class Receipts(Base):
         self.assertIn("warning  found your prompts but no model reply", p.stdout)
 
     def test_version(self):
-        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.11")
+        self.assertEqual(self.ok("--version").stdout.strip(), "receipt.py 7.12")
 
     # ---------- output ----------
 
@@ -483,7 +483,7 @@ class Receipts(Base):
         url = out.strip().split("\n")[-1]
         self.assertTrue(url.startswith("https://docs.google.com/forms/"), url)
         self.assertIn("entry.349092046=tool", url)
-        self.assertIn("entry.1393206370=Receipt%20v7.11", url)
+        self.assertIn("entry.1393206370=Receipt%20v7.12", url)
 
     def test_hook_saves_a_receipt(self):
         log = self.claude_log()
@@ -500,7 +500,7 @@ class Receipts(Base):
         saved = os.listdir(folder)
         self.assertEqual(len(saved), 1)
         with open(os.path.join(folder, saved[0]), encoding="utf-8") as f:
-            self.assertIn("Receipt v7.11 · Claude Code", f.read())
+            self.assertIn("Receipt v7.12 · Claude Code", f.read())
 
     def test_combine_and_compare(self):
         self.claude_log()
@@ -1310,7 +1310,7 @@ class Totals(Base):
 
     def test_by_day_in_this_folder(self):
         out = self.ok("--totals").stdout
-        self.assertIn("Totals v7.11 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
+        self.assertIn("Totals v7.12 · Claude Code · folder proj · 1 – 3 Oct 2026 · by day", out)
         self.assertRegex(out, r"\nThu 1 Oct 2026 +\$4\.00 +1 +1 ")
         self.assertRegex(out, r"\nSat 3 Oct 2026 +\$2\.00 +1 +2 ")
         self.assertRegex(out, r"\ntotal +\$6\.00 +1 +3 ")
@@ -1497,7 +1497,7 @@ class Qwen(Base):
     def test_receipt(self):
         self.qwen_log()
         out = self.ok("--qwen").stdout
-        self.assertIn("Receipt v7.11 · Qwen Code 0.25.0", out)
+        self.assertIn("Receipt v7.12 · Qwen Code 0.25.0", out)
         self.assertIn("2 prompts from me", out)  # Qwen Code's own notice isn't a prompt
         # all three calls, the memory extractor's too: 46k in (20k cached), 320 out
         self.assertIn("tokens   in 46k (20k cached) · out 320", out)
@@ -1598,7 +1598,7 @@ class Gemini(Base):
     def test_receipt(self):
         self.gemini_log()
         out = self.ok("--gemini").stdout
-        self.assertIn("Receipt v7.11 · Gemini CLI · ", out)  # no version is logged
+        self.assertIn("Receipt v7.12 · Gemini CLI · ", out)  # no version is logged
         self.assertIn("2 prompts from me", out)  # its opening message and the tool results aren't prompts
         # each reply once, and the subagent's: 36k in (18k cached); out counts the 40 tokens of reasoning
         self.assertIn("tokens   in 36k (18k cached) · out 186", out)
@@ -1692,7 +1692,7 @@ class Copilot(Base):
     def test_receipt(self):
         self.copilot_log()
         out = self.ok("--copilot").stdout
-        self.assertIn("Receipt v7.11 · Copilot CLI 1.0.95", out)
+        self.assertIn("Receipt v7.12 · Copilot CLI 1.0.95", out)
         self.assertIn("model    claude-opus-4.7 · effort high → xhigh", out)
         self.assertIn("2 prompts from me", out)  # the skill's message isn't one
         # the three calls only: the input counts include cache reads and writes, the output the reasoning
@@ -2662,7 +2662,7 @@ class ExecJson(Base):
     def test_a_receipt_from_codex_exec_output(self):
         p = self.ok(self.save(), "--file-names")
         out = p.stdout
-        self.assertIn("Receipt v7.11 · Codex CLI · no. ", out)  # no version, no date
+        self.assertIn("Receipt v7.12 · Codex CLI · no. ", out)  # no version, no date
         self.assertIn("model    not in codex exec --json output · effort not recorded", out)
         self.assertIn("time     not in codex exec --json output · 1 prompt from me", out)
         self.assertIn("cost     no model in codex exec --json output, so no price (--model names it)", out)
@@ -2753,7 +2753,7 @@ class Reported(Base):
         rate = self.module().rates_for("claude-opus-5-5")
         api = (300_000 * rate[0] + 900_000 * rate[1] + 40_000 * rate[4]) / 1e6
         lines = out.split("\n")
-        self.assertEqual(lines[0], "Reported v7.11 · Claude Code · 3 Oct 2026")  # no receipt number: no log to number
+        self.assertEqual(lines[0], "Reported v7.12 · Claude Code · 3 Oct 2026")  # no receipt number: no log to number
         self.assertTrue(lines[1].startswith("REPORTED from a post, not read from a log"), lines[1])
         self.assertIn("post     https://x.com/someone/status/123 · by @someone", out)
         self.assertIn("model    claude-opus-5-5 · effort not stated", out)
@@ -2773,7 +2773,7 @@ class Reported(Base):
 
     def test_what_it_leaves_out_is_said(self):
         out = self.ok("--reported", self.post("post: https://bsky.app/p/1\nprompt: a slime\n")).stdout
-        self.assertTrue(out.startswith("Reported v7.11 · tool not stated\nREPORTED "), out[:80])
+        self.assertTrue(out.startswith("Reported v7.12 · tool not stated\nREPORTED "), out[:80])
         self.assertNotIn("effort", out)  # "model not stated", not a second "not stated" for its effort
         for line in ("model    not stated\n", "cost     not stated", "tokens   not stated",
                      "made     not stated", "prompt   a slime"):  # fmt: skip
@@ -3106,6 +3106,76 @@ class MadeWhileItRan(Base):
             self.assertLessEqual(abs(x - want), 1)
         p = self.run_receipt("--out", "r.png", "--picture", song, env=dict(self.env, RECEIPT_FFMPEG="none"))
         self.assertIn("song.mp3 is a sound; receipt.py reads PNGs and WAVs itself and needs ffmpeg", p.stderr)
+
+
+
+class Replay(Base):
+    """--replay: run a receipt's rerun commands again, in a new empty folder"""
+
+    def receipt_link(self, prompt="Make a page for my habit tracker", second="now make it blue"):
+        self.claude_log(prompt=prompt, second=second)
+        out = self.ok("--prompt", "--recipe", "--link").stdout
+        return re.search(r"https://\S+#r1\.\S+", out).group(0)
+
+    def fake_claude(self):
+        """a `claude` on PATH that only notes each call: its arguments and the folder it ran in"""
+        bin_dir, log = os.path.join(self.home, "bin"), os.path.join(self.home, "calls.jsonl")
+        os.makedirs(bin_dir, exist_ok=True)
+        with open(os.path.join(bin_dir, "claude"), "w", encoding="utf-8") as f:
+            f.write(f"#!{sys.executable}\nimport json, os, sys\n"
+                    f"open({log!r}, 'a').write(json.dumps([sys.argv[1:], os.getcwd()]) + '\\n')\n")  # fmt: skip
+        os.chmod(os.path.join(bin_dir, "claude"), 0o755)
+        env = dict(self.env, PATH=bin_dir + os.pathsep + self.env.get("PATH", ""))
+        return env, log
+
+    def test_replay_shows_the_commands_and_waits(self):
+        link = self.receipt_link()
+        out = self.ok("--replay", link).stdout
+        self.assertIn("claude -p 'Make a page for my habit tracker' --model claude-opus-5-5", out)
+        self.assertIn("claude -p -c 'now make it blue'", out)
+        self.assertIn("--run", out)
+        self.assertFalse([d for d in os.listdir(self.proj) if d.startswith("replay")])  # nothing ran
+
+    @unittest.skipIf(os.name == "nt", "the stand-in claude is a script with a #! line")
+    def test_replay_runs_in_a_new_folder(self):
+        prompt = "Make it 'nice'\nand put a \"quote\" in it"  # quotes and a line break come back whole
+        link = self.receipt_link(prompt=prompt)
+        env, log = self.fake_claude()
+        p = self.run_receipt("--replay", link, "--run", env=env)
+        # the stand-in writes no session log, so the new run's receipt can't be made, and says so
+        self.assertEqual(p.returncode, 1, p.stderr)
+        self.assertIn("the new run's receipt failed", p.stderr)
+        calls = [json.loads(line) for line in open(log, encoding="utf-8")]
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0][0][:2], ["-p", prompt])
+        self.assertEqual(calls[1][0][:3], ["-p", "-c", "now make it blue"])
+        folder = calls[0][1]
+        self.assertEqual(os.path.dirname(folder), self.proj)
+        self.assertRegex(os.path.basename(folder), r"^replay-[0-9a-f]{4}-[0-9a-f]{4}$")
+        self.assertEqual(calls[1][1], folder)
+        again = self.run_receipt("--replay", link, "--run", env=env)  # the folder must be new
+        self.assertEqual(again.returncode, 1)
+        self.assertIn("already exists", again.stderr)
+        self.assertEqual(len(open(log, encoding="utf-8").readlines()), 2)
+
+    def test_replay_refuses_other_programs(self):
+        bad = os.path.join(self.home, "bad.txt")
+        with open(bad, "w", encoding="utf-8") as f:
+            f.write("Receipt v7.12 · Claude Code 2.1.300 · no. 0000-0001\nrerun    claude -p hi\n         rm -rf ~\n")
+        p = self.run_receipt("--replay", bad)
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("rm", p.stderr)
+        good = os.path.join(self.home, "good.txt")  # positive control: the same receipt without the stray line
+        with open(good, "w", encoding="utf-8") as f:
+            f.write("Receipt v7.12 · Claude Code 2.1.300 · no. 0000-0001\nrerun    claude -p hi\n")
+        self.assertIn("claude -p hi", self.ok("--replay", good).stdout)
+
+    def test_replay_needs_a_recipe(self):
+        self.claude_log()
+        link = re.search(r"https://\S+#r1\.\S+", self.ok("--link").stdout).group(0)
+        p = self.run_receipt("--replay", link)
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("--recipe", p.stderr)
 
 
 if __name__ == "__main__":

@@ -84,6 +84,7 @@ python3 receipt.py --list                  # this folder's recent sessions, numb
 python3 receipt.py --pick 2 --prompt       # a receipt for one of them, with your prompts
 python3 receipt.py --hide cost --link      # leave out the cost and print a link to share
 python3 receipt.py --turns --recipe        # a line per prompt, and the commands to rerun them
+python3 receipt.py --replay LINK --run     # run someone's receipt again, in a new empty folder
 python3 receipt.py --out receipt.png       # a picture, for posting where text gets mangled
 python3 receipt.py --totals week --all     # cost, prompts and time by week, every folder
 
@@ -132,6 +133,7 @@ python3 receipt.py --compare opus.json sonnet.json         # then set them side 
 | `--reply` | Add the model's last reply, checked for email addresses and keys like a prompt |
 | `--outcome TEXT` | Add your own word on how it went, marked as yours |
 | `--recipe` | Add the commands that send the same prompts again, each with the model and effort it ran on (`claude -p`, `codex exec`, `opencode run`, `qwen`, `gemini -p`, `copilot -p`). Models give a different answer each time, so it reruns the run, not its output |
+| `--replay RECEIPT` | Show the rerun commands in a receipt link or saved receipt made with `--recipe`. With `--run`, run them one by one in a new empty folder (`replay-<receipt no.>`), with the model, effort and permission mode the receipt names, then print the new run's receipt. It runs only `claude`, `codex`, `opencode`, `qwen`, `gemini` or `copilot`, never through a shell, and says when the original ran with permission checks off |
 
 ### Saving and sharing
 
@@ -198,7 +200,7 @@ Found a post that shares a prompt, what it cost and what it made? `--reported FI
 
 ```
 $ receipt --reported post.txt
-Reported v7.11 · Claude Code · 7 Oct 2026
+Reported v7.12 · Claude Code · 7 Oct 2026
 REPORTED from a post, not read from a log: what it says, unchecked; no receipt number or
          record
 post     https://musharna.github.io/prompt-receipts/#p1 · by Prompt Receipts
